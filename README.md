@@ -47,9 +47,6 @@ Swap All
 Only tokens from trusted mints are accepted. These are always swapped to Lightning directly — everything else gets rejected.
 ![Payment Models](./Screenshots/PaymentModels.png)
 
-### 💰 Max Payment Amount
-Maximum accepted payment amount (in sats). Cashu will be unavailable as a payment method for invoices with too large amount.
-
 ### ⚡ Max Lightning Fee
 Max Lightning fee you're willing to pay, expressed as a percentage of the transaction amount. Advised to use at least 2%
 
