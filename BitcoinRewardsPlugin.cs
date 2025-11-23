@@ -288,7 +288,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             {
                 applicationBuilder.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
             }
-            catch (Exception ex)
+            catch
             {
                 // View registration failed - log but don't crash the plugin
                 // The plugin will work fine without the navigation menu item
