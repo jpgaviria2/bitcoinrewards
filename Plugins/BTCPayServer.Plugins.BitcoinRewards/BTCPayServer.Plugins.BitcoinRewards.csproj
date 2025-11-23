@@ -23,6 +23,9 @@
     <EnableDefaultRazorCompileItems>true</EnableDefaultRazorCompileItems>
     <!-- Generate separate Views assembly (required for BTCPay Server plugin system) -->
     <RazorGenerateAssemblyInfo>true</RazorGenerateAssemblyInfo>
+    <!-- Force Razor to generate a separate Views assembly -->
+    <MvcRazorCompileOnPublish>true</MvcRazorCompileOnPublish>
+    <MvcRazorExcludeRefAssembliesFromPublish>false</MvcRazorExcludeRefAssembliesFromPublish>
     <UseRidGraph>false</UseRidGraph>
   </PropertyGroup>
 
@@ -102,6 +105,7 @@
   <!-- Post-build: Rename .dll to .btcpay -->
   <!-- Note: The Views.dll assembly is automatically discovered via RelatedAssemblyAttribute -->
   <!-- and does not need to be renamed - BTCPay Server will load it automatically -->
+  <!-- The Plugin Builder uses dotnet publish, so Views.dll should be generated during publish -->
   <Target Name="RenameToBtcpay" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Move SourceFiles="$(OutputPath)$(AssemblyName).dll" 
           DestinationFiles="$(OutputPath)$(AssemblyName).btcpay" 
@@ -109,12 +113,23 @@
     <Move SourceFiles="$(OutputPath)$(AssemblyName).pdb" 
           DestinationFiles="$(OutputPath)$(AssemblyName).btcpay.pdb" 
           Condition="Exists('$(OutputPath)$(AssemblyName).pdb')" />
-    <!-- Ensure Views.dll is copied to output (it will be loaded via RelatedAssemblyAttribute) -->
+    <!-- Log Views.dll presence for debugging -->
     <ItemGroup>
       <ViewsDll Include="$(OutputPath)$(AssemblyName).Views.dll" />
       <ViewsPdb Include="$(OutputPath)$(AssemblyName).Views.pdb" />
     </ItemGroup>
-    <Message Text="Views assembly: @(ViewsDll)" Importance="high" Condition="Exists('@(ViewsDll)')" />
+    <Message Text="Views assembly found: @(ViewsDll)" Importance="high" Condition="Exists('@(ViewsDll)')" />
+    <Warning Text="Views.dll not found at: $(OutputPath)$(AssemblyName).Views.dll" Condition="!Exists('$(OutputPath)$(AssemblyName).Views.dll')" />
+  </Target>
+  
+  <!-- Ensure Views.dll is included in publish output for Plugin Builder -->
+  <Target Name="IncludeViewsDllInPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ViewsDllPublish Include="$(PublishDir)$(AssemblyName).Views.dll" />
+      <ViewsPdbPublish Include="$(PublishDir)$(AssemblyName).Views.pdb" />
+    </ItemGroup>
+    <Message Text="Views assembly in publish: @(ViewsDllPublish)" Importance="high" Condition="Exists('@(ViewsDllPublish)')" />
+    <Warning Text="Views.dll not found in publish output at: $(PublishDir)$(AssemblyName).Views.dll" Condition="!Exists('$(PublishDir)$(AssemblyName).Views.dll')" />
   </Target>
 
 </Project>
