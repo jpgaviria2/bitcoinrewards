@@ -66,11 +66,13 @@
   </ItemGroup>
 
   <!-- Restore BTCPay Server dependencies before building -->
+  <!-- Plugin Builder should handle this, but we restore just in case -->
   <Target Name="RestoreBTCPayServer" BeforeTargets="BeforeBuild">
     <Message Text="Restoring BTCPay Server dependencies..." Importance="high" />
-    <Exec Command="dotnet restore ../btcpayserver/BTCPayServer/BTCPayServer.csproj" 
-          Condition="Exists('../btcpayserver/BTCPayServer/BTCPayServer.csproj')" 
-          IgnoreExitCode="true" />
+    <Exec Command="dotnet restore ../btcpayserver/btcpayserver.sln" 
+          Condition="Exists('../btcpayserver/btcpayserver.sln')" 
+          IgnoreExitCode="false" 
+          ContinueOnError="true" />
   </Target>
 
   <!-- Post-build: Rename .dll to .btcpay -->
