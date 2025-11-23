@@ -3,7 +3,7 @@
     var store = Context.GetStoreData();
     if (store != null)
     {
-        var settings = store.GetStoreBlob().GetBitcoinRewardsSettings();
+        var settings = BTCPayServer.Plugins.BitcoinRewards.BitcoinRewardsExtensions.GetBitcoinRewardsSettings(store.GetStoreBlob());
         if (settings?.Enabled == true)
         {
             <li class="nav-item">

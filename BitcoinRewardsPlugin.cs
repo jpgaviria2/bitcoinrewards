@@ -94,7 +94,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                 // Register main service - handle if EventAggregator is not available
                 applicationBuilder.AddSingleton<BitcoinRewardsService>(provider =>
                 {
-                    var eventAggregator = provider.GetService<BTCPayServer.HostedServices.EventAggregator>();
+                    var eventAggregator = provider.GetService<BTCPayServer.EventAggregator>();
                     if (eventAggregator == null)
                     {
                         throw new InvalidOperationException("EventAggregator service is required but not available");
