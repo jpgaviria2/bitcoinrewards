@@ -15,7 +15,6 @@
     </PropertyGroup>
     
     <Message Text="Repository root: $(_RepoRoot)" Importance="high" />
-    <Message Text=".git exists: $([System.IO.Directory]::Exists('$(_RepoRoot)/.git'))" Importance="high" />
     
     <!-- Check if btcpayserver submodule directory exists but is empty (not initialized) -->
     <PropertyGroup>
