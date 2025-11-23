@@ -1,0 +1,7 @@
+<Project>
+  <!-- Exclude test projects from build when referenced -->
+  <PropertyGroup>
+    <ExcludeFromBuild Condition="'$(MSBuildProjectName)' == 'BTCPayServer.Tests'">true</ExcludeFromBuild>
+  </PropertyGroup>
+</Project>
+
