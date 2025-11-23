@@ -100,6 +100,8 @@
 
 
   <!-- Post-build: Rename .dll to .btcpay -->
+  <!-- Note: The Views.dll assembly is automatically discovered via RelatedAssemblyAttribute -->
+  <!-- and does not need to be renamed - BTCPay Server will load it automatically -->
   <Target Name="RenameToBtcpay" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Move SourceFiles="$(OutputPath)$(AssemblyName).dll" 
           DestinationFiles="$(OutputPath)$(AssemblyName).btcpay" 
@@ -107,6 +109,12 @@
     <Move SourceFiles="$(OutputPath)$(AssemblyName).pdb" 
           DestinationFiles="$(OutputPath)$(AssemblyName).btcpay.pdb" 
           Condition="Exists('$(OutputPath)$(AssemblyName).pdb')" />
+    <!-- Ensure Views.dll is copied to output (it will be loaded via RelatedAssemblyAttribute) -->
+    <ItemGroup>
+      <ViewsDll Include="$(OutputPath)$(AssemblyName).Views.dll" />
+      <ViewsPdb Include="$(OutputPath)$(AssemblyName).Views.pdb" />
+    </ItemGroup>
+    <Message Text="Views assembly: @(ViewsDll)" Importance="high" Condition="Exists('@(ViewsDll)')" />
   </Target>
 
 </Project>
