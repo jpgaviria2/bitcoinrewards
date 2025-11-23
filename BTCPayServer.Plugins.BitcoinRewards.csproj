@@ -24,10 +24,12 @@
     <!-- Default path for local development (Windows) -->
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == ''">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
   </PropertyGroup>
-  
+
   <!-- Debug: Print the resolved path (for troubleshooting) -->
-  <Message Condition="'$(BTCPayServerLibPath)' != ''" Text="BTCPayServerLibPath resolved to: $(BTCPayServerLibPath)" Importance="high" />
-  <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="WARNING: BTCPayServerLibPath is empty! BTCPayServerPath=$(BTCPayServerPath)" Importance="high" />
+  <Target Name="PrintBTCPayServerPath" BeforeTargets="Build">
+    <Message Condition="'$(BTCPayServerLibPath)' != ''" Text="BTCPayServerLibPath resolved to: $(BTCPayServerLibPath)" Importance="high" />
+    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="WARNING: BTCPayServerLibPath is empty! BTCPayServerPath=$(BTCPayServerPath)" Importance="high" />
+  </Target>
 
   <ItemGroup>
     <!-- BTCPay Server Abstractions - Core plugin interfaces -->
