@@ -21,6 +21,13 @@
     <BTCPayServerLibPath>..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
   </PropertyGroup>
 
+  <!-- Plugin Builder provides DLLs via BTCPayServerPath environment variable -->
+  <!-- If not set, try common Plugin Builder locations -->
+  <PropertyGroup Condition="'$(BTCPayServerLibPath)' == '' AND '$(BTCPayServerPath)' == ''">
+    <BTCPayServerLibPath Condition="Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- BTCPay Server Abstractions - Core plugin interfaces -->
     <Reference Include="BTCPayServer.Abstractions" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Abstractions.dll')">
