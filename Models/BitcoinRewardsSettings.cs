@@ -33,6 +33,12 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         public string SquareLocationId { get; set; } = string.Empty;
         public string SquareEnvironment { get; set; } = "production"; // production or sandbox
         
+        // Shopify API credentials
+        public string ShopifyApiKey { get; set; } = string.Empty;
+        public string ShopifyApiSecret { get; set; } = string.Empty;
+        public string ShopifyShopDomain { get; set; } = string.Empty; // e.g., "mystore.myshopify.com"
+        public string ShopifyAccessToken { get; set; } = string.Empty; // For API calls
+        
         // Currency conversion
         public string PreferredExchangeRateProvider { get; set; } = "coingecko"; // coingecko, bitflyer, etc.
         
@@ -46,6 +52,12 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
             return !string.IsNullOrEmpty(SquareApplicationId) && 
                    !string.IsNullOrEmpty(SquareAccessToken) && 
                    !string.IsNullOrEmpty(SquareLocationId);
+        }
+        
+        public bool ShopifyCredentialsPopulated()
+        {
+            return !string.IsNullOrEmpty(ShopifyShopDomain) && 
+                   !string.IsNullOrEmpty(ShopifyAccessToken);
         }
     }
 }

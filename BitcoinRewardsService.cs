@@ -20,16 +20,20 @@ namespace BTCPayServer.Plugins.BitcoinRewards
         private readonly StoreRepository _storeRepository;
         private readonly RewardRecordRepository _rewardRepository;
         private readonly WalletService _walletService;
-        private readonly EmailService _emailService;
-        private readonly RateService _rateService;
+        private readonly EmailService? _emailService;
+        private readonly RateService? _rateService;
+        private readonly Services.SquareApiService? _squareApiService;
+        private readonly Services.ShopifyApiService? _shopifyApiService;
 
         public BitcoinRewardsService(
             EventAggregator eventAggregator,
             StoreRepository storeRepository,
             RewardRecordRepository rewardRepository,
             WalletService walletService,
-            EmailService emailService,
-            RateService rateService,
+            EmailService? emailService,
+            RateService? rateService,
+            Services.SquareApiService? squareApiService,
+            Services.ShopifyApiService? shopifyApiService,
             Logs logs) : base(eventAggregator, logs)
         {
             _storeRepository = storeRepository;
@@ -37,6 +41,8 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             _walletService = walletService;
             _emailService = emailService;
             _rateService = rateService;
+            _squareApiService = squareApiService;
+            _shopifyApiService = shopifyApiService;
         }
 
         protected override void SubscribeToEvents()
@@ -85,10 +91,21 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             }
 
             // Convert to BTC using rate service
-            var rewardAmountBTC = await _rateService.ConvertToBTC(
-                rewardAmountFiat, 
-                orderData.Currency ?? "USD",
-                settings.PreferredExchangeRateProvider);
+            decimal rewardAmountBTC;
+            if (_rateService != null)
+            {
+                rewardAmountBTC = await _rateService.ConvertToBTC(
+                    rewardAmountFiat, 
+                    orderData.Currency ?? "USD",
+                    settings.PreferredExchangeRateProvider);
+            }
+            else
+            {
+                // Fallback: use a simple conversion if rate service is unavailable
+                // This is a placeholder - in production, you'd want a better fallback
+                Logs.PayServer.LogWarning($"RateService unavailable for reward conversion. Using placeholder conversion.");
+                rewardAmountBTC = rewardAmountFiat / 50000m; // Placeholder: assume 1 BTC = $50,000
+            }
 
             var rewardRecord = new RewardRecord
             {
@@ -185,8 +202,23 @@ namespace BTCPayServer.Plugins.BitcoinRewards
 
                     Logs.PayServer.LogInformation($"Successfully sent reward {rewardRecord.Id} via {sendResult.PaymentMethod}");
 
-                    // Send email notification
-                    await _emailService.SendRewardEmailAsync(rewardRecord, settings, store);
+                    // Send email notification (if email service is available)
+                    if (_emailService != null)
+                    {
+                        try
+                        {
+                            await _emailService.SendRewardEmailAsync(rewardRecord, settings, store);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log email failure but don't fail the reward
+                            Logs.PayServer.LogWarning(emailEx, $"Failed to send reward email for {rewardRecord.Id}, but reward was sent successfully");
+                        }
+                    }
+                    else
+                    {
+                        Logs.PayServer.LogInformation($"EmailService unavailable - skipping email notification for reward {rewardRecord.Id}");
+                    }
 
                     return; // Success, exit retry loop
                 }

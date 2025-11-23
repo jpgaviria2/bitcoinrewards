@@ -90,10 +90,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 {
                     await task;
                 }
-                else if (result != null)
-                {
-                    // Handle synchronous result if needed
-                }
+                // If result is null or not a Task, that's fine - the method may return void
 
                 _logs.PayServer.LogInformation($"Reward email sent to {rewardRecord.CustomerEmail} for reward {rewardRecord.Id}");
                 return true;

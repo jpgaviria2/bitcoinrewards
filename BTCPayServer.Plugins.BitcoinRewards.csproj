@@ -72,9 +72,7 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Views\**\*.cshtml" />
-  </ItemGroup>
+  <!-- Views are automatically embedded by Razor SDK - no need for manual EmbeddedResource -->
 
 
   <!-- Exclude test files and directories from plugin build -->

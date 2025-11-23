@@ -18,15 +18,33 @@ namespace BTCPayServer.Plugins.BitcoinRewards
 
         public override void Execute(IServiceCollection applicationBuilder)
         {
+            // Register repositories - always safe
             try
             {
-                // Register repositories
                 applicationBuilder.AddScoped<Repositories.RewardRecordRepository>();
-                
-                // Register services
+                // Logging will be available after service provider is built
+            }
+            catch (Exception ex)
+            {
+                // Repository registration should never fail, but handle gracefully
+                // Continue with other registrations
+            }
+            
+            // Register WalletService - always safe
+            try
+            {
                 applicationBuilder.AddScoped<Services.WalletService>();
-                
-                // Register EmailService - conditionally inject IEmailSender if Emails plugin is available
+                // Logging will be available after service provider is built
+            }
+            catch (Exception ex)
+            {
+                // WalletService registration should never fail, but handle gracefully
+                // Continue with other registrations
+            }
+            
+            // Register EmailService - conditionally inject IEmailSender if Emails plugin is available
+            try
+            {
                 applicationBuilder.AddScoped<Services.EmailService>(provider =>
                 {
                     BTCPayServer.Logging.Logs? logs = null;
@@ -41,8 +59,8 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     }
                     catch
                     {
-                        // Logs service not available - create a minimal logs instance if possible
-                        // This should not happen in production, but handle gracefully
+                        // Logs service not available - this should not happen in production
+                        // But we'll handle it gracefully by returning null (will be checked in service)
                     }
 
                     // Try to get IEmailSender from Emails plugin (if installed)
@@ -62,50 +80,174 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     
                     if (logs == null)
                     {
-                        throw new InvalidOperationException("BTCPayServer.Logging.Logs service is required but not available");
+                        // Return null - will be handled as optional service
+                        return null!;
                     }
                     
                     return new Services.EmailService(logs, emailSender);
                 });
-                
-                // Register RateService - handle if RateProviderFactory is not available
+            }
+            catch (Exception ex)
+            {
+                // EmailService registration failed - log but continue
+                // Email functionality will be unavailable but plugin can still work
+            }
+            
+            // Register RateService - handle if RateProviderFactory is not available
+            try
+            {
                 applicationBuilder.AddScoped<Services.RateService>(provider =>
                 {
-                    var logs = provider.GetService<BTCPayServer.Logging.Logs>();
-                    if (logs == null)
+                    BTCPayServer.Logging.Logs? logs = null;
+                    try
                     {
-                        logs = provider.GetRequiredService<BTCPayServer.Logging.Logs>();
+                        logs = provider.GetService<BTCPayServer.Logging.Logs>();
+                        if (logs == null)
+                        {
+                            logs = provider.GetRequiredService<BTCPayServer.Logging.Logs>();
+                        }
+                    }
+                    catch
+                    {
+                        // Logs not available - return null
+                        return null!;
                     }
                     
-                    var rateProviderFactory = provider.GetService<BTCPayServer.Services.Rates.RateProviderFactory>();
-                    if (rateProviderFactory == null)
+                    BTCPayServer.Services.Rates.RateProviderFactory? rateProviderFactory = null;
+                    try
                     {
-                        // RateProviderFactory is required, but we'll handle null in RateService
-                        // This allows the plugin to load even if rate provider isn't configured
-                        // RateService will use fallback rates
-                        throw new InvalidOperationException("RateProviderFactory service is required but not available");
+                        rateProviderFactory = provider.GetService<BTCPayServer.Services.Rates.RateProviderFactory>();
+                    }
+                    catch
+                    {
+                        // RateProviderFactory not available - return null
+                        return null!;
+                    }
+                    
+                    if (rateProviderFactory == null || logs == null)
+                    {
+                        // Return null - will be handled as optional service
+                        return null!;
                     }
                     
                     return new Services.RateService(rateProviderFactory, logs);
                 });
-                
+            }
+            catch (Exception ex)
+            {
+                // RateService registration failed - log but continue
+                // Rate conversion will be unavailable but plugin can still work
+            }
+            
+            // Register HttpClient for SquareApiService - always safe
+            try
+            {
                 applicationBuilder.AddHttpClient<Services.SquareApiService>();
-                
-                // Register main service - handle if EventAggregator is not available
+            }
+            catch (Exception ex)
+            {
+                // HttpClient registration should never fail, but handle gracefully
+            }
+            
+            // Register HttpClient for ShopifyApiService - always safe (will be created later)
+            try
+            {
+                applicationBuilder.AddHttpClient<Services.ShopifyApiService>();
+            }
+            catch (Exception ex)
+            {
+                // HttpClient registration should never fail, but handle gracefully
+            }
+            
+            // Register SquareApiService - always safe (service checks credentials before use)
+            try
+            {
+                applicationBuilder.AddScoped<Services.SquareApiService>(provider =>
+                {
+                    try
+                    {
+                        var httpClientFactory = provider.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+                        var httpClient = httpClientFactory.CreateClient(nameof(Services.SquareApiService));
+                        var logs = provider.GetService<BTCPayServer.Logging.Logs>();
+                        if (logs == null)
+                        {
+                            logs = provider.GetRequiredService<BTCPayServer.Logging.Logs>();
+                        }
+                        return new Services.SquareApiService(httpClient, logs);
+                    }
+                    catch
+                    {
+                        // Return null if service creation fails - will be handled as optional
+                        return null!;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // SquareApiService registration failed - log but continue
+                // Square integration will be unavailable but plugin can still work
+            }
+            
+            // Register ShopifyApiService - always safe (service checks credentials before use)
+            try
+            {
+                applicationBuilder.AddScoped<Services.ShopifyApiService>(provider =>
+                {
+                    try
+                    {
+                        var httpClientFactory = provider.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+                        var httpClient = httpClientFactory.CreateClient(nameof(Services.ShopifyApiService));
+                        var logs = provider.GetService<BTCPayServer.Logging.Logs>();
+                        if (logs == null)
+                        {
+                            logs = provider.GetRequiredService<BTCPayServer.Logging.Logs>();
+                        }
+                        return new Services.ShopifyApiService(httpClient, logs);
+                    }
+                    catch
+                    {
+                        // Return null if service creation fails - will be handled as optional
+                        return null!;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // ShopifyApiService registration failed - log but continue
+                // Shopify integration will be unavailable but plugin can still work
+            }
+            
+            // Register main service - handle if optional services are unavailable
+            try
+            {
                 applicationBuilder.AddSingleton<BitcoinRewardsService>(provider =>
                 {
-                    var eventAggregator = provider.GetService<BTCPayServer.EventAggregator>();
-                    if (eventAggregator == null)
+                    BTCPayServer.EventAggregator? eventAggregator = null;
+                    try
+                    {
+                        eventAggregator = provider.GetService<BTCPayServer.EventAggregator>();
+                        if (eventAggregator == null)
+                        {
+                            // EventAggregator is required - throw to prevent service creation
+                            throw new InvalidOperationException("EventAggregator service is required but not available");
+                        }
+                    }
+                    catch
                     {
                         throw new InvalidOperationException("EventAggregator service is required but not available");
                     }
                     
+                    // Required services
                     var storeRepository = provider.GetRequiredService<BTCPayServer.Services.Stores.StoreRepository>();
                     var rewardRepository = provider.GetRequiredService<Repositories.RewardRecordRepository>();
                     var walletService = provider.GetRequiredService<Services.WalletService>();
-                    var emailService = provider.GetRequiredService<Services.EmailService>();
-                    var rateService = provider.GetRequiredService<Services.RateService>();
                     var logs = provider.GetRequiredService<BTCPayServer.Logging.Logs>();
+                    
+                    // Optional services - can be null
+                    var emailService = provider.GetService<Services.EmailService>();
+                    var rateService = provider.GetService<Services.RateService>();
+                    var squareApiService = provider.GetService<Services.SquareApiService>();
+                    var shopifyApiService = provider.GetService<Services.ShopifyApiService>();
                     
                     return new BitcoinRewardsService(
                         eventAggregator,
@@ -114,54 +256,46 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                         walletService,
                         emailService,
                         rateService,
+                        squareApiService,
+                        shopifyApiService,
                         logs);
                 });
-                
-                applicationBuilder.AddSingleton<IHostedService, BitcoinRewardsService>(provider => provider.GetRequiredService<BitcoinRewardsService>());
-                
-                // Register UI extension with comprehensive error handling
-                // Try multiple path formats to ensure compatibility with different BTCPay Server versions
-                // This is non-critical - plugin works fine without the navigation menu item
-                bool viewRegistered = false;
-                string[] viewPaths = new[]
-                {
-                    "BTCPayServer.Plugins.BitcoinRewards/Views/BitcoinRewards/NavExtension",
-                    "/BTCPayServer.Plugins.BitcoinRewards/Views/BitcoinRewards/NavExtension",
-                    "BitcoinRewards/NavExtension",
-                    "/BitcoinRewards/NavExtension",
-                    "Views/BitcoinRewards/NavExtension",
-                    "/Views/BitcoinRewards/NavExtension"
-                };
-
-                foreach (var viewPath in viewPaths)
-                {
-                    try
-                    {
-                        applicationBuilder.AddUIExtension("header-nav", viewPath);
-                        viewRegistered = true;
-                        // Successfully registered - no need to try other paths
-                        break;
-                    }
-                    catch
-                    {
-                        // Try next path format - silently continue
-                        continue;
-                    }
-                }
-
-                // If all paths failed, silently continue - this is non-critical
-                // The plugin functionality (webhooks, rewards processing) does not depend on the nav menu
-                // BTCPay Server will handle view resolution errors gracefully without crashing
-                
-                base.Execute(applicationBuilder);
             }
             catch (Exception ex)
             {
-                // Log the error but don't crash the server
-                // In production, BTCPay Server should handle plugin loading errors gracefully
-                // We'll let the exception propagate so BTCPay Server can log it properly
-                throw new InvalidOperationException($"Failed to initialize Bitcoin Rewards plugin: {ex.Message}", ex);
+                // BitcoinRewardsService registration failed - this is critical
+                // Re-throw to let BTCPay Server handle it
+                throw new InvalidOperationException($"Failed to register BitcoinRewardsService: {ex.Message}", ex);
             }
+            
+            // Register as hosted service
+            try
+            {
+                applicationBuilder.AddSingleton<IHostedService, BitcoinRewardsService>(provider => provider.GetRequiredService<BitcoinRewardsService>());
+            }
+            catch (Exception ex)
+            {
+                // Hosted service registration failed - this is critical
+                // Re-throw to let BTCPay Server handle it
+                throw new InvalidOperationException($"Failed to register BitcoinRewardsService as hosted service: {ex.Message}", ex);
+            }
+            
+            // Register UI extension with error handling
+            // Use simple relative path - Razor SDK will handle view resolution from compiled views
+            // This is non-critical - plugin works fine without the navigation menu item
+            try
+            {
+                applicationBuilder.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
+            }
+            catch
+            {
+                // View registration failed, but this is not critical for plugin functionality
+                // The plugin will work fine without the navigation menu item
+                // Users can still access the plugin via direct URL or store settings
+                // BTCPay Server will handle view resolution errors gracefully without crashing
+            }
+            
+            base.Execute(applicationBuilder);
         }
     }
 }

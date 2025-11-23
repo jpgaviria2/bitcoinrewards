@@ -104,6 +104,39 @@
             </div>
 
             <div class="form-group">
+                <h4>Shopify API Settings</h4>
+                <p class="text-muted">Configure Shopify API credentials to fetch customer and order information when not available in webhooks.</p>
+                
+                <div class="form-group">
+                    <label asp-for="ShopifyShopDomain" class="form-label">Shopify Shop Domain</label>
+                    <input asp-for="ShopifyShopDomain" class="form-control" placeholder="mystore.myshopify.com" />
+                    <span asp-validation-for="ShopifyShopDomain" class="text-danger"></span>
+                    <small class="form-text text-muted">Your Shopify shop domain (e.g., mystore.myshopify.com)</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="ShopifyAccessToken" class="form-label">Shopify Access Token</label>
+                    <input asp-for="ShopifyAccessToken" type="password" class="form-control" />
+                    <span asp-validation-for="ShopifyAccessToken" class="text-danger"></span>
+                    <small class="form-text text-muted">Admin API access token from your Shopify app</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="ShopifyApiKey" class="form-label">Shopify API Key (Optional)</label>
+                    <input asp-for="ShopifyApiKey" class="form-control" />
+                    <span asp-validation-for="ShopifyApiKey" class="text-danger"></span>
+                    <small class="form-text text-muted">API key for additional Shopify integrations (optional)</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="ShopifyApiSecret" class="form-label">Shopify API Secret (Optional)</label>
+                    <input asp-for="ShopifyApiSecret" type="password" class="form-control" />
+                    <span asp-validation-for="ShopifyApiSecret" class="text-danger"></span>
+                    <small class="form-text text-muted">API secret for additional Shopify integrations (optional)</small>
+                </div>
+            </div>
+
+            <div class="form-group">
                 <h4>Square API Settings</h4>
                 <p class="text-muted">Configure Square API credentials to fetch customer information when not available in webhooks.</p>
                 
