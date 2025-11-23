@@ -79,7 +79,7 @@
     
     <!-- Restore BTCPay Server solution -->
     <Exec Condition="'$(BTCPayServerSolutionPath)' != ''" 
-          Command="dotnet restore &quot;$(BTCPayServerSolutionPath)&quot; --no-build --verbosity minimal" 
+          Command="dotnet restore &quot;$(BTCPayServerSolutionPath)&quot; --verbosity minimal" 
           WorkingDirectory="$(MSBuildProjectDirectory)"
           ContinueOnError="false" />
     
