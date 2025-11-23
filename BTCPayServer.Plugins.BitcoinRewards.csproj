@@ -20,19 +20,41 @@
   </PropertyGroup>
 
   <!-- This will make sure that referencing BTCPayServer doesn't put any artifact in the published directory -->
+  <!-- We need build assets for compilation, but Private=false prevents bundling -->
   <ItemDefinitionGroup>
     <ProjectReference>
       <Properties>StaticWebAssetsEnabled=false</Properties>
       <Private>false</Private>
-      <ExcludeAssets>runtime;native;build;buildTransitive;contentFiles</ExcludeAssets>
+      <ExcludeAssets>runtime;native;contentFiles</ExcludeAssets>
     </ProjectReference>
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <!-- Use ProjectReference to BTCPay Server (like the example plugin) -->
-    <!-- Structure matches: https://github.com/TChukwuleta/BTCPayServerPlugins -->
-    <!-- From plugin root at /build/, BTCPay Server is at ../btcpayserver/BTCPayServer/BTCPayServer.csproj -->
-    <!-- Try multiple paths to handle different build environments -->
+    <!-- Direct ProjectReferences to all BTCPayServer projects used by the plugin -->
+    <!-- Path resolution: Try multiple paths to handle different build environments -->
+    <!-- Base path: $(MSBuildProjectDirectory)/../btcpayserver/ -->
+    
+    <!-- BTCPayServer.Abstractions - Required for BaseBTCPayServerPlugin, Contracts, Models, Services -->
+    <ProjectReference Condition="Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj')" Include="$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj') AND Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj')" Include="$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj') AND !Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj') AND Exists('../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj')" Include="../btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj" />
+    
+    <!-- BTCPayServer.Data - Required for StoreData, ApplicationDbContext, StoreBlob -->
+    <ProjectReference Condition="Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj')" Include="$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj') AND Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj')" Include="$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj') AND !Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj') AND Exists('../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj')" Include="../btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj" />
+    
+    <!-- BTCPayServer.Client - Required for Client types -->
+    <ProjectReference Condition="Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj')" Include="$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj') AND Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj')" Include="$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj') AND !Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj') AND Exists('../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj')" Include="../btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj" />
+    
+    <!-- BTCPayServer.Rating - Required for RateProviderFactory -->
+    <ProjectReference Condition="Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj')" Include="$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj') AND Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj')" Include="$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj" />
+    <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj') AND !Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj') AND Exists('../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj')" Include="../btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj" />
+    
+    <!-- BTCPayServer (main project) - Required for Services, Logging, HostedServices, StoreRepository, EventAggregator -->
     <ProjectReference Condition="Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer/BTCPayServer.csproj')" Include="$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer/BTCPayServer.csproj" />
     <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer/BTCPayServer.csproj') AND Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer/BTCPayServer.csproj')" Include="$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer/BTCPayServer.csproj" />
     <ProjectReference Condition="!Exists('$(MSBuildProjectDirectory)/../btcpayserver/BTCPayServer/BTCPayServer.csproj') AND !Exists('$(MSBuildProjectDirectory)/../../btcpayserver/BTCPayServer/BTCPayServer.csproj') AND Exists('../btcpayserver/BTCPayServer/BTCPayServer.csproj')" Include="../btcpayserver/BTCPayServer/BTCPayServer.csproj" />

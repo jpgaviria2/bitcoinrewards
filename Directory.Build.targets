@@ -85,5 +85,42 @@
     
     <Message Condition="'$(BTCPayServerSolutionPath)' != ''" Text="=== [Directory.Build.targets] BTCPay Server restore completed ===" Importance="high" />
   </Target>
+
+  <Target Name="BuildBTCPayServerDependencies" BeforeTargets="ResolveReferences" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Message Text="=== [Directory.Build.targets] Building BTCPay Server dependencies ===" Importance="high" />
+    
+    <!-- Find the repository root -->
+    <PropertyGroup>
+      <_RepoRoot>$(MSBuildProjectDirectory)</_RepoRoot>
+      <_RepoRoot Condition="!Exists('$(_RepoRoot)/.git') AND Exists('$(_RepoRoot)/../.git')">$([System.IO.Path]::GetFullPath('$(_RepoRoot)/..'))</_RepoRoot>
+      <_RepoRoot Condition="!Exists('$(_RepoRoot)/.git') AND Exists('$(_RepoRoot)/../../.git')">$([System.IO.Path]::GetFullPath('$(_RepoRoot)/../..'))</_RepoRoot>
+    </PropertyGroup>
+    
+    <!-- Try multiple possible paths for the solution file -->
+    <PropertyGroup>
+      <_BTCPayServerSolutionPath1>$(_RepoRoot)/btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath1>
+      <_BTCPayServerSolutionPath2>$(MSBuildProjectDirectory)/../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath2>
+      <_BTCPayServerSolutionPath3>$(MSBuildProjectDirectory)/../../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath3>
+      <_BTCPayServerSolutionPath4>../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath4>
+      <_BTCPayServerSolutionPath5>../../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath5>
+    </PropertyGroup>
+    
+    <!-- Check which path exists -->
+    <PropertyGroup>
+      <BTCPayServerSolutionPath Condition="Exists('$(_BTCPayServerSolutionPath1)')">$(_BTCPayServerSolutionPath1)</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('$(_BTCPayServerSolutionPath2)')">$(_BTCPayServerSolutionPath2)</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('$(_BTCPayServerSolutionPath3)')">$(_BTCPayServerSolutionPath3)</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('$(_BTCPayServerSolutionPath4)')">$(_BTCPayServerSolutionPath4)</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('$(_BTCPayServerSolutionPath5)')">$(_BTCPayServerSolutionPath5)</BTCPayServerSolutionPath>
+    </PropertyGroup>
+    
+    <!-- Build BTCPay Server solution (only the projects we need) -->
+    <Exec Condition="'$(BTCPayServerSolutionPath)' != ''" 
+          Command="dotnet build &quot;$(BTCPayServerSolutionPath)&quot; --no-restore --verbosity minimal -p:Configuration=$(Configuration)" 
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ContinueOnError="false" />
+    
+    <Message Condition="'$(BTCPayServerSolutionPath)' != ''" Text="=== [Directory.Build.targets] BTCPay Server build completed ===" Importance="high" />
+  </Target>
 </Project>
 
