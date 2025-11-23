@@ -68,19 +68,23 @@
   </ItemGroup>
 
   <!-- Restore BTCPay Server dependencies before building -->
-  <!-- Plugin Builder should handle this, but we restore just in case -->
-  <Target Name="RestoreBTCPayServer" BeforeTargets="Restore">
+  <!-- This MUST run before Restore to ensure BTCPay Server packages are available -->
+  <Target Name="RestoreBTCPayServer" BeforeTargets="Restore" Condition="'$(DesignTimeBuild)' != 'true'">
     <Message Text="=== Restoring BTCPay Server dependencies ===" Importance="high" />
-    <Message Text="Checking for solution file..." Importance="high" />
+    <Message Text="MSBuildProjectDirectory: $(MSBuildProjectDirectory)" Importance="high" />
     
     <!-- Try multiple possible paths -->
     <PropertyGroup>
-      <BTCPayServerSolutionPath Condition="Exists('../btcpayserver/btcpayserver.sln')">../btcpayserver/btcpayserver.sln</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="Exists('$(MSBuildProjectDirectory)/../btcpayserver/btcpayserver.sln')">$(MSBuildProjectDirectory)/../btcpayserver/btcpayserver.sln</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('$(MSBuildProjectDirectory)/../../btcpayserver/btcpayserver.sln')">$(MSBuildProjectDirectory)/../../btcpayserver/btcpayserver.sln</BTCPayServerSolutionPath>
+      <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('../btcpayserver/btcpayserver.sln')">../btcpayserver/btcpayserver.sln</BTCPayServerSolutionPath>
       <BTCPayServerSolutionPath Condition="'$(BTCPayServerSolutionPath)' == '' AND Exists('../../btcpayserver/btcpayserver.sln')">../../btcpayserver/btcpayserver.sln</BTCPayServerSolutionPath>
     </PropertyGroup>
     
     <Message Condition="'$(BTCPayServerSolutionPath)' != ''" Text="Solution file found at: $(BTCPayServerSolutionPath)" Importance="high" />
-    <Message Condition="'$(BTCPayServerSolutionPath)' == ''" Text="Solution file NOT found in expected locations!" Importance="high" />
+    <Message Condition="'$(BTCPayServerSolutionPath)' == ''" Text="Solution file NOT found! Checking paths..." Importance="high" />
+    <Message Condition="'$(BTCPayServerSolutionPath)' == ''" Text="  ../btcpayserver/btcpayserver.sln exists: $([System.IO.File]::Exists('$(MSBuildProjectDirectory)/../btcpayserver/btcpayserver.sln'))" Importance="high" />
+    <Message Condition="'$(BTCPayServerSolutionPath)' == ''" Text="  ../../btcpayserver/btcpayserver.sln exists: $([System.IO.File]::Exists('$(MSBuildProjectDirectory)/../../btcpayserver/btcpayserver.sln'))" Importance="high" />
     
     <Exec Condition="'$(BTCPayServerSolutionPath)' != ''" 
           Command="dotnet restore &quot;$(BTCPayServerSolutionPath)&quot; --no-build --verbosity minimal" 
