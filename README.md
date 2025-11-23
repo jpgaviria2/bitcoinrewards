@@ -63,7 +63,7 @@ The plugin can be built automatically using the [BTCPay Server Plugin Builder](h
 
 1. Register your plugin in the Plugin Builder
 2. Provide the repository URL: `https://github.com/yourusername/btcpayserver-plugin-bitcoinrewards`
-3. Specify the plugin directory: `BTCPayServer.Plugins.BitcoinRewards`
+3. Specify the plugin directory: `Plugins/BTCPayServer.Plugins.BitcoinRewards`
 4. The Plugin Builder will build and publish the plugin automatically
 
 ## Configuration

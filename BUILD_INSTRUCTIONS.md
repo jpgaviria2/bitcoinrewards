@@ -58,7 +58,7 @@ The Plugin Builder will automatically:
 
 When registering with Plugin Builder:
 - **Repository URL**: `https://github.com/yourusername/btcpayserver-plugin-bitcoinrewards`
-- **Plugin Directory**: `BTCPayServer.Plugins.BitcoinRewards`
+- **Plugin Directory**: `Plugins/BTCPayServer.Plugins.BitcoinRewards`
 - **Git Ref**: `master` (or specific version tag)
 
 ## Installation
