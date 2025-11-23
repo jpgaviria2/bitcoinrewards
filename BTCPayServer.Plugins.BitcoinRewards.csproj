@@ -95,6 +95,13 @@
     <EmbeddedResource Include="Views\**\*.cshtml" />
   </ItemGroup>
 
+  <!-- Exclude test files and directories from plugin build -->
+  <ItemGroup>
+    <Compile Remove="BTCPayServer.Plugins.BitcoinRewards.Tests\**" />
+    <EmbeddedResource Remove="BTCPayServer.Plugins.BitcoinRewards.Tests\**" />
+    <None Remove="BTCPayServer.Plugins.BitcoinRewards.Tests\**" />
+  </ItemGroup>
+
   <!-- Post-build: Rename .dll to .btcpay -->
   <Target Name="RenameToBtcpay" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Move SourceFiles="$(OutputPath)$(AssemblyName).dll" 
