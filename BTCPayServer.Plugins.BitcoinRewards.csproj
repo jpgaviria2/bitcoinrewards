@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -10,6 +10,13 @@
     <Authors>BTCPay Server Community</Authors>
     <Copyright>Copyright © 2025</Copyright>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <!-- Plugin development properties -->
+  <PropertyGroup>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <PreserveCompilationContext>false</PreserveCompilationContext>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
   </PropertyGroup>
 
   <!-- Plugin Builder sets BTCPayServerPath environment variable or MSBuild property -->
@@ -105,6 +112,13 @@
   <ItemGroup>
     <EmbeddedResource Include="Views\**\*.cshtml" />
   </ItemGroup>
+
+  <!-- This will make sure that referencing BTCPayServer doesn't put any artifact in the published directory -->
+  <ItemDefinitionGroup>
+    <Reference>
+      <Private>false</Private>
+    </Reference>
+  </ItemDefinitionGroup>
 
   <!-- Exclude test files and directories from plugin build -->
   <ItemGroup>
