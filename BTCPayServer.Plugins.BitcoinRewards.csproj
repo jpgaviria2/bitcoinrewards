@@ -21,26 +21,39 @@
 
   <!-- Plugin Builder sets BTCPayServerPath environment variable or MSBuild property -->
   <PropertyGroup>
-    <!-- First, try environment variable or MSBuild property -->
+    <!-- First, try MSBuild property (set by Plugin Builder via -p:BTCPayServerPath=...) -->
     <BTCPayServerLibPath Condition="'$(BTCPayServerPath)' != ''">$(BTCPayServerPath)</BTCPayServerLibPath>
-    <!-- Try common Plugin Builder build locations (Linux paths) - use forward slashes for cross-platform -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <!-- Try environment variable (for local builds and Plugin Builder) -->
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND '$(BTCPAYSERVERPATH)' != ''">$(BTCPAYSERVERPATH)</BTCPayServerLibPath>
+    <!-- Try common Plugin Builder build locations (Linux paths) - check in order -->
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <!-- Default path for local development (Windows) - only set if DLLs actually exist -->
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
+    <!-- Default path for local development (Windows) -->
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0\BTCPayServer.dll')">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
   </PropertyGroup>
 
   <!-- Debug: Print the resolved path (for troubleshooting) -->
   <Target Name="PrintBTCPayServerPath" BeforeTargets="Build">
-    <Message Condition="'$(BTCPayServerLibPath)' != ''" Text="BTCPayServerLibPath resolved to: $(BTCPayServerLibPath)" Importance="high" />
-    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="WARNING: BTCPayServerLibPath is empty! BTCPayServerPath=$(BTCPayServerPath)" Importance="high" />
+    <Message Text="=== BTCPay Server DLL Path Resolution ===" Importance="high" />
+    <Message Text="BTCPayServerPath (MSBuild property): '$(BTCPayServerPath)'" Importance="high" />
+    <Message Text="BTCPAYSERVERPATH (Environment variable): '$(BTCPAYSERVERPATH)'" Importance="high" />
+    <Message Text="MSBuildThisFileDirectory: '$(MSBuildThisFileDirectory)'" Importance="high" />
+    <Message Text="Configuration: '$(Configuration)'" Importance="high" />
+    <Message Condition="'$(BTCPayServerLibPath)' != ''" Text="✓ BTCPayServerLibPath resolved to: $(BTCPayServerLibPath)" Importance="high" />
+    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="✗ WARNING: BTCPayServerLibPath is empty!" Importance="high" />
+    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="Checking common Plugin Builder paths..." Importance="high" />
+    <Message Condition="Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
+    <Message Condition="!Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
+    <Message Condition="Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
+    <Message Condition="!Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
+    <Message Condition="Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
+    <Message Condition="!Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
   </Target>
 
   <ItemGroup>
     <!-- BTCPay Server Abstractions - Core plugin interfaces -->
-    <!-- Plugin Builder should set BTCPayServerPath or provide DLLs in standard location -->
     <Reference Include="BTCPayServer.Abstractions" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Abstractions.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Abstractions.dll</HintPath>
       <Private>False</Private>
