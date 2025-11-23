@@ -70,7 +70,7 @@
   <Target Name="RestoreBTCPayServer" BeforeTargets="ResolveProjectReferences" Condition="Exists('../btcpayserver/btcpayserver.sln')">
     <Message Text="=== Restoring BTCPay Server dependencies ===" Importance="high" />
     <Message Text="Solution file path: ../btcpayserver/btcpayserver.sln" Importance="high" />
-    <Exec Command="dotnet restore ../btcpayserver/btcpayserver.sln" 
+    <Exec Command="dotnet restore ../btcpayserver/btcpayserver.sln --no-build" 
           ContinueOnError="false" />
   </Target>
 
