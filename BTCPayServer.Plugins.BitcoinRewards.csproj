@@ -12,20 +12,15 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(BTCPayServerPath)' != ''">
-    <BTCPayServerLibPath>$(BTCPayServerPath)</BTCPayServerLibPath>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(BTCPayServerLibPath)' == ''">
-    <!-- Default path for local development - adjust as needed -->
-    <BTCPayServerLibPath>..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
-  </PropertyGroup>
-
-  <!-- Plugin Builder provides DLLs via BTCPayServerPath environment variable -->
-  <!-- If not set, try common Plugin Builder locations -->
-  <PropertyGroup Condition="'$(BTCPayServerLibPath)' == '' AND '$(BTCPayServerPath)' == ''">
-    <BTCPayServerLibPath Condition="Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+  <!-- Plugin Builder sets BTCPayServerPath environment variable -->
+  <PropertyGroup>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerPath)' != ''">$(BTCPayServerPath)</BTCPayServerLibPath>
+    <!-- Try common Plugin Builder build locations (Linux paths) -->
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
+    <!-- Default path for local development (Windows) -->
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == ''">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
   </PropertyGroup>
 
   <ItemGroup>
