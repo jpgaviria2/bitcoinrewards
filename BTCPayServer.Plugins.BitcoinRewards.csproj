@@ -19,90 +19,20 @@
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
   </PropertyGroup>
 
-  <!-- Plugin Builder sets BTCPayServerPath environment variable or MSBuild property -->
-  <PropertyGroup>
-    <!-- First, try MSBuild property (set by Plugin Builder via -p:BTCPayServerPath=...) -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerPath)' != ''">$(BTCPayServerPath)</BTCPayServerLibPath>
-    <!-- Try environment variable (for local builds and Plugin Builder) -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND '$(BTCPAYSERVERPATH)' != ''">$(BTCPAYSERVERPATH)</BTCPayServerLibPath>
-    <!-- Try common Plugin Builder build locations (Linux paths) - check in order -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
-    <!-- Try relative paths from build directory (for Plugin Builder) -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)../btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">$(MSBuildThisFileDirectory)../btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)../../btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">$(MSBuildThisFileDirectory)../../btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <!-- Default path for local development (Windows) -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0\BTCPayServer.dll')">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
-  </PropertyGroup>
-
-  <!-- Debug: Print the resolved path (for troubleshooting) - runs early to help diagnose -->
-  <Target Name="PrintBTCPayServerPath" BeforeTargets="BeforeBuild">
-    <Message Text="=== BTCPay Server DLL Path Resolution ===" Importance="high" />
-    <Message Text="BTCPayServerPath (MSBuild property): '$(BTCPayServerPath)'" Importance="high" />
-    <Message Text="BTCPAYSERVERPATH (Environment variable): '$(BTCPAYSERVERPATH)'" Importance="high" />
-    <Message Text="MSBuildThisFileDirectory: '$(MSBuildThisFileDirectory)'" Importance="high" />
-    <Message Text="Configuration: '$(Configuration)'" Importance="high" />
-    <Message Condition="'$(BTCPayServerLibPath)' != ''" Text="✓ BTCPayServerLibPath resolved to: $(BTCPayServerLibPath)" Importance="high" />
-    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="✗ WARNING: BTCPayServerLibPath is empty! DLLs will not be found." Importance="high" />
-    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="Checking common Plugin Builder paths..." Importance="high" />
-    <Message Condition="Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
-    <Message Condition="!Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
-    <Message Condition="Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
-    <Message Condition="!Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
-  </Target>
+  <!-- This will make sure that referencing BTCPayServer doesn't put any artifact in the published directory -->
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <Properties>StaticWebAssetsEnabled=false</Properties>
+      <Private>false</Private>
+      <ExcludeAssets>runtime;native;build;buildTransitive;contentFiles</ExcludeAssets>
+    </ProjectReference>
+  </ItemDefinitionGroup>
 
   <ItemGroup>
-    <!-- BTCPay Server Abstractions - Core plugin interfaces -->
-    <Reference Include="BTCPayServer.Abstractions" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Abstractions.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Abstractions.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- BTCPay Server Data - Store data models -->
-    <Reference Include="BTCPayServer.Data" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Data.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Data.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- BTCPay Server Client - Contains Policies class -->
-    <Reference Include="BTCPayServer.Client" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Client.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Client.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- BTCPay Server Common - Contains Logs class -->
-    <Reference Include="BTCPayServer.Common" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Common.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Common.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- BTCPay Server Rating - Contains CurrencyPair, PairRate, RateProviderFactory -->
-    <Reference Include="BTCPayServer.Rating" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Rating.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Rating.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- BTCPay Server main DLL - Contains Services, HostedServices namespaces -->
-    <Reference Include="BTCPayServer" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- Try separate DLLs if they exist (for older BTCPay Server versions) -->
-    <Reference Include="BTCPayServer.Services" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Services.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Services.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="BTCPayServer.HostedServices" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.HostedServices.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.HostedServices.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="BTCPayServer.Logging" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Logging.dll')">
-      <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Logging.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <!-- Use ProjectReference to BTCPay Server (like the example plugin) -->
+    <!-- Structure matches: https://github.com/TChukwuleta/BTCPayServerPlugins -->
+    <!-- BTCPay Server is at ../../btcpayserver/BTCPayServer/BTCPayServer.csproj from plugin root -->
+    <ProjectReference Include="../../btcpayserver/BTCPayServer/BTCPayServer.csproj" />
   </ItemGroup>
 
     <ItemGroup>
@@ -127,12 +57,6 @@
     <EmbeddedResource Include="Views\**\*.cshtml" />
   </ItemGroup>
 
-  <!-- This will make sure that referencing BTCPayServer doesn't put any artifact in the published directory -->
-  <ItemDefinitionGroup>
-    <Reference>
-      <Private>false</Private>
-    </Reference>
-  </ItemDefinitionGroup>
 
   <!-- Exclude test files and directories from plugin build -->
   <ItemGroup>
