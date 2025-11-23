@@ -90,6 +90,10 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 {
                     await task;
                 }
+                else if (result != null)
+                {
+                    // Handle synchronous result if needed
+                }
 
                 _logs.PayServer.LogInformation($"Reward email sent to {rewardRecord.CustomerEmail} for reward {rewardRecord.Id}");
                 return true;

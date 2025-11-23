@@ -210,7 +210,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             }
         }
 
-        public async Task<RewardRecord> GetReward(string rewardId)
+        public async Task<RewardRecord?> GetReward(string rewardId)
         {
             return await _rewardRepository.GetByIdAsync(rewardId);
         }

@@ -53,7 +53,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
             }
         }
 
-        private async Task<SendResult> TrySendViaLightning(StoreData store, decimal amountBTC, string destination)
+        private Task<SendResult> TrySendViaLightning(StoreData store, decimal amountBTC, string destination)
         {
             try
             {
@@ -67,16 +67,16 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 _logs.PayServer.LogInformation("Lightning payment attempted but full implementation requires Lightning service integration");
                 
                 // Return failure to fallback to other methods
-                return new SendResult { Success = false, Error = "Lightning implementation pending" };
+                return Task.FromResult(new SendResult { Success = false, Error = "Lightning implementation pending" });
             }
             catch (Exception ex)
             {
                 _logs.PayServer.LogWarning(ex, "Lightning send failed, falling back");
-                return new SendResult { Success = false, Error = ex.Message };
+                return Task.FromResult(new SendResult { Success = false, Error = ex.Message });
             }
         }
 
-        private async Task<SendResult> TrySendViaECash(StoreData store, decimal amountBTC, string destination)
+        private Task<SendResult> TrySendViaECash(StoreData store, decimal amountBTC, string destination)
         {
             try
             {
@@ -84,22 +84,22 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 // This requires BTCPay Server's eCash wallet integration
                 _logs.PayServer.LogInformation("eCash payment attempted but full implementation requires eCash service integration");
                 
-                return new SendResult { Success = false, Error = "eCash implementation pending" };
+                return Task.FromResult(new SendResult { Success = false, Error = "eCash implementation pending" });
             }
             catch (Exception ex)
             {
                 _logs.PayServer.LogWarning(ex, "eCash send failed, falling back");
-                return new SendResult { Success = false, Error = ex.Message };
+                return Task.FromResult(new SendResult { Success = false, Error = ex.Message });
             }
         }
 
-        private async Task<SendResult> SendViaOnChain(StoreData store, decimal amountBTC, string destinationAddress)
+        private Task<SendResult> SendViaOnChain(StoreData store, decimal amountBTC, string destinationAddress)
         {
             try
             {
                 if (string.IsNullOrEmpty(destinationAddress))
                 {
-                    return new SendResult { Success = false, Error = "Destination address is required for on-chain payments" };
+                    return Task.FromResult(new SendResult { Success = false, Error = "Destination address is required for on-chain payments" });
                 }
 
                 // Validate address format (basic validation)
@@ -115,7 +115,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                     }
                     catch
                     {
-                        return new SendResult { Success = false, Error = "Invalid Bitcoin address format" };
+                        return Task.FromResult(new SendResult { Success = false, Error = "Invalid Bitcoin address format" });
                     }
                 }
 
@@ -125,18 +125,18 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 
                 // This is a placeholder - actual implementation requires BTCPay Server's wallet API
                 // The wallet service would be injected and used to create and broadcast the transaction
-                return new SendResult
+                return Task.FromResult(new SendResult
                 {
                     Success = true,
                     TransactionId = $"pending-{Guid.NewGuid()}",
                     Address = destinationAddress,
                     PaymentMethod = "onchain"
-                };
+                });
             }
             catch (Exception ex)
             {
                 _logs.PayServer.LogError(ex, $"On-chain send failed: {ex.Message}");
-                return new SendResult { Success = false, Error = ex.Message };
+                return Task.FromResult(new SendResult { Success = false, Error = ex.Message });
             }
         }
 

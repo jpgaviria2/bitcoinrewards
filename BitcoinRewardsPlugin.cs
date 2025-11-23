@@ -119,16 +119,39 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                 
                 applicationBuilder.AddSingleton<IHostedService, BitcoinRewardsService>(provider => provider.GetRequiredService<BitcoinRewardsService>());
                 
-                // Register UI extension
-                try
+                // Register UI extension with comprehensive error handling
+                // Try multiple path formats to ensure compatibility with different BTCPay Server versions
+                // This is non-critical - plugin works fine without the navigation menu item
+                bool viewRegistered = false;
+                string[] viewPaths = new[]
                 {
-                    applicationBuilder.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
-                }
-                catch
+                    "BTCPayServer.Plugins.BitcoinRewards/Views/BitcoinRewards/NavExtension",
+                    "/BTCPayServer.Plugins.BitcoinRewards/Views/BitcoinRewards/NavExtension",
+                    "BitcoinRewards/NavExtension",
+                    "/BitcoinRewards/NavExtension",
+                    "Views/BitcoinRewards/NavExtension",
+                    "/Views/BitcoinRewards/NavExtension"
+                };
+
+                foreach (var viewPath in viewPaths)
                 {
-                    // UI extension registration might fail if UI system not available
-                    // This is not critical for plugin functionality
+                    try
+                    {
+                        applicationBuilder.AddUIExtension("header-nav", viewPath);
+                        viewRegistered = true;
+                        // Successfully registered - no need to try other paths
+                        break;
+                    }
+                    catch
+                    {
+                        // Try next path format - silently continue
+                        continue;
+                    }
                 }
+
+                // If all paths failed, silently continue - this is non-critical
+                // The plugin functionality (webhooks, rewards processing) does not depend on the nav menu
+                // BTCPay Server will handle view resolution errors gracefully without crashing
                 
                 base.Execute(applicationBuilder);
             }

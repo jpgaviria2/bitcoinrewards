@@ -162,6 +162,10 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
             {
                 var webhook = JObject.Parse(json);
                 var order = webhook["data"]?["object"]?["order"] ?? webhook["order"];
+                if (order == null)
+                {
+                    return null;
+                }
                 var orderId = order["id"]?.ToString() ?? string.Empty;
                 var customerId = order["customer_id"]?.ToString();
 
@@ -196,7 +200,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
                             orderData.CustomerName = $"{customerInfo.GivenName} {customerInfo.FamilyName}".Trim();
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // Log but don't fail - we'll try to get email from order data
                         // Logging is handled in SquareApiService
