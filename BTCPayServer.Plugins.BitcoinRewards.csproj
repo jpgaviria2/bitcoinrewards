@@ -30,38 +30,38 @@
 
   <ItemGroup>
     <!-- BTCPay Server Abstractions - Core plugin interfaces -->
-    <Reference Include="BTCPayServer.Abstractions">
-      <HintPath Condition="'$(BTCPayServerLibPath)' != ''">$(BTCPayServerLibPath)\BTCPayServer.Abstractions.dll</HintPath>
+    <Reference Include="BTCPayServer.Abstractions" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)\BTCPayServer.Abstractions.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Abstractions.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Data - Store data models -->
-    <Reference Include="BTCPayServer.Data">
-      <HintPath Condition="'$(BTCPayServerLibPath)' != ''">$(BTCPayServerLibPath)\BTCPayServer.Data.dll</HintPath>
+    <Reference Include="BTCPayServer.Data" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)\BTCPayServer.Data.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Data.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Client - Contains Policies class -->
-    <Reference Include="BTCPayServer.Client">
-      <HintPath Condition="'$(BTCPayServerLibPath)' != ''">$(BTCPayServerLibPath)\BTCPayServer.Client.dll</HintPath>
+    <Reference Include="BTCPayServer.Client" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)\BTCPayServer.Client.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Client.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Common - Contains Logs class -->
-    <Reference Include="BTCPayServer.Common">
-      <HintPath Condition="'$(BTCPayServerLibPath)' != ''">$(BTCPayServerLibPath)\BTCPayServer.Common.dll</HintPath>
+    <Reference Include="BTCPayServer.Common" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)\BTCPayServer.Common.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Common.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Rating - Contains CurrencyPair, PairRate, RateProviderFactory -->
-    <Reference Include="BTCPayServer.Rating">
-      <HintPath Condition="'$(BTCPayServerLibPath)' != ''">$(BTCPayServerLibPath)\BTCPayServer.Rating.dll</HintPath>
+    <Reference Include="BTCPayServer.Rating" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)\BTCPayServer.Rating.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Rating.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server main DLL - Contains Services, HostedServices namespaces -->
-    <Reference Include="BTCPayServer">
-      <HintPath Condition="'$(BTCPayServerLibPath)' != ''">$(BTCPayServerLibPath)\BTCPayServer.dll</HintPath>
+    <Reference Include="BTCPayServer" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)\BTCPayServer.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
