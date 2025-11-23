@@ -82,9 +82,14 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <!-- Views are automatically compiled and embedded by Razor SDK -->
+  <!-- Views are automatically compiled by Razor SDK -->
   <!-- The Razor SDK will automatically discover and compile all .cshtml files in the Views directory -->
-  <!-- No explicit ItemGroup needed - Razor SDK handles this automatically with AddRazorSupportForMvc -->
+  <!-- Additionally, we explicitly embed .cshtml files as resources so BTCPay Server can discover them -->
+  <ItemGroup>
+    <EmbeddedResource Include="Views\**\*.cshtml">
+      <LogicalName>Views\%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
   
   <!-- Exclude test files and directories from plugin build -->
   <ItemGroup>
