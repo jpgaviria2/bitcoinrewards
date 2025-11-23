@@ -24,7 +24,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                 applicationBuilder.AddScoped<Repositories.RewardRecordRepository>();
                 // Logging will be available after service provider is built
             }
-            catch (Exception ex)
+            catch
             {
                 // Repository registration should never fail, but handle gracefully
                 // Continue with other registrations
@@ -36,7 +36,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                 applicationBuilder.AddScoped<Services.WalletService>();
                 // Logging will be available after service provider is built
             }
-            catch (Exception ex)
+            catch
             {
                 // WalletService registration should never fail, but handle gracefully
                 // Continue with other registrations
@@ -87,7 +87,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     return new Services.EmailService(logs, emailSender);
                 });
             }
-            catch (Exception ex)
+            catch
             {
                 // EmailService registration failed - log but continue
                 // Email functionality will be unavailable but plugin can still work
@@ -133,7 +133,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     return new Services.RateService(rateProviderFactory, logs);
                 });
             }
-            catch (Exception ex)
+            catch
             {
                 // RateService registration failed - log but continue
                 // Rate conversion will be unavailable but plugin can still work
@@ -144,7 +144,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             {
                 applicationBuilder.AddHttpClient<Services.SquareApiService>();
             }
-            catch (Exception ex)
+            catch
             {
                 // HttpClient registration should never fail, but handle gracefully
             }
@@ -154,7 +154,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             {
                 applicationBuilder.AddHttpClient<Services.ShopifyApiService>();
             }
-            catch (Exception ex)
+            catch
             {
                 // HttpClient registration should never fail, but handle gracefully
             }
@@ -182,7 +182,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     }
                 });
             }
-            catch (Exception ex)
+            catch
             {
                 // SquareApiService registration failed - log but continue
                 // Square integration will be unavailable but plugin can still work
@@ -211,7 +211,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     }
                 });
             }
-            catch (Exception ex)
+            catch
             {
                 // ShopifyApiService registration failed - log but continue
                 // Shopify integration will be unavailable but plugin can still work

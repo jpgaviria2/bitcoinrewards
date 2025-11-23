@@ -82,6 +82,12 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 var recipientAddress = parseMethod.Invoke(null, new object[] { rewardRecord.CustomerEmail });
                 var fromMailboxAddress = parseMethod.Invoke(null, new object[] { fromAddress });
 
+                if (recipientAddress == null || fromMailboxAddress == null)
+                {
+                    _logs.PayServer.LogWarning($"EmailService: Failed to parse email addresses for reward {rewardRecord.Id}");
+                    return false;
+                }
+
                 // Call SendEmail via reflection
                 var result = sendEmailMethod.Invoke(_emailSender, new object[] { recipientAddress, settings.EmailSubject, emailBody });
                 
