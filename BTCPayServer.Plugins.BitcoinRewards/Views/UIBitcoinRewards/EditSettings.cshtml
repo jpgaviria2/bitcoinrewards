@@ -1,0 +1,171 @@
+@model BTCPayServer.Plugins.BitcoinRewards.Models.BitcoinRewardsSettings
+@{
+    ViewData.SetActivePage("StoreSettings", "Bitcoin Rewards", Context.GetStoreData().Id);
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h3 class="mb-0">@ViewData["Title"]</h3>
+        </div>
+        <p>Configure Bitcoin-backed rewards for your customers. When orders are received from Shopify or Square, customers will automatically receive Bitcoin rewards.</p>
+
+        @if (!ViewContext.ModelState.IsValid)
+        {
+            <div asp-validation-summary="All"></div>
+        }
+
+        <form method="post">
+            <div class="form-group">
+                <div class="form-check">
+                    <input asp-for="Enabled" type="checkbox" class="form-check-input" />
+                    <label asp-for="Enabled" class="form-check-label">Enable Bitcoin Rewards</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="RewardPercentage" class="form-label">Reward Percentage</label>
+                <input asp-for="RewardPercentage" type="number" step="0.01" min="0" max="100" class="form-control" />
+                <span asp-validation-for="RewardPercentage" class="text-danger"></span>
+                <small class="form-text text-muted">Percentage of order amount to give as reward (e.g., 0.01 = 1%)</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="MinimumOrderAmount" class="form-label">Minimum Order Amount</label>
+                <input asp-for="MinimumOrderAmount" type="number" step="0.01" min="0" class="form-control" />
+                <span asp-validation-for="MinimumOrderAmount" class="text-danger"></span>
+                <small class="form-text text-muted">Minimum order amount required to receive a reward</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="MaximumRewardAmount" class="form-label">Maximum Reward Amount (BTC)</label>
+                <input asp-for="MaximumRewardAmount" type="number" step="0.00000001" min="0" class="form-control" />
+                <span asp-validation-for="MaximumRewardAmount" class="text-danger"></span>
+                <small class="form-text text-muted">Maximum reward amount in BTC</small>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input asp-for="ShopifyEnabled" type="checkbox" class="form-check-input" />
+                    <label asp-for="ShopifyEnabled" class="form-check-label">Enable Shopify Integration</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input asp-for="SquareEnabled" type="checkbox" class="form-check-input" />
+                    <label asp-for="SquareEnabled" class="form-check-label">Enable Square Integration</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="WebhookSecret" class="form-label">Webhook Secret</label>
+                <input asp-for="WebhookSecret" type="password" class="form-control" />
+                <span asp-validation-for="WebhookSecret" class="text-danger"></span>
+                <small class="form-text text-muted">Secret key for verifying webhook signatures from Shopify/Square</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="EmailFromAddress" class="form-label">Email From Address</label>
+                <input asp-for="EmailFromAddress" type="email" class="form-control" />
+                <span asp-validation-for="EmailFromAddress" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="EmailSubject" class="form-label">Email Subject</label>
+                <input asp-for="EmailSubject" class="form-control" />
+                <span asp-validation-for="EmailSubject" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="EmailBodyTemplate" class="form-label">Email Body Template</label>
+                <textarea asp-for="EmailBodyTemplate" rows="5" class="form-control"></textarea>
+                <span asp-validation-for="EmailBodyTemplate" class="text-danger"></span>
+                <small class="form-text text-muted">Available placeholders: {RewardAmount}, {BitcoinAddress}, {OrderId}, {TransactionId}</small>
+            </div>
+
+            <div class="form-group">
+                <h4>Wallet Settings</h4>
+                <label asp-for="WalletPreference" class="form-label">Wallet Preference</label>
+                <select asp-for="WalletPreference" class="form-control">
+                    <option value="@WalletPreference.LightningFirst">Lightning First (fallback to eCash, then on-chain)</option>
+                    <option value="@WalletPreference.ECashFirst">eCash First (fallback to Lightning, then on-chain)</option>
+                    <option value="@WalletPreference.OnChainOnly">On-chain Only</option>
+                </select>
+                <span asp-validation-for="WalletPreference" class="text-danger"></span>
+                <small class="form-text text-muted">Select which wallet type to use for sending rewards</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PreferredLightningNodeId" class="form-label">Preferred Lightning Node ID (Optional)</label>
+                <input asp-for="PreferredLightningNodeId" class="form-control" />
+                <span asp-validation-for="PreferredLightningNodeId" class="text-danger"></span>
+                <small class="form-text text-muted">If you have multiple Lightning nodes, specify which one to use</small>
+            </div>
+
+            <div class="form-group">
+                <h4>Square API Settings</h4>
+                <p class="text-muted">Configure Square API credentials to fetch customer information when not available in webhooks.</p>
+                
+                <div class="form-group">
+                    <label asp-for="SquareApplicationId" class="form-label">Square Application ID</label>
+                    <input asp-for="SquareApplicationId" class="form-control" />
+                    <span asp-validation-for="SquareApplicationId" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="SquareAccessToken" class="form-label">Square Access Token</label>
+                    <input asp-for="SquareAccessToken" type="password" class="form-control" />
+                    <span asp-validation-for="SquareAccessToken" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="SquareLocationId" class="form-label">Square Location ID</label>
+                    <input asp-for="SquareLocationId" class="form-control" />
+                    <span asp-validation-for="SquareLocationId" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="SquareEnvironment" class="form-label">Square Environment</label>
+                    <select asp-for="SquareEnvironment" class="form-control">
+                        <option value="production">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                    </select>
+                    <span asp-validation-for="SquareEnvironment" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <h4>Currency Conversion</h4>
+                <label asp-for="PreferredExchangeRateProvider" class="form-label">Exchange Rate Provider</label>
+                <select asp-for="PreferredExchangeRateProvider" class="form-control">
+                    <option value="coingecko">CoinGecko</option>
+                    <option value="bitflyer">BitFlyer</option>
+                    <option value="bitstamp">Bitstamp</option>
+                </select>
+                <span asp-validation-for="PreferredExchangeRateProvider" class="text-danger"></span>
+                <small class="form-text text-muted">Select the exchange rate provider for currency conversion</small>
+            </div>
+
+            <div class="form-group">
+                <h4>Webhook URLs</h4>
+                <p>Configure these URLs in your Shopify/Square webhook settings:</p>
+                <div class="form-group">
+                    <label class="form-label">Shopify Webhook URL:</label>
+                    <input type="text" readonly class="form-control" value="@Url.Action("ShopifyWebhook", "Webhook", new { storeId = Context.GetStoreData().Id }, Context.Request.Scheme)" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Square Webhook URL:</label>
+                    <input type="text" readonly class="form-control" value="@Url.Action("SquareWebhook", "Webhook", new { storeId = Context.GetStoreData().Id }, Context.Request.Scheme)" />
+                </div>
+            </div>
+
+            <button name="command" type="submit" value="Save" class="btn btn-primary">Save</button>
+            @if (Model.Enabled)
+            {
+                <button name="command" type="submit" value="Disable" class="btn btn-secondary">Disable</button>
+            }
+        </form>
+    </div>
+</div>
+

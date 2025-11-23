@@ -1,0 +1,109 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>BTCPayServer.Plugins.BitcoinRewards</AssemblyName>
+    <RootNamespace>BTCPayServer.Plugins.BitcoinRewards</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>BTCPay Server Community</Authors>
+    <Copyright>Copyright © 2025</Copyright>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(BTCPayServerPath)' != ''">
+    <BTCPayServerLibPath>$(BTCPayServerPath)</BTCPayServerLibPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(BTCPayServerLibPath)' == ''">
+    <!-- Default path for local development - adjust as needed -->
+    <BTCPayServerLibPath>..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- BTCPay Server Abstractions - Core plugin interfaces -->
+    <Reference Include="BTCPayServer.Abstractions" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Abstractions.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Abstractions.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <!-- BTCPay Server Data - Store data models -->
+    <Reference Include="BTCPayServer.Data" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Data.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Data.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <!-- BTCPay Server Client - Contains Policies class -->
+    <Reference Include="BTCPayServer.Client" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Client.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Client.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <!-- BTCPay Server Common - Contains Logs class -->
+    <Reference Include="BTCPayServer.Common" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Common.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <!-- BTCPay Server Rating - Contains CurrencyPair, PairRate, RateProviderFactory -->
+    <Reference Include="BTCPayServer.Rating" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Rating.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Rating.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <!-- BTCPay Server main DLL - Contains Services, HostedServices namespaces -->
+    <Reference Include="BTCPayServer" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <!-- Try separate DLLs if they exist (for older BTCPay Server versions) -->
+    <Reference Include="BTCPayServer.Services" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Services.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Services.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BTCPayServer.HostedServices" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.HostedServices.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.HostedServices.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BTCPayServer.Logging" Condition="Exists('$(BTCPayServerLibPath)\BTCPayServer.Logging.dll')">
+      <HintPath>$(BTCPayServerLibPath)\BTCPayServer.Logging.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+    <ItemGroup>
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+      <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+      <PackageReference Include="NBXplorer.Client" Version="4.3.9" />
+      <PackageReference Include="NBitcoin" Version="7.0.50" />
+    </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyProductAttribute">
+      <_Parameter1>Bitcoin Rewards</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyDescriptionAttribute">
+      <_Parameter1>Bitcoin-backed rewards system that integrates with Shopify and Square to automatically send rewards to customers.</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Views\**\*.cshtml" />
+  </ItemGroup>
+
+  <!-- Post-build: Rename .dll to .btcpay -->
+  <Target Name="RenameToBtcpay" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Move SourceFiles="$(OutputPath)$(AssemblyName).dll" 
+          DestinationFiles="$(OutputPath)$(AssemblyName).btcpay" 
+          Condition="Exists('$(OutputPath)$(AssemblyName).dll')" />
+    <Move SourceFiles="$(OutputPath)$(AssemblyName).pdb" 
+          DestinationFiles="$(OutputPath)$(AssemblyName).btcpay.pdb" 
+          Condition="Exists('$(OutputPath)$(AssemblyName).pdb')" />
+  </Target>
+
+</Project>
+
