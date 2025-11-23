@@ -20,7 +20,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
             _logs = logs;
         }
 
-        public async Task<SquareCustomerInfo> GetCustomerInfoAsync(
+        public async Task<SquareCustomerInfo?> GetCustomerInfoAsync(
             string customerId,
             string accessToken,
             string locationId,
@@ -57,10 +57,10 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
 
                 return new SquareCustomerInfo
                 {
-                    Email = customer["email_address"]?.ToString(),
-                    Phone = customer["phone_number"]?.ToString(),
-                    GivenName = customer["given_name"]?.ToString(),
-                    FamilyName = customer["family_name"]?.ToString()
+                    Email = customer["email_address"]?.ToString() ?? string.Empty,
+                    Phone = customer["phone_number"]?.ToString() ?? string.Empty,
+                    GivenName = customer["given_name"]?.ToString() ?? string.Empty,
+                    FamilyName = customer["family_name"]?.ToString() ?? string.Empty
                 };
             }
             catch (Exception ex)
@@ -70,7 +70,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
             }
         }
 
-        public async Task<SquareOrderInfo> GetOrderInfoAsync(
+        public async Task<SquareOrderInfo?> GetOrderInfoAsync(
             string orderId,
             string accessToken,
             string locationId,
@@ -106,7 +106,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 }
 
                 var totalMoney = order["total_money"];
-                var customerId = order["customer_id"]?.ToString();
+                var customerId = order["customer_id"]?.ToString() ?? string.Empty;
 
                 return new SquareOrderInfo
                 {
@@ -126,18 +126,18 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
 
     public class SquareCustomerInfo
     {
-        public string Email { get; set; }
-        public string Phone { get; set; }
-        public string GivenName { get; set; }
-        public string FamilyName { get; set; }
+        public string Email { get; set; } = null!;
+        public string Phone { get; set; } = null!;
+        public string GivenName { get; set; } = null!;
+        public string FamilyName { get; set; } = null!;
     }
 
     public class SquareOrderInfo
     {
-        public string OrderId { get; set; }
-        public string CustomerId { get; set; }
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
         public decimal TotalAmount { get; set; }
-        public string Currency { get; set; }
+        public string Currency { get; set; } = null!;
     }
 }
 

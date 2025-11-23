@@ -2,15 +2,15 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
 {
     public class OrderData
     {
-        public string OrderId { get; set; }
-        public string OrderNumber { get; set; }
+        public string OrderId { get; set; } = null!;
+        public string OrderNumber { get; set; } = null!;
         public decimal OrderAmount { get; set; }
-        public string Currency { get; set; }
-        public string CustomerEmail { get; set; }
-        public string CustomerPhone { get; set; }
-        public string CustomerName { get; set; }
-        public string Source { get; set; } // "shopify" or "square"
-        public string StoreId { get; set; }
+        public string Currency { get; set; } = null!;
+        public string CustomerEmail { get; set; } = null!;
+        public string CustomerPhone { get; set; } = null!;
+        public string CustomerName { get; set; } = null!;
+        public string Source { get; set; } = null!; // "shopify" or "square"
+        public string StoreId { get; set; } = null!;
     }
 }
 

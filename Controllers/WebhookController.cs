@@ -131,7 +131,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
             }
         }
 
-        private OrderData ParseShopifyOrder(string json, string storeId)
+        private OrderData? ParseShopifyOrder(string json, string storeId)
         {
             try
             {
@@ -139,12 +139,12 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
 
                 return new OrderData
                 {
-                    OrderId = order["id"]?.ToString() ?? order["order_id"]?.ToString(),
-                    OrderNumber = order["order_number"]?.ToString() ?? order["number"]?.ToString(),
+                    OrderId = order["id"]?.ToString() ?? order["order_id"]?.ToString() ?? string.Empty,
+                    OrderNumber = order["order_number"]?.ToString() ?? order["number"]?.ToString() ?? string.Empty,
                     OrderAmount = order["total_price"]?.Value<decimal>() ?? 0m,
                     Currency = order["currency"]?.ToString() ?? "USD",
-                    CustomerEmail = order["email"]?.ToString() ?? order["customer"]?["email"]?.ToString(),
-                    CustomerPhone = order["phone"]?.ToString() ?? order["customer"]?["phone"]?.ToString(),
+                    CustomerEmail = order["email"]?.ToString() ?? order["customer"]?["email"]?.ToString() ?? string.Empty,
+                    CustomerPhone = order["phone"]?.ToString() ?? order["customer"]?["phone"]?.ToString() ?? string.Empty,
                     CustomerName = $"{order["customer"]?["first_name"]} {order["customer"]?["last_name"]}".Trim(),
                     Source = "shopify",
                     StoreId = storeId
@@ -156,13 +156,13 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
             }
         }
 
-        private async Task<OrderData> ParseSquareOrderAsync(string json, string storeId, BitcoinRewardsSettings settings)
+        private async Task<OrderData?> ParseSquareOrderAsync(string json, string storeId, BitcoinRewardsSettings settings)
         {
             try
             {
                 var webhook = JObject.Parse(json);
                 var order = webhook["data"]?["object"]?["order"] ?? webhook["order"];
-                var orderId = order["id"]?.ToString();
+                var orderId = order["id"]?.ToString() ?? string.Empty;
                 var customerId = order["customer_id"]?.ToString();
 
                 var orderData = new OrderData
@@ -171,9 +171,9 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
                     OrderNumber = order["reference_id"]?.ToString() ?? orderId,
                     OrderAmount = order["total_money"]?["amount"]?.Value<decimal>() / 100m ?? 0m, // Square uses cents
                     Currency = order["total_money"]?["currency"]?.ToString() ?? "USD",
-                    CustomerEmail = null,
-                    CustomerPhone = null,
-                    CustomerName = null,
+                    CustomerEmail = string.Empty,
+                    CustomerPhone = string.Empty,
+                    CustomerName = string.Empty,
                     Source = "square",
                     StoreId = storeId
                 };
@@ -206,7 +206,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
                 // Fallback: try to get email from order data directly
                 if (string.IsNullOrEmpty(orderData.CustomerEmail))
                 {
-                    orderData.CustomerEmail = order["email_address"]?.ToString();
+                    orderData.CustomerEmail = order["email_address"]?.ToString() ?? string.Empty;
                 }
 
                 return orderData;

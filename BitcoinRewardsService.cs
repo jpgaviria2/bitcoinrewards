@@ -125,7 +125,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     await _rewardRepository.UpdateAsync(rewardRecord);
 
                     // Get or generate Bitcoin address for customer
-                    string destinationAddress = null;
+                    string? destinationAddress = null;
                     
                     // Try to reuse address from previous rewards
                     if (!string.IsNullOrEmpty(rewardRecord.CustomerEmail))
@@ -178,7 +178,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                         throw new Exception($"Failed to send Bitcoin: {sendResult.Error}");
                     }
 
-                    rewardRecord.TransactionId = sendResult.TransactionId;
+                    rewardRecord.TransactionId = sendResult.TransactionId ?? string.Empty;
                     rewardRecord.Status = RewardStatus.Sent;
                     rewardRecord.SentAt = DateTime.UtcNow;
                     await _rewardRepository.UpdateAsync(rewardRecord);

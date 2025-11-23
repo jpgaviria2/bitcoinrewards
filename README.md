@@ -186,6 +186,14 @@ These are provided by the BTCPay Server installation at runtime.
 - **.NET**: 8.0
 - **Target Framework**: net8.0
 
+## Build Notes
+
+### Known Build Warnings/Errors
+
+- **gpg/cat errors**: During the build process, you may see errors like `gpg: command not found` and `cat: write error: Broken pipe`. These are harmless and occur when the BTCPayServer PluginPacker tries to sign the package with GPG. The build will complete successfully without GPG signing. These errors can be safely ignored.
+
+- **Nullable reference warnings**: The build may show nullable reference type warnings (CS8618, CS8603, CS8601). These are code quality warnings and don't prevent the build from succeeding. They indicate places where null checks could be improved, but the code is functionally correct.
+
 ## License
 
 MIT License - Same as BTCPay Server

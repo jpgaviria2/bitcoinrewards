@@ -17,20 +17,20 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         public decimal MaximumRewardAmount { get; set; } = 1000m; // Maximum reward in BTC
         public bool ShopifyEnabled { get; set; }
         public bool SquareEnabled { get; set; }
-        public string WebhookSecret { get; set; }
-        public string EmailFromAddress { get; set; }
+        public string WebhookSecret { get; set; } = string.Empty;
+        public string EmailFromAddress { get; set; } = string.Empty;
         public string EmailSubject { get; set; } = "Your Bitcoin Reward is Ready!";
         public string EmailBodyTemplate { get; set; } = "Congratulations! You've earned {RewardAmount} BTC as a reward for your purchase. Your reward has been sent to: {BitcoinAddress}";
         public DateTime? IntegratedAt { get; set; }
         
         // Wallet preferences
         public WalletPreference WalletPreference { get; set; } = WalletPreference.LightningFirst;
-        public string PreferredLightningNodeId { get; set; }
+        public string PreferredLightningNodeId { get; set; } = string.Empty;
         
         // Square API credentials
-        public string SquareApplicationId { get; set; }
-        public string SquareAccessToken { get; set; }
-        public string SquareLocationId { get; set; }
+        public string SquareApplicationId { get; set; } = string.Empty;
+        public string SquareAccessToken { get; set; } = string.Empty;
+        public string SquareLocationId { get; set; } = string.Empty;
         public string SquareEnvironment { get; set; } = "production"; // production or sandbox
         
         // Currency conversion

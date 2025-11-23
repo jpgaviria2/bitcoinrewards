@@ -66,7 +66,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Repositories
             return record;
         }
 
-        public async Task<RewardRecord> GetByIdAsync(string id)
+        public async Task<RewardRecord?> GetByIdAsync(string id)
         {
             var entity = await _dbContext.Set<RewardRecordEntity>()
                 .FirstOrDefaultAsync(r => r.Id == id);
@@ -84,7 +84,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Repositories
             return entities.Select(MapToModel).ToList();
         }
 
-        public async Task<RewardRecord> GetByCustomerEmailAsync(string email, string storeId)
+        public async Task<RewardRecord?> GetByCustomerEmailAsync(string email, string storeId)
         {
             var entity = await _dbContext.Set<RewardRecordEntity>()
                 .Where(r => r.StoreId == storeId && r.CustomerEmail == email)
@@ -116,18 +116,18 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Repositories
 
     public class RewardRecordEntity
     {
-        public string Id { get; set; }
-        public string OrderId { get; set; }
-        public string StoreId { get; set; }
-        public string CustomerEmail { get; set; }
-        public string CustomerPhone { get; set; }
+        public string Id { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string StoreId { get; set; } = null!;
+        public string CustomerEmail { get; set; } = null!;
+        public string CustomerPhone { get; set; } = null!;
         public decimal RewardAmount { get; set; }
-        public string BitcoinAddress { get; set; }
-        public string TransactionId { get; set; }
-        public string Status { get; set; }
+        public string BitcoinAddress { get; set; } = null!;
+        public string TransactionId { get; set; } = null!;
+        public string Status { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public DateTime? SentAt { get; set; }
-        public string Source { get; set; }
+        public string Source { get; set; } = null!;
     }
 
     public class RewardRecordEntityConfiguration : IEntityTypeConfiguration<RewardRecordEntity>

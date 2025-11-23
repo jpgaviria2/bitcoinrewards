@@ -140,7 +140,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
             }
         }
 
-        public string GenerateAddress(StoreData store)
+        public string? GenerateAddress(StoreData store)
         {
             try
             {

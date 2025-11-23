@@ -9,7 +9,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
     {
         public const string StoreBlobKey = "bitcoinrewards";
 
-        public static BitcoinRewardsSettings GetBitcoinRewardsSettings(this StoreBlob storeBlob)
+        public static BitcoinRewardsSettings? GetBitcoinRewardsSettings(this StoreBlob storeBlob)
         {
             if (storeBlob.AdditionalData.TryGetValue(StoreBlobKey, out var rawS))
             {
