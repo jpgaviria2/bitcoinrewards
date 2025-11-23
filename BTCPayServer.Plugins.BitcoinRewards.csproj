@@ -24,12 +24,12 @@
     <!-- First, try environment variable or MSBuild property -->
     <BTCPayServerLibPath Condition="'$(BTCPayServerPath)' != ''">$(BTCPayServerPath)</BTCPayServerLibPath>
     <!-- Try common Plugin Builder build locations (Linux paths) - use forward slashes for cross-platform -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/BTCPayServer/bin/Release/net8.0')">/build/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
-    <!-- Default path for local development (Windows) -->
-    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == ''">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <!-- Default path for local development (Windows) - only set if DLLs actually exist -->
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0\BTCPayServer.dll')">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
   </PropertyGroup>
 
   <!-- Debug: Print the resolved path (for troubleshooting) -->
@@ -41,51 +41,51 @@
   <ItemGroup>
     <!-- BTCPay Server Abstractions - Core plugin interfaces -->
     <!-- Plugin Builder should set BTCPayServerPath or provide DLLs in standard location -->
-    <Reference Include="BTCPayServer.Abstractions" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Abstractions" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Abstractions.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Abstractions.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Data - Store data models -->
-    <Reference Include="BTCPayServer.Data" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Data" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Data.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Data.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Client - Contains Policies class -->
-    <Reference Include="BTCPayServer.Client" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Client" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Client.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Client.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Common - Contains Logs class -->
-    <Reference Include="BTCPayServer.Common" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Common" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Common.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Common.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server Rating - Contains CurrencyPair, PairRate, RateProviderFactory -->
-    <Reference Include="BTCPayServer.Rating" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Rating" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Rating.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Rating.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- BTCPay Server main DLL - Contains Services, HostedServices namespaces -->
-    <Reference Include="BTCPayServer" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.dll</HintPath>
       <Private>False</Private>
     </Reference>
     
     <!-- Try separate DLLs if they exist (for older BTCPay Server versions) -->
-    <Reference Include="BTCPayServer.Services" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Services" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Services.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Services.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="BTCPayServer.HostedServices" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.HostedServices" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.HostedServices.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.HostedServices.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="BTCPayServer.Logging" Condition="'$(BTCPayServerLibPath)' != ''">
+    <Reference Include="BTCPayServer.Logging" Condition="'$(BTCPayServerLibPath)' != '' AND Exists('$(BTCPayServerLibPath)/BTCPayServer.Logging.dll')">
       <HintPath>$(BTCPayServerLibPath)/BTCPayServer.Logging.dll</HintPath>
       <Private>False</Private>
     </Reference>
