@@ -72,9 +72,7 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <!-- Views are automatically embedded by Razor SDK - no need for manual EmbeddedResource -->
-
-
+  <!-- Views are automatically compiled and embedded by Razor SDK -->
   <!-- Exclude test files and directories from plugin build -->
   <ItemGroup>
     <Compile Remove="BTCPayServer.Plugins.BitcoinRewards.Tests\**" />

@@ -280,19 +280,20 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                 throw new InvalidOperationException($"Failed to register BitcoinRewardsService as hosted service: {ex.Message}", ex);
             }
             
-            // Register UI extension with error handling
-            // Use simple relative path - Razor SDK will handle view resolution from compiled views
-            // This is non-critical - plugin works fine without the navigation menu item
+            // Register UI extension
+            // The view path should match the compiled view location from Razor SDK
+            // BTCPay Server will discover compiled views through ApplicationParts when AddPluginLoader is called
+            // The view at Views/BitcoinRewards/NavExtension.cshtml should be accessible as "BitcoinRewards/NavExtension"
             try
             {
                 applicationBuilder.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
             }
-            catch
+            catch (Exception ex)
             {
-                // View registration failed, but this is not critical for plugin functionality
+                // View registration failed - log but don't crash the plugin
                 // The plugin will work fine without the navigation menu item
                 // Users can still access the plugin via direct URL or store settings
-                // BTCPay Server will handle view resolution errors gracefully without crashing
+                // This error is handled gracefully and won't prevent plugin functionality
             }
             
             base.Execute(applicationBuilder);
