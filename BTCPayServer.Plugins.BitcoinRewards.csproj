@@ -30,26 +30,27 @@
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/build/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('/btcpayserver/bin/Release/net8.0/BTCPayServer.dll')">/btcpayserver/bin/Release/net8.0</BTCPayServerLibPath>
+    <!-- Try relative paths from build directory (for Plugin Builder) -->
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)../btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">$(MSBuildThisFileDirectory)../btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
+    <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)../../btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')">$(MSBuildThisFileDirectory)../../btcpayserver/BTCPayServer/bin/Release/net8.0</BTCPayServerLibPath>
     <!-- Default path for local development (Windows) -->
     <BTCPayServerLibPath Condition="'$(BTCPayServerLibPath)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0\BTCPayServer.dll')">$(MSBuildThisFileDirectory)..\..\btcpayserver\BTCPayServer\bin\$(Configuration)\net8.0</BTCPayServerLibPath>
   </PropertyGroup>
 
-  <!-- Debug: Print the resolved path (for troubleshooting) -->
-  <Target Name="PrintBTCPayServerPath" BeforeTargets="Build">
+  <!-- Debug: Print the resolved path (for troubleshooting) - runs early to help diagnose -->
+  <Target Name="PrintBTCPayServerPath" BeforeTargets="BeforeBuild">
     <Message Text="=== BTCPay Server DLL Path Resolution ===" Importance="high" />
     <Message Text="BTCPayServerPath (MSBuild property): '$(BTCPayServerPath)'" Importance="high" />
     <Message Text="BTCPAYSERVERPATH (Environment variable): '$(BTCPAYSERVERPATH)'" Importance="high" />
     <Message Text="MSBuildThisFileDirectory: '$(MSBuildThisFileDirectory)'" Importance="high" />
     <Message Text="Configuration: '$(Configuration)'" Importance="high" />
     <Message Condition="'$(BTCPayServerLibPath)' != ''" Text="✓ BTCPayServerLibPath resolved to: $(BTCPayServerLibPath)" Importance="high" />
-    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="✗ WARNING: BTCPayServerLibPath is empty!" Importance="high" />
+    <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="✗ WARNING: BTCPayServerLibPath is empty! DLLs will not be found." Importance="high" />
     <Message Condition="'$(BTCPayServerLibPath)' == ''" Text="Checking common Plugin Builder paths..." Importance="high" />
     <Message Condition="Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
     <Message Condition="!Exists('/build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /build/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
     <Message Condition="Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
     <Message Condition="!Exists('/build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /build/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
-    <Message Condition="Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✓ Found: /btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
-    <Message Condition="!Exists('/btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll')" Text="  ✗ Not found: /btcpayserver/BTCPayServer/bin/Release/net8.0/BTCPayServer.dll" Importance="high" />
   </Target>
 
   <ItemGroup>
