@@ -9,8 +9,7 @@
 5. [Webhook Setup](#webhook-setup)
 6. [Email Configuration](#email-configuration)
 7. [Wallet Settings](#wallet-settings)
-8. [Square API Integration](#square-api-integration)
-9. [Viewing Rewards](#viewing-rewards)
+8. [Viewing Rewards](#viewing-rewards)
 10. [How It Works](#how-it-works)
 11. [Troubleshooting](#troubleshooting)
 12. [Best Practices](#best-practices)
@@ -21,12 +20,12 @@
 
 ## Introduction
 
-The **Bitcoin Rewards Plugin** for BTCPay Server enables merchants to automatically reward customers with Bitcoin when they make purchases through Shopify or Square. This creates a seamless loyalty program that incentivizes repeat purchases while introducing customers to Bitcoin.
+The **Bitcoin Rewards Plugin** for BTCPay Server enables merchants to automatically reward customers with Bitcoin when they make purchases through Shopify. This creates a seamless loyalty program that incentivizes repeat purchases while introducing customers to Bitcoin.
 
 ### Key Features
 
 - **Automatic Reward Calculation**: Automatically calculates Bitcoin rewards based on a configurable percentage of order amounts
-- **Multi-Platform Support**: Works with both Shopify and Square e-commerce platforms
+- **Shopify Integration**: Works with Shopify e-commerce platform
 - **Secure Webhook Processing**: Verifies webhook signatures to ensure only legitimate orders are processed
 - **Email Notifications**: Sends automated email notifications to customers with their reward details
 - **Flexible Wallet Options**: Supports Lightning Network, eCash, and on-chain Bitcoin payments
@@ -106,7 +105,7 @@ After installation, verify the plugin is active:
    - Click **Save**
 
 4. **Configure Webhooks**
-   - Follow the webhook setup instructions for your e-commerce platform (Shopify or Square)
+   - Follow the webhook setup instructions for Shopify
    - Copy the webhook URLs shown in the settings page
    - Configure the webhooks in your e-commerce platform
 
@@ -201,32 +200,16 @@ After installation, verify the plugin is active:
 - Shopify store with webhook configured
 - Valid webhook secret
 
-#### Square Enabled
-
-**Location**: Integration Settings section
-
-**Description**: Enable or disable Square webhook processing.
-
-**Usage**:
-- Check to enable Square integration
-- Uncheck to disable (Square webhooks will be ignored)
-
-**Requirements**:
-- Square account with webhook configured
-- Valid webhook secret
-- (Optional) Square API credentials for customer data
-
 #### Webhook Secret
 
 **Location**: Integration Settings section
 
-**Description**: Secret key used to verify webhook signatures from Shopify or Square.
+**Description**: Secret key used to verify webhook signatures from Shopify.
 
-**Security**: This is a critical security setting. The webhook secret ensures that only legitimate webhooks from your e-commerce platform are processed.
+**Security**: This is a critical security setting. The webhook secret ensures that only legitimate webhooks from Shopify are processed.
 
 **How to Get**:
 - **Shopify**: Generated when creating a webhook
-- **Square**: Found in your Square Developer Dashboard under Webhooks
 
 **Best Practices**:
 - Use a strong, random secret (at least 32 characters)
@@ -284,66 +267,6 @@ After installation, verify the plugin is active:
   - Shopify webhook is active
   - BTCPay Server is accessible from the internet
 
-### Square Webhook Configuration
-
-#### Step 1: Get Your Webhook URL
-
-1. Go to your store settings in BTCPay Server
-2. Navigate to **Bitcoin Rewards** settings
-3. Find the **Webhook URLs** section
-4. Copy the **Square Webhook URL** (format: `https://your-btcpay-server.com/plugins/bitcoinrewards/webhooks/square/{storeId}`)
-
-#### Step 2: Create Webhook in Square
-
-1. Log in to your [Square Developer Dashboard](https://developer.squareup.com/)
-2. Select your application
-3. Navigate to **Webhooks** in the left sidebar
-4. Click **Add Subscription**
-5. Configure the webhook:
-   - **Event types**: Select **`order.created`** or **`payment.created`**
-   - **URL**: Paste the webhook URL from Step 1
-   - **Environment**: Select **Production** or **Sandbox**
-6. Click **Save**
-
-#### Step 3: Get Webhook Signature Key
-
-1. In the Square Developer Dashboard, go to **Webhooks**
-2. Find your webhook subscription
-3. Copy the **Webhook signature key**
-4. Go back to BTCPay Server Bitcoin Rewards settings
-5. Paste the key into the **Webhook Secret** field
-6. Check **Square Enabled**
-7. Click **Save**
-
-#### Step 4: Configure Square API (Optional but Recommended)
-
-For better customer data retrieval, configure Square API credentials:
-
-1. In Square Developer Dashboard, go to **OAuth**
-2. Get your **Application ID** and **Access Token**
-3. Get your **Location ID** from Square Dashboard → Locations
-4. In BTCPay Server Bitcoin Rewards settings:
-   - Enter **Square Application ID**
-   - Enter **Square Access Token**
-   - Enter **Square Location ID**
-   - Select **Square Environment** (Production or Sandbox)
-5. Click **Save**
-
-#### Step 5: Test the Webhook
-
-1. Create a test order in Square
-2. Check the BTCPay Server logs or rewards history
-3. Verify the webhook was received and processed
-
-**Troubleshooting**:
-- If webhooks aren't being received, check:
-  - Webhook URL is correct and accessible
-  - Webhook signature key matches
-  - Square webhook subscription is active
-  - BTCPay Server is accessible from the internet
-  - Square API credentials are correct (if using API features)
-
----
 
 ## Email Configuration
 
@@ -400,7 +323,7 @@ The following placeholders can be used in the email body template:
 |------------|-------------|---------|
 | `{RewardAmount}` | The Bitcoin reward amount in BTC | `0.00012345` |
 | `{BitcoinAddress}` | The Bitcoin address where the reward was sent | `bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh` |
-| `{OrderId}` | The order ID from Shopify/Square | `#12345` or `abc123` |
+| `{OrderId}` | The order ID from Shopify | `#12345` |
 | `{TransactionId}` | The Bitcoin transaction ID (if available) | `abc123def456...` or `pending` |
 
 ### Email Template Examples
@@ -521,95 +444,6 @@ Best regards,
 
 ---
 
-## Square API Integration
-
-### Overview
-
-The Square API integration allows the plugin to fetch additional customer information when it's not available in webhook data. This is especially useful for Square orders where customer email/phone may not be included in the webhook payload.
-
-### Square API Credentials
-
-#### Square Application ID
-
-**Location**: Square API Settings section
-
-**Description**: Your Square application's unique identifier.
-
-**How to Get**:
-1. Log in to [Square Developer Dashboard](https://developer.squareup.com/)
-2. Select your application
-3. Find the **Application ID** in the application details
-4. Copy and paste into the plugin settings
-
-#### Square Access Token
-
-**Location**: Square API Settings section
-
-**Description**: OAuth access token for authenticating API requests.
-
-**How to Get**:
-1. In Square Developer Dashboard, go to **OAuth**
-2. Generate or copy your **Access Token**
-3. **Important**: Keep this token secure and never share it publicly
-4. Paste into the plugin settings (field is password-protected)
-
-**Security Note**: This token has access to your Square account. Treat it like a password.
-
-#### Square Location ID
-
-**Location**: Square API Settings section
-
-**Description**: The Square location ID where orders are processed.
-
-**How to Get**:
-1. Log in to [Square Dashboard](https://squareup.com/dashboard)
-2. Go to **Locations**
-3. Select your location
-4. Find the **Location ID** in the location details
-5. Copy and paste into the plugin settings
-
-#### Square Environment
-
-**Location**: Square API Settings section
-
-**Description**: Whether to use Square's production or sandbox environment.
-
-**Options**:
-- **Production**: Use for live stores with real orders
-- **Sandbox**: Use for testing and development
-
-**Recommendations**:
-- Use **Sandbox** when testing the plugin
-- Switch to **Production** when ready to process real orders
-- Ensure credentials match the selected environment
-
-### When Square API is Used
-
-The plugin uses Square API to fetch customer information when:
-1. Square webhook is received
-2. Customer email/phone is not in the webhook data
-3. Order contains a customer ID
-4. Square API credentials are configured
-
-### Square API Troubleshooting
-
-**Issue**: Customer information not being fetched
-
-**Solutions**:
-1. Verify Square API credentials are correct
-2. Check that Square Environment matches your credentials
-3. Ensure Location ID is correct
-4. Verify Access Token has necessary permissions
-5. Check BTCPay Server logs for API errors
-
-**Issue**: API rate limits
-
-**Solutions**:
-1. Square has rate limits on API calls
-2. Plugin caches customer data when possible
-3. If hitting limits, contact Square support or reduce order volume
-
----
 
 ## Viewing Rewards
 
@@ -624,7 +458,7 @@ The plugin uses Square API to fetch customer information when:
 The rewards view shows:
 
 - **Reward ID**: Unique identifier for the reward
-- **Order ID**: The order ID from Shopify/Square
+- **Order ID**: The order ID from Shopify
 - **Customer Email**: Customer's email address
 - **Customer Phone**: Customer's phone number (if available)
 - **Reward Amount**: Bitcoin amount in BTC
@@ -633,7 +467,7 @@ The rewards view shows:
 - **Status**: Current status of the reward
 - **Created At**: When the reward was created
 - **Sent At**: When the reward was sent (if applicable)
-- **Source**: Platform source (Shopify or Square)
+- **Source**: Platform source (Shopify)
 
 ### Reward Statuses
 
@@ -648,7 +482,7 @@ The rewards view shows:
 - Filter by status
 - Search by order ID or customer email
 - Filter by date range
-- Filter by source (Shopify/Square)
+- Filter by source (Shopify)
 
 ---
 
@@ -657,12 +491,12 @@ The rewards view shows:
 ### Reward Processing Flow
 
 1. **Order Received**
-   - Customer places order in Shopify or Square
-   - E-commerce platform sends webhook to BTCPay Server
+   - Customer places order in Shopify
+   - Shopify sends webhook to BTCPay Server
 
 2. **Webhook Verification**
    - Plugin verifies webhook signature using webhook secret
-   - Ensures webhook is legitimate and from authorized source
+   - Ensures webhook is legitimate and from Shopify
 
 3. **Order Data Parsing**
    - Plugin extracts order information:
@@ -670,7 +504,7 @@ The rewards view shows:
      - Order amount and currency
      - Customer email and/or phone
      - Customer name
-   - For Square: May fetch additional customer data via API
+   - May fetch additional customer data via Shopify API if needed
 
 4. **Reward Calculation**
    - Calculates reward amount: `Order Amount × Reward Percentage`
@@ -745,7 +579,7 @@ The plugin includes robust error handling:
 
 2. **Webhook Not Configured**
    - Verify webhook URL is correct in e-commerce platform
-   - Check webhook is active in Shopify/Square
+   - Check webhook is active in Shopify
    - Verify webhook secret matches
 
 3. **Webhook Verification Failing**
@@ -758,8 +592,8 @@ The plugin includes robust error handling:
    - Verify order amount meets requirement
 
 5. **Integration Not Enabled**
-   - Check "Shopify Enabled" or "Square Enabled" is checked
-   - Verify correct integration is enabled for your platform
+   - Check "Shopify Enabled" is checked
+   - Verify Shopify integration is enabled
 
 #### Issue: Rewards Created But Not Sent
 
@@ -862,8 +696,7 @@ The plugin includes robust error handling:
 
 3. **Platform-Specific Issues**
    - **Shopify**: Verify HMAC SHA256 signature format
-   - **Square**: Verify signature key and format
-   - Check platform documentation for signature requirements
+   - Check Shopify documentation for signature requirements
 
 ### Checking Logs
 
@@ -922,7 +755,7 @@ If you're unable to resolve an issue:
    - Use different secrets for different stores
 
 2. **API Credentials**
-   - Keep Square API credentials secure
+   - Keep Shopify API credentials secure
    - Never commit credentials to version control
    - Rotate access tokens regularly
    - Use least-privilege access when possible
@@ -1001,8 +834,8 @@ If you're unable to resolve an issue:
 
 ### General Questions
 
-**Q: Can I use this plugin with both Shopify and Square?**
-A: Yes, you can enable both integrations simultaneously. The plugin will process webhooks from both platforms.
+**Q: Does this plugin work with other e-commerce platforms besides Shopify?**
+A: Currently, the plugin only supports Shopify integration. Support for additional platforms may be added in future versions.
 
 **Q: Do customers need a Bitcoin wallet to receive rewards?**
 A: Yes, customers need a Bitcoin address to receive rewards. The plugin generates addresses, but customers should have a wallet to access their Bitcoin.
@@ -1047,11 +880,8 @@ A: While technically possible, it's not recommended for security reasons. Use un
 **Q: What Shopify events trigger rewards?**
 A: Currently, only "Order creation" events are supported. Other events are ignored.
 
-**Q: What Square events trigger rewards?**
-A: Currently, "order.created" and "payment.created" events are supported.
-
 **Q: Can I test webhooks without processing real orders?**
-A: Yes, you can create test orders in Shopify/Square sandbox/test mode. Ensure your Square Environment setting matches.
+A: Yes, you can create test orders in Shopify test mode to verify webhook processing.
 
 ### Cost and Pricing Questions
 
@@ -1113,13 +943,13 @@ A: Currently, manual reprocessing is not available. Failed rewards remain in "Fa
    - Never use HTTP for webhooks in production
 
 3. **IP Whitelisting** (if supported)
-   - Consider whitelisting Shopify/Square IPs
-   - Check platform documentation for IP ranges
+   - Consider whitelisting Shopify IPs
+   - Check Shopify documentation for IP ranges
    - Monitor for unauthorized access attempts
 
 ### API Security
 
-1. **Square API Credentials**
+1. **Shopify API Credentials**
    - Store credentials securely
    - Never expose in logs or error messages
    - Rotate credentials regularly
@@ -1183,7 +1013,7 @@ A: Currently, manual reprocessing is not available. Failed rewards remain in "Fa
 The Bitcoin Rewards Plugin provides a powerful way to reward customers with Bitcoin automatically. By following this manual, you should be able to:
 
 - Install and configure the plugin
-- Set up webhooks with Shopify and Square
+- Set up webhooks with Shopify
 - Configure email notifications
 - Monitor and manage rewards
 - Troubleshoot common issues

@@ -16,7 +16,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         public decimal MinimumOrderAmount { get; set; } = 0m;
         public decimal MaximumRewardAmount { get; set; } = 1000m; // Maximum reward in BTC
         public bool ShopifyEnabled { get; set; }
-        public bool SquareEnabled { get; set; }
         public string WebhookSecret { get; set; } = string.Empty;
         public string EmailFromAddress { get; set; } = string.Empty;
         public string EmailSubject { get; set; } = "Your Bitcoin Reward is Ready!";
@@ -26,12 +25,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         // Wallet preferences
         public WalletPreference WalletPreference { get; set; } = WalletPreference.LightningFirst;
         public string PreferredLightningNodeId { get; set; } = string.Empty;
-        
-        // Square API credentials
-        public string SquareApplicationId { get; set; } = string.Empty;
-        public string SquareAccessToken { get; set; } = string.Empty;
-        public string SquareLocationId { get; set; } = string.Empty;
-        public string SquareEnvironment { get; set; } = "production"; // production or sandbox
         
         // Shopify API credentials
         public string ShopifyApiKey { get; set; } = string.Empty;
@@ -45,13 +38,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         public bool CredentialsPopulated()
         {
             return !string.IsNullOrEmpty(WebhookSecret);
-        }
-        
-        public bool SquareCredentialsPopulated()
-        {
-            return !string.IsNullOrEmpty(SquareApplicationId) && 
-                   !string.IsNullOrEmpty(SquareAccessToken) && 
-                   !string.IsNullOrEmpty(SquareLocationId);
         }
         
         public bool ShopifyCredentialsPopulated()

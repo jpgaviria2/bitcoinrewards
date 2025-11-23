@@ -16,9 +16,9 @@
     
     <Message Text="Repository root: $(_RepoRoot)" Importance="high" />
     
-    <!-- Check if btcpayserver submodule directory exists but is empty (not initialized) -->
+    <!-- Check if submodules directory exists but is empty (not initialized) -->
     <PropertyGroup>
-      <_BTCPayServerSubmodulePath>$(_RepoRoot)/btcpayserver</_BTCPayServerSubmodulePath>
+      <_BTCPayServerSubmodulePath>$(_RepoRoot)/submodules</_BTCPayServerSubmodulePath>
       <_SubmoduleExists>false</_SubmoduleExists>
       <_SubmoduleExists Condition="Exists('$(_BTCPayServerSubmodulePath)')">true</_SubmoduleExists>
       <_SubmoduleInitialized>false</_SubmoduleInitialized>
@@ -53,11 +53,11 @@
     
     <!-- Try multiple possible paths for the solution file -->
     <PropertyGroup>
-      <_BTCPayServerSolutionPath1>$(_RepoRoot)/btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath1>
-      <_BTCPayServerSolutionPath2>$(MSBuildProjectDirectory)/../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath2>
-      <_BTCPayServerSolutionPath3>$(MSBuildProjectDirectory)/../../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath3>
-      <_BTCPayServerSolutionPath4>../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath4>
-      <_BTCPayServerSolutionPath5>../../btcpayserver/btcpayserver.sln</_BTCPayServerSolutionPath5>
+      <_BTCPayServerSolutionPath1>$(_RepoRoot)/submodules/btcpayserver.sln</_BTCPayServerSolutionPath1>
+      <_BTCPayServerSolutionPath2>$(MSBuildProjectDirectory)/../submodules/btcpayserver.sln</_BTCPayServerSolutionPath2>
+      <_BTCPayServerSolutionPath3>$(MSBuildProjectDirectory)/../../submodules/btcpayserver.sln</_BTCPayServerSolutionPath3>
+      <_BTCPayServerSolutionPath4>../submodules/btcpayserver.sln</_BTCPayServerSolutionPath4>
+      <_BTCPayServerSolutionPath5>../../submodules/btcpayserver.sln</_BTCPayServerSolutionPath5>
     </PropertyGroup>
     
     <!-- Check which path exists -->

@@ -15,7 +15,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         public RewardStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? SentAt { get; set; }
-        public string Source { get; set; } = null!; // "shopify" or "square"
+        public string Source { get; set; } = null!; // "shopify"
     }
 
     public enum RewardStatus

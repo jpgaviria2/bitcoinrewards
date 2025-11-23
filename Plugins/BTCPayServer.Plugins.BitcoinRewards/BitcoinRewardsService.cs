@@ -22,7 +22,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
         private readonly WalletService _walletService;
         private readonly EmailService? _emailService;
         private readonly RateService? _rateService;
-        private readonly Services.SquareApiService? _squareApiService;
         private readonly Services.ShopifyApiService? _shopifyApiService;
 
         public BitcoinRewardsService(
@@ -32,7 +31,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             WalletService walletService,
             EmailService? emailService,
             RateService? rateService,
-            Services.SquareApiService? squareApiService,
             Services.ShopifyApiService? shopifyApiService,
             Logs logs) : base(eventAggregator, logs)
         {
@@ -41,7 +39,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             _walletService = walletService;
             _emailService = emailService;
             _rateService = rateService;
-            _squareApiService = squareApiService;
             _shopifyApiService = shopifyApiService;
         }
 

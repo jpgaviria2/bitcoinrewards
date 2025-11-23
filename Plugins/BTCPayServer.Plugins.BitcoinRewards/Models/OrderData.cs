@@ -9,7 +9,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models
         public string CustomerEmail { get; set; } = null!;
         public string CustomerPhone { get; set; } = null!;
         public string CustomerName { get; set; } = null!;
-        public string Source { get; set; } = null!; // "shopify" or "square"
+        public string Source { get; set; } = null!; // "shopify"
         public string StoreId { get; set; } = null!;
     }
 }

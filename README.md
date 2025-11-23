@@ -1,15 +1,14 @@
 # Bitcoin Rewards Plugin for BTCPay Server
 
-A standalone plugin that enables Bitcoin-backed rewards for customers when they make purchases through Shopify or Square.
+A standalone plugin that enables Bitcoin-backed rewards for customers when they make purchases through Shopify.
 
 ## Features
 
 - **Automatic Rewards**: Automatically calculate and send Bitcoin rewards based on order amounts
 - **Shopify Integration**: Receive order webhooks from Shopify and process rewards
-- **Square Integration**: Receive order webhooks from Square and process rewards
 - **Email Notifications**: Send email notifications to customers with their reward details
 - **Configurable**: Set reward percentage, minimum order amounts, and maximum reward limits
-- **Secure**: Webhook signature verification for Shopify and Square
+- **Secure**: Webhook signature verification for Shopify
 
 ## Installation
 
@@ -52,7 +51,7 @@ A standalone plugin that enables Bitcoin-backed rewards for customers when they 
 
 3. Build the plugin:
    ```bash
-   cd BTCPayServer.Plugins.BitcoinRewards
+   cd Plugins/BTCPayServer.Plugins.BitcoinRewards
    dotnet build -c Release
    ```
 
@@ -79,7 +78,6 @@ The plugin can be built automatically using the [BTCPay Server Plugin Builder](h
    - **Minimum Order Amount**: Minimum order amount required to receive a reward
    - **Maximum Reward Amount**: Maximum reward amount in BTC
    - **Shopify Enabled**: Enable Shopify integration
-   - **Square Enabled**: Enable Square integration
    - **Webhook Secret**: Secret key for verifying webhook signatures
    - **Email Settings**: Configure email from address, subject, and body template
 
@@ -93,17 +91,9 @@ The plugin can be built automatically using the [BTCPay Server Plugin Builder](h
    - **API version**: Latest
 3. Copy the webhook secret and paste it into the plugin settings
 
-### Square Webhook Setup
-
-1. In your Square Developer Dashboard, go to **Webhooks**
-2. Create a new webhook subscription for:
-   - **Event**: `order.created` or `payment.created`
-   - **URL**: `https://your-btcpay-server.com/plugins/bitcoinrewards/webhooks/square/{storeId}`
-3. Copy the webhook signature key and paste it into the plugin settings
-
 ## How It Works
 
-1. When an order is created in Shopify or Square, a webhook is sent to BTCPay Server
+1. When an order is created in Shopify, a webhook is sent to BTCPay Server
 2. The plugin verifies the webhook signature for security
 3. The order data is parsed to extract:
    - Order ID and amount
@@ -118,7 +108,7 @@ The plugin can be built automatically using the [BTCPay Server Plugin Builder](h
 The email body template supports the following placeholders:
 - `{RewardAmount}` - The Bitcoin reward amount
 - `{BitcoinAddress}` - The Bitcoin address where the reward was sent
-- `{OrderId}` - The order ID from Shopify/Square
+- `{OrderId}` - The order ID from Shopify
 
 ## Security
 
@@ -131,23 +121,32 @@ The email body template supports the following placeholders:
 ### Project Structure
 
 ```
-BTCPayServer.Plugins.BitcoinRewards/
-├── BitcoinRewardsPlugin.cs          # Main plugin class
-├── BitcoinRewardsService.cs         # Business logic service
-├── BitcoinRewardsExtensions.cs     # Extension methods for settings
-├── Controllers/
-│   ├── UIBitcoinRewardsController.cs  # UI controller for settings
-│   └── WebhookController.cs           # Webhook endpoints
-├── Models/
-│   ├── BitcoinRewardsSettings.cs    # Settings model
-│   ├── OrderData.cs                 # Order data model
-│   └── RewardRecord.cs              # Reward record model
-└── Views/
-    ├── UIBitcoinRewards/
-    │   ├── EditSettings.cshtml      # Settings view
-    │   └── ViewRewards.cshtml       # Rewards history view
-    └── BitcoinRewards/
-        └── NavExtension.cshtml      # Navigation menu extension
+btcpayserver-plugin-bitcoinrewards/
+├── Plugins/
+│   ├── BTCPayServer.Plugins.BitcoinRewards/
+│   │   ├── BitcoinRewardsPlugin.cs          # Main plugin class
+│   │   ├── BitcoinRewardsService.cs         # Business logic service
+│   │   ├── BitcoinRewardsExtensions.cs     # Extension methods for settings
+│   │   ├── BTCPayServer.Plugins.BitcoinRewards.csproj
+│   │   ├── Controllers/
+│   │   │   ├── UIBitcoinRewardsController.cs  # UI controller for settings
+│   │   │   └── WebhookController.cs           # Webhook endpoints
+│   │   ├── Models/
+│   │   │   ├── BitcoinRewardsSettings.cs    # Settings model
+│   │   │   ├── OrderData.cs                 # Order data model
+│   │   │   └── RewardRecord.cs              # Reward record model
+│   │   ├── Services/
+│   │   ├── Repositories/
+│   │   └── Views/
+│   │       ├── UIBitcoinRewards/
+│   │       │   ├── EditSettings.cshtml      # Settings view
+│   │       │   └── ViewRewards.cshtml       # Rewards history view
+│   │       └── BitcoinRewards/
+│   │           └── NavExtension.cshtml      # Navigation menu extension
+│   └── BTCPayServer.Plugins.BitcoinRewards.Tests/  # Test project
+├── submodules/                          # BTCPay Server submodule
+├── README.md
+└── Directory.Build.*                    # Build configuration files
 ```
 
 ### Building for Plugin Builder

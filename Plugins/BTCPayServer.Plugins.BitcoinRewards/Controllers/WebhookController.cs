@@ -23,20 +23,17 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
     {
         private readonly StoreRepository _storeRepository;
         private readonly BitcoinRewardsService _rewardsService;
-        private readonly SquareApiService? _squareApiService;
         private readonly ShopifyApiService? _shopifyApiService;
         private readonly Logs _logs;
 
         public WebhookController(
             StoreRepository storeRepository,
             BitcoinRewardsService rewardsService,
-            SquareApiService? squareApiService,
             ShopifyApiService? shopifyApiService,
             Logs logs)
         {
             _storeRepository = storeRepository;
             _rewardsService = rewardsService;
-            _squareApiService = squareApiService;
             _shopifyApiService = shopifyApiService;
             _logs = logs;
         }
@@ -103,67 +100,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
             }
         }
 
-        [HttpPost("square/{storeId}")]
-        public async Task<IActionResult> SquareWebhook(string storeId)
-        {
-            try
-            {
-                var store = await _storeRepository.FindStore(storeId);
-                if (store == null)
-                {
-                    return NotFound();
-                }
-
-                var settings = BitcoinRewards.BitcoinRewardsExtensions.GetBitcoinRewardsSettings(store.GetStoreBlob());
-                if (settings == null || !settings.Enabled || !settings.SquareEnabled)
-                {
-                    return BadRequest("Bitcoin Rewards is not enabled for Square on this store");
-                }
-
-                // Verify webhook signature (Square uses HMAC SHA256)
-                var signatureHeader = Request.Headers["X-Square-Signature"].ToString();
-                if (!string.IsNullOrEmpty(signatureHeader) && !string.IsNullOrEmpty(settings.WebhookSecret))
-                {
-                    using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-                    var body = await reader.ReadToEndAsync();
-                    var isValid = VerifySquareWebhook(body, signatureHeader, settings.WebhookSecret);
-                    if (!isValid)
-                    {
-                        return Unauthorized("Invalid webhook signature");
-                    }
-
-                    Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
-                }
-
-                var json = await new StreamReader(Request.Body).ReadToEndAsync();
-                
-                // Log webhook received
-                _logs.PayServer.LogInformation($"Square webhook received for store {storeId}");
-                
-                // Log service availability
-                if (_squareApiService == null)
-                {
-                    _logs.PayServer.LogWarning("SquareApiService is not available - will use webhook data only");
-                }
-                
-                var orderData = await ParseSquareOrderAsync(json, storeId, settings);
-
-                if (orderData != null)
-                {
-                    _logs.PayServer.LogInformation($"Processing Square order {orderData.OrderId} for store {storeId}");
-                    var reward = await _rewardsService.ProcessOrderReward(orderData);
-                    _logs.PayServer.LogInformation($"Successfully processed Square reward {reward.Id} for order {orderData.OrderId}");
-                    return Ok(new { rewardId = reward.Id, status = reward.Status.ToString() });
-                }
-
-                _logs.PayServer.LogWarning($"Failed to parse Square order data for store {storeId}");
-                return BadRequest("Invalid order data");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
 
         private async Task<OrderData?> ParseShopifyOrderAsync(string json, string storeId, BitcoinRewardsSettings settings)
         {
@@ -278,70 +214,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
             }
         }
 
-        private async Task<OrderData?> ParseSquareOrderAsync(string json, string storeId, BitcoinRewardsSettings settings)
-        {
-            try
-            {
-                var webhook = JObject.Parse(json);
-                var order = webhook["data"]?["object"]?["order"] ?? webhook["order"];
-                if (order == null)
-                {
-                    return null;
-                }
-                var orderId = order["id"]?.ToString() ?? string.Empty;
-                var customerId = order["customer_id"]?.ToString();
-
-                var orderData = new OrderData
-                {
-                    OrderId = orderId,
-                    OrderNumber = order["reference_id"]?.ToString() ?? orderId,
-                    OrderAmount = order["total_money"]?["amount"]?.Value<decimal>() / 100m ?? 0m, // Square uses cents
-                    Currency = order["total_money"]?["currency"]?.ToString() ?? "USD",
-                    CustomerEmail = string.Empty,
-                    CustomerPhone = string.Empty,
-                    CustomerName = string.Empty,
-                    Source = "square",
-                    StoreId = storeId
-                };
-
-                // Try to fetch customer info from Square API if customer ID is available and credentials are set
-                if (!string.IsNullOrEmpty(customerId) && settings.SquareCredentialsPopulated() && _squareApiService != null)
-                {
-                    try
-                    {
-                        var customerInfo = await _squareApiService.GetCustomerInfoAsync(
-                            customerId,
-                            settings.SquareAccessToken,
-                            settings.SquareLocationId,
-                            settings.SquareEnvironment);
-
-                        if (customerInfo != null)
-                        {
-                            orderData.CustomerEmail = customerInfo.Email;
-                            orderData.CustomerPhone = customerInfo.Phone;
-                            orderData.CustomerName = $"{customerInfo.GivenName} {customerInfo.FamilyName}".Trim();
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // Log but don't fail - we'll try to get email from order data
-                        // Logging is handled in SquareApiService
-                    }
-                }
-
-                // Fallback: try to get email from order data directly
-                if (string.IsNullOrEmpty(orderData.CustomerEmail))
-                {
-                    orderData.CustomerEmail = order["email_address"]?.ToString() ?? string.Empty;
-                }
-
-                return orderData;
-            }
-            catch
-            {
-                return null;
-            }
-        }
 
         private bool VerifyShopifyWebhook(string body, string hmacHeader, string secret)
         {
@@ -349,14 +221,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(body));
             var hashString = BitConverter.ToString(hash).Replace("-", "").ToLower();
             return hashString == hmacHeader.ToLower();
-        }
-
-        private bool VerifySquareWebhook(string body, string signatureHeader, string secret)
-        {
-            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(body));
-            var hashString = Convert.ToBase64String(hash);
-            return hashString == signatureHeader;
         }
     }
 }

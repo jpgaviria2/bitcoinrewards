@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 [assembly: AssemblyProduct("Bitcoin Rewards")]
-[assembly: AssemblyDescription("Bitcoin-backed rewards system that integrates with Shopify and Square to automatically send rewards to customers.")]
+[assembly: AssemblyDescription("Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.")]
 
 namespace BTCPayServer.Plugins.BitcoinRewards
 {
@@ -14,7 +14,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards
     {
         public override string Identifier => "BTCPayServer.Plugins.BitcoinRewards";
         public override string Name => "Bitcoin Rewards";
-        public override string Description => "Bitcoin-backed rewards system that integrates with Shopify and Square to automatically send rewards to customers.";
+        public override string Description => "Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.";
 
         public override void Execute(IServiceCollection applicationBuilder)
         {
@@ -139,16 +139,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                 // Rate conversion will be unavailable but plugin can still work
             }
             
-            // Register HttpClient for SquareApiService - always safe
-            try
-            {
-                applicationBuilder.AddHttpClient<Services.SquareApiService>();
-            }
-            catch
-            {
-                // HttpClient registration should never fail, but handle gracefully
-            }
-            
             // Register HttpClient for ShopifyApiService - always safe (will be created later)
             try
             {
@@ -157,35 +147,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
             catch
             {
                 // HttpClient registration should never fail, but handle gracefully
-            }
-            
-            // Register SquareApiService - always safe (service checks credentials before use)
-            try
-            {
-                applicationBuilder.AddScoped<Services.SquareApiService>(provider =>
-                {
-                    try
-                    {
-                        var httpClientFactory = provider.GetRequiredService<System.Net.Http.IHttpClientFactory>();
-                        var httpClient = httpClientFactory.CreateClient(nameof(Services.SquareApiService));
-                        var logs = provider.GetService<BTCPayServer.Logging.Logs>();
-                        if (logs == null)
-                        {
-                            logs = provider.GetRequiredService<BTCPayServer.Logging.Logs>();
-                        }
-                        return new Services.SquareApiService(httpClient, logs);
-                    }
-                    catch
-                    {
-                        // Return null if service creation fails - will be handled as optional
-                        return null!;
-                    }
-                });
-            }
-            catch
-            {
-                // SquareApiService registration failed - log but continue
-                // Square integration will be unavailable but plugin can still work
             }
             
             // Register ShopifyApiService - always safe (service checks credentials before use)
@@ -246,7 +207,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                     // Optional services - can be null
                     var emailService = provider.GetService<Services.EmailService>();
                     var rateService = provider.GetService<Services.RateService>();
-                    var squareApiService = provider.GetService<Services.SquareApiService>();
                     var shopifyApiService = provider.GetService<Services.ShopifyApiService>();
                     
                     return new BitcoinRewardsService(
@@ -256,7 +216,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards
                         walletService,
                         emailService,
                         rateService,
-                        squareApiService,
                         shopifyApiService,
                         logs);
                 });

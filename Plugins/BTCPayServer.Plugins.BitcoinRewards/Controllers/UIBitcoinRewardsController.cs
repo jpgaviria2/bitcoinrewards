@@ -64,13 +64,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
                             TempData[WellKnownTempData.ErrorMessage] = "Please provide Shopify Shop Domain and Access Token when enabling Shopify integration";
                             return View(vm);
                         }
-                        
-                        // Validate Square credentials if Square is enabled
-                        if (vm.Enabled && vm.SquareEnabled && !vm.SquareCredentialsPopulated())
-                        {
-                            TempData[WellKnownTempData.ErrorMessage] = "Please provide Square Application ID, Access Token, and Location ID when enabling Square integration";
-                            return View(vm);
-                        }
 
                         if (vm.Enabled && vm.IntegratedAt == null)
                         {

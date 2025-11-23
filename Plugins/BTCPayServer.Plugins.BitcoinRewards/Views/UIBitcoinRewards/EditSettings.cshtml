@@ -8,7 +8,7 @@
         <div class="d-flex align-items-center justify-content-between mb-3">
             <h3 class="mb-0">@ViewData["Title"]</h3>
         </div>
-        <p>Configure Bitcoin-backed rewards for your customers. When orders are received from Shopify or Square, customers will automatically receive Bitcoin rewards.</p>
+        <p>Configure Bitcoin-backed rewards for your customers. When orders are received from Shopify, customers will automatically receive Bitcoin rewards.</p>
 
         @if (!ViewContext.ModelState.IsValid)
         {
@@ -52,17 +52,10 @@
             </div>
 
             <div class="form-group">
-                <div class="form-check">
-                    <input asp-for="SquareEnabled" type="checkbox" class="form-check-input" />
-                    <label asp-for="SquareEnabled" class="form-check-label">Enable Square Integration</label>
-                </div>
-            </div>
-
-            <div class="form-group">
                 <label asp-for="WebhookSecret" class="form-label">Webhook Secret</label>
                 <input asp-for="WebhookSecret" type="password" class="form-control" />
                 <span asp-validation-for="WebhookSecret" class="text-danger"></span>
-                <small class="form-text text-muted">Secret key for verifying webhook signatures from Shopify/Square</small>
+                <small class="form-text text-muted">Secret key for verifying webhook signatures from Shopify</small>
             </div>
 
             <div class="form-group">
@@ -137,38 +130,6 @@
             </div>
 
             <div class="form-group">
-                <h4>Square API Settings</h4>
-                <p class="text-muted">Configure Square API credentials to fetch customer information when not available in webhooks.</p>
-                
-                <div class="form-group">
-                    <label asp-for="SquareApplicationId" class="form-label">Square Application ID</label>
-                    <input asp-for="SquareApplicationId" class="form-control" />
-                    <span asp-validation-for="SquareApplicationId" class="text-danger"></span>
-                </div>
-
-                <div class="form-group">
-                    <label asp-for="SquareAccessToken" class="form-label">Square Access Token</label>
-                    <input asp-for="SquareAccessToken" type="password" class="form-control" />
-                    <span asp-validation-for="SquareAccessToken" class="text-danger"></span>
-                </div>
-
-                <div class="form-group">
-                    <label asp-for="SquareLocationId" class="form-label">Square Location ID</label>
-                    <input asp-for="SquareLocationId" class="form-control" />
-                    <span asp-validation-for="SquareLocationId" class="text-danger"></span>
-                </div>
-
-                <div class="form-group">
-                    <label asp-for="SquareEnvironment" class="form-label">Square Environment</label>
-                    <select asp-for="SquareEnvironment" class="form-control">
-                        <option value="production">Production</option>
-                        <option value="sandbox">Sandbox</option>
-                    </select>
-                    <span asp-validation-for="SquareEnvironment" class="text-danger"></span>
-                </div>
-            </div>
-
-            <div class="form-group">
                 <h4>Currency Conversion</h4>
                 <label asp-for="PreferredExchangeRateProvider" class="form-label">Exchange Rate Provider</label>
                 <select asp-for="PreferredExchangeRateProvider" class="form-control">
@@ -181,15 +142,11 @@
             </div>
 
             <div class="form-group">
-                <h4>Webhook URLs</h4>
-                <p>Configure these URLs in your Shopify/Square webhook settings:</p>
+                <h4>Webhook URL</h4>
+                <p>Configure this URL in your Shopify webhook settings:</p>
                 <div class="form-group">
                     <label class="form-label">Shopify Webhook URL:</label>
                     <input type="text" readonly class="form-control" value="@Url.Action("ShopifyWebhook", "Webhook", new { storeId = Context.GetStoreData().Id }, Context.Request.Scheme)" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Square Webhook URL:</label>
-                    <input type="text" readonly class="form-control" value="@Url.Action("SquareWebhook", "Webhook", new { storeId = Context.GetStoreData().Id }, Context.Request.Scheme)" />
                 </div>
             </div>
 
