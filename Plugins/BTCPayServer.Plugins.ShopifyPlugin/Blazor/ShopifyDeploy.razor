@@ -1,0 +1,191 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using System.IO
+@using System.Text
+@using System.Text.RegularExpressions
+@using BTCPayServer.Configuration
+@using BTCPayServer.Services.Stores
+@inject ShopifyClientFactory ShopifyClientFactory
+@inject StoreRepository StoreRepository
+@inject IJSRuntime JSRuntime
+
+@code {
+    [Parameter] public string StoreId { get; set; }
+    [Parameter] public string PluginUrl { get; set; }
+    [Parameter] public string AppName { get; set; }
+
+    public class DeployViewModel
+    {
+        [Required] public string AppName { get; set; }
+        [Required] public string CLIToken { get; set; }
+    }
+
+    DeployViewModel deployViewModel;
+    EditContext editContext;
+    ValidationMessageStore messageStore;
+
+    private async Task Deploy(EditContext arg)
+    {
+        if (!_CanDeploy)
+            return;
+        try
+        {
+            var settings = await StoreRepository.GetSettingAsync<ShopifyStoreSettings>(StoreId, ShopifyStoreSettings.SettingsName) ?? new();
+            if (settings.PreferredAppName != deployViewModel.AppName.Trim())
+            {
+                settings.PreferredAppName = deployViewModel.AppName.Trim();
+                await StoreRepository.UpdateSetting(StoreId, ShopifyStoreSettings.SettingsName, settings);
+            }
+            if (settings is not { Setup: { ClientId: { } clientId } setup })
+            {
+                this.FormError = "Shopify store not configured";
+                return;
+            }
+            _CanDeploy = false;
+            logs.Clear();
+            logs.AppendLine("Deployment started");
+            FormError = null;
+            StateHasChanged();
+            var deployer = this.ShopifyClientFactory.CreateAppDeployer();
+            using var resp = await deployer.Deploy(new()
+            {
+                AppName = settings.PreferredAppName ?? ShopifyStoreSettings.DefaultAppName,
+                CLIToken = deployViewModel.CLIToken.Trim(),
+                ClientId = clientId,
+                PluginUrl = PluginUrl
+            });
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            string commit = null;
+            bool? success = null;
+            string version = "";
+            using var reader = new StreamReader(stream, leaveOpen: true);
+            while (await reader.ReadLineAsync() is { } line)
+            {
+                if (line.Contains("[2K"))
+                    continue;
+                if (line.Contains("Releasing an app version ..."))
+                    continue;
+                if (line.StartsWith("COMMIT="))
+                    commit = line.Substring("COMMIT=".Length).Trim();
+                if (line.StartsWith("VERSION="))
+                    version = line.Substring("VERSION=".Length).Trim();
+                if (line.Contains("New version created, but not released.", StringComparison.OrdinalIgnoreCase))
+                    success = false;
+                if (success is null && line.StartsWith("SUCCESS=true"))
+                    success = true;
+                logs.AppendLine(line);
+                StateHasChanged();
+            }
+
+            if (success is true)
+            {
+                setup.DeployedCommit = commit;
+                setup.Version = version;
+                await StoreRepository.UpdateSetting(StoreId, ShopifyStoreSettings.SettingsName, settings);
+                // Add a small delay to let the time for the user to see it is a success before refreshing the page
+                await Task.Delay(1000);
+                await JSRuntime.InvokeVoidAsync("RefreshPage");
+            }
+            else
+            {
+                FormError = "Failure to deploy the shopify app";
+            }
+
+            StateHasChanged();
+        }
+        finally
+        {
+            _CanDeploy = true;
+        }
+    }
+
+    public StringBuilder logs = new StringBuilder();
+
+    protected override void OnInitialized()
+    {
+        this.
+        deployViewModel = new DeployViewModel() { AppName = AppName };
+        editContext = new EditContext(deployViewModel);
+        editContext.OnValidationRequested += HandleValidationRequested;
+        messageStore = new ValidationMessageStore(editContext);
+        _CanDeploy = true;
+
+        var pluginUrl = new Uri(PluginUrl, UriKind.Absolute);
+        var localNetwork = BTCPayServer.Extensions.IsLocalNetwork(pluginUrl.Host);
+        if (localNetwork)
+        {
+            _CanDeploy = false;
+            FormError = "To deploy the Shopify app, you must access your BTCPay Server through a public domain.";
+        }
+        else if (pluginUrl.Scheme != Uri.UriSchemeHttps)
+        {
+            _CanDeploy = false;
+            FormError = "To deploy the Shopify app, you must access your BTCPay Server via HTTPS.";
+        }
+
+        try
+        {
+            this.ShopifyClientFactory.CreateAppDeployer();
+        }
+        catch (AppDeployerConfigException e)
+        {
+            _CanDeploy = false;
+            _AppDeployerError = e.Details;
+        }
+        catch (ConfigException e)
+        {
+            _CanDeploy = false;
+            FormError = e.Message;
+        }
+    }
+
+    AppDeployerConfigException.Error? _AppDeployerError;
+    bool _CanDeploy = false;
+    static Regex InvalidInput = new Regex(@"[\|\t\r\n\f\v""]");
+    string FormError = "";
+
+    private void HandleValidationRequested(object sender, ValidationRequestedEventArgs e)
+    {
+        messageStore.Clear();
+        FormError = "";
+        if (deployViewModel.CLIToken?.StartsWith("atkn_") is not true)
+            messageStore.Add(() => deployViewModel.CLIToken, "Invalid CLI token, it should start by atkn_");
+        else if (InvalidInput.IsMatch(deployViewModel.CLIToken ?? ""))
+            messageStore.Add(() => deployViewModel.CLIToken, "Found forbidden characters");
+        if (InvalidInput.IsMatch(deployViewModel.AppName ?? ""))
+            messageStore.Add(() => deployViewModel.AppName, "Found forbidden characters");
+    }
+
+}
+
+<EditForm OnValidSubmit="Deploy" EditContext="@editContext">
+    <DataAnnotationsValidator/>
+    @if (_AppDeployerError is AppDeployerConfigException.Error.NeedFragment)
+    {
+        <div class="alert alert-danger text-break" role="alert">The server admin needs to <a href="https://docs.btcpayserver.org/ShopifyV2/#deploy-the-shopify-fragment" rel="noreferrer noopener" target="_blank">install the 'opt-add-shopify' fragment</a> in order to deploy the app on Shopify.</div>
+    }
+    else if (_AppDeployerError is AppDeployerConfigException.Error.NeedEnvVariable)
+    {
+        <div class="alert alert-danger text-break" role="alert">BTCPAY_SHOPIFY_PLUGIN_DEPLOYER is not configured. It should point to a <a href="https://github.com/btcpayserver/shopify-app" rel="noreferrer noopener" target="_blank">shopify app deployer instance</a>.</div>
+    }
+    else if (!String.IsNullOrEmpty((FormError)))
+    {
+        <div class="alert alert-danger text-break" role="alert">@FormError</div>
+    }
+    <p>Go to the <a href="https://partners.shopify.com/" rel="noreferrer noopener" target="_blank">Shopify Partner portal</a>: Settings → Scroll down → CLI Token → Manage Tokens → Generate new token, then copy the token. We are not storing this token, so feel free to revoke it after deployment. Please refer to <a href="https://docs.btcpayserver.org/ShopifyV2/#set-up-a-shopify-app" rel="noreferrer noopener" target="_blank">our documentation</a> if you experience any issues.</p>
+    <div class="form-group">
+        <label for="deployViewModel.AppName" class="form-label">App name</label>
+        <InputText @bind-Value="deployViewModel.AppName" Class="form-control"/>
+        <ValidationMessage For="() => deployViewModel.AppName" Class="text-danger"></ValidationMessage>
+    </div>
+    <div class="form-group">
+        <label for="deployViewModel.CLIToken" class="form-label">CLI token</label>
+        <InputText @bind-Value="deployViewModel.CLIToken" autocomplete="off" Class="form-control"/>
+        <ValidationMessage For="() => deployViewModel.CLIToken" Class="text-danger"></ValidationMessage>
+    </div>
+
+    @if (logs.Length != 0)
+    {
+        <pre><code class="text hljs" id="deployLogs">@logs</code></pre>
+    }
+    <button class="btn btn-primary" type="submit" disabled="@(!_CanDeploy)">Deploy App</button>
+</EditForm>

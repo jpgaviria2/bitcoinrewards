@@ -1,0 +1,32 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Abstractions.TagHelpers
+@using BTCPayServer.Plugins.ShopifyPlugin
+@using BTCPayServer.Plugins.ShopifyPlugin.ViewModels
+@using BTCPayServer.TagHelpers
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using Microsoft.AspNetCore.Routing
+@model ShopifyAdminViewModel
+@{
+    Layout = "_LayoutWizard";
+}
+
+<header class="text-center">
+    <h1>Shopify Plugin for BTCPay Server</h1>
+    @if (Model.Configured)
+    {
+        <p class="lead text-secondary mt-3">Your BTCPay Server-Shopify installation was successful!</p>
+        <p class="mt-3">
+            <span>To start accepting payments, make sure to complete the three following steps:</span>
+            <ul class="list-unstyled">
+                <li>Grant network access to your application. Go to your app on your partner's dashboard > API Access > scroll down to 'Allow network access in checkout and account UI extensions' and grant network access.</li>
+                <li><a href="https://docs.btcpayserver.org/ShopifyV2/#customize-the-thank-you-page" rel="noreferrer noopener" target="_blank">Customize the checkout's "Thank You" page</a> on <a href="https://admin.shopify.com/store/@(Model.ShopName)/settings/checkout" rel="noreferrer noopener" target="_blank">this page</a>.</li>
+                <li><a href="https://docs.btcpayserver.org/ShopifyV2/#set-up-a-custom-payment-method-in-shopify" rel="noreferrer noopener" target="_blank">Add BTCPay Server as a Manual payment method</a> on <a href="https://admin.shopify.com/store/@(Model.ShopName)/settings/payments" rel="noreferrer noopener" target="_blank">this page</a>.</li>
+            </ul>
+        </p>
+    }
+    else
+    {
+        <p class="lead text-secondary mt-3">Your BTCPay Server Shopify plugin isn't yet configured.</p>
+    }
+    <p>You can navigate to your plugin's settings page by <a asp-controller="UIShopifyV2" asp-action="Settings" asp-route-storeId="@(this.Context.GetRouteValue("storeId"))" rel="noreferrer noopener" target="_blank">clicking here</a>.</p>
+</header>
