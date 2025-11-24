@@ -99,3 +99,4 @@ If the Views.dll is still not being generated, it may indicate:
 - View Discovery: Uses `RelatedAssemblyAttribute` and `EmbeddedFileProvider`
 - Razor SDK: `Microsoft.NET.Sdk.Razor` with `AddRazorSupportForMvc=true`
 
+

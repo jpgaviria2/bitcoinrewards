@@ -17,6 +17,6 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        // Bitcoin Rewards plugin will be implemented step by step
+        services.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
     }
 }
