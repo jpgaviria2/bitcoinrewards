@@ -17,6 +17,11 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        services.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
+        // Temporarily disabled to prevent crashes
+        // The view file exists but Views.dll isn't being properly generated/included in the plugin package
+        // Once we have a stable minimal plugin, we'll add UI extensions incrementally
+        // services.AddUIExtension("header-nav", "BitcoinRewards/NavExtension");
+        
+        // Plugin loads successfully without UI extensions
     }
 }
