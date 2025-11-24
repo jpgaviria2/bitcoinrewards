@@ -1,0 +1,22 @@
+using BTCPayServer.Abstractions.Contracts;
+using BTCPayServer.Abstractions.Models;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BTCPayServer.Plugins.BitcoinRewards;
+
+public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
+{
+    public override string Identifier => "BTCPayServer.Plugins.BitcoinRewards";
+    public override string Name => "Bitcoin Rewards";
+    public override string Description => "Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.";
+
+    public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
+    {
+        new IBTCPayServerPlugin.PluginDependency { Identifier = nameof(BTCPayServer), Condition = ">=2.0.0" }
+    };
+
+    public override void Execute(IServiceCollection services)
+    {
+        // Bitcoin Rewards plugin will be implemented step by step
+    }
+}
