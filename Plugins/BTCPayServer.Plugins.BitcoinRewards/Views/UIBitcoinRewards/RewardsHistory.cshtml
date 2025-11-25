@@ -1,6 +1,7 @@
 @using BTCPayServer.Abstractions.Extensions
 @using BTCPayServer.Plugins.BitcoinRewards.ViewModels
 @using BTCPayServer.Plugins.BitcoinRewards.Data
+@using System.Linq
 @model BitcoinRewardHistoryViewModel
 @{
     ViewData.SetActivePage("BitcoinRewards", "Rewards History", "BitcoinRewards");
@@ -10,6 +11,14 @@
 <div class="row">
     <div class="sticky-header">
         <h2 class="my-1">@ViewData["Title"]</h2>
+        <div>
+            <a asp-action="EditSettings" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
+                Settings
+            </a>
+            <a asp-action="CreateTestReward" asp-route-storeId="@Model.StoreId" class="btn btn-primary">
+                Create Test Reward
+            </a>
+        </div>
     </div>
     <partial name="_StatusMessage"/>
     <div class="col-xxl-constrain">

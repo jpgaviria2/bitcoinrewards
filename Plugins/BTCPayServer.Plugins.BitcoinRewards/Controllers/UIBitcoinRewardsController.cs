@@ -14,6 +14,7 @@ using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BTCPayServer.Plugins.BitcoinRewards;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -249,6 +250,91 @@ public class UIBitcoinRewardsController : Controller
             });
         }
         
+        return RedirectToAction(nameof(RewardsHistory), new { storeId });
+    }
+
+    [HttpGet]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/create")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    public async Task<IActionResult> CreateTestReward(string storeId)
+    {
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+            storeId, 
+            BitcoinRewardsStoreSettings.SettingsName);
+        
+        if (settings == null || !settings.Enabled)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = "Bitcoin Rewards must be enabled to create test rewards",
+                Severity = StatusMessageModel.StatusSeverity.Error
+            });
+            return RedirectToAction(nameof(EditSettings), new { storeId });
+        }
+
+        ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
+        return View("CreateTestReward", new CreateTestRewardViewModel { StoreId = storeId });
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/create")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> CreateTestReward(string storeId, CreateTestRewardViewModel vm)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
+            return View("CreateTestReward", vm);
+        }
+
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+            storeId, 
+            BitcoinRewardsStoreSettings.SettingsName);
+        
+        if (settings == null || !settings.Enabled)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = "Bitcoin Rewards must be enabled",
+                Severity = StatusMessageModel.StatusSeverity.Error
+            });
+            return RedirectToAction(nameof(EditSettings), new { storeId });
+        }
+
+        // Create test transaction data
+        var transaction = new Models.TransactionData
+        {
+            TransactionId = $"TEST_{Guid.NewGuid():N}",
+            OrderId = vm.OrderId,
+            Amount = vm.TransactionAmount,
+            Currency = vm.Currency ?? "USD",
+            CustomerEmail = vm.CustomerEmail,
+            CustomerPhone = vm.CustomerPhone,
+            Platform = vm.Platform,
+            TransactionDate = DateTime.UtcNow
+        };
+
+        var rewardsService = HttpContext.RequestServices.GetRequiredService<BitcoinRewardsService>();
+        var success = await rewardsService.ProcessRewardAsync(storeId, transaction);
+
+        if (success)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = "Test reward created successfully",
+                Severity = StatusMessageModel.StatusSeverity.Success
+            });
+        }
+        else
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = "Failed to create test reward. Check logs for details.",
+                Severity = StatusMessageModel.StatusSeverity.Error
+            });
+        }
+
         return RedirectToAction(nameof(RewardsHistory), new { storeId });
     }
 }

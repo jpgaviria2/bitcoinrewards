@@ -1,0 +1,75 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@using BTCPayServer.Plugins.BitcoinRewards.Models
+@model CreateTestRewardViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
+    Layout = "_Layout";
+}
+
+<div class="row">
+    <div class="sticky-header">
+        <h2 class="my-1">@ViewData["Title"]</h2>
+        <div>
+            <a asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
+                Back to History
+            </a>
+        </div>
+    </div>
+    <partial name="_StatusMessage"/>
+    <div class="col-xxl-constrain col-xl-8">
+        <div class="alert alert-info">
+            <strong>Test Reward Creation</strong><br/>
+            This will create a test reward transaction and process it through the reward system. Use this to test email notifications and reward processing.
+        </div>
+
+        <form method="post">
+            <div class="form-group mb-4">
+                <label asp-for="TransactionAmount" class="form-label"></label>
+                <input asp-for="TransactionAmount" class="form-control" type="number" step="0.01" min="0.01" />
+                <span asp-validation-for="TransactionAmount" class="text-danger"></span>
+                <small class="form-text text-muted">The transaction amount to base the reward on.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="Currency" class="form-label"></label>
+                <input asp-for="Currency" class="form-control" value="USD" />
+                <span asp-validation-for="Currency" class="text-danger"></span>
+                <small class="form-text text-muted">Transaction currency (USD, EUR, etc.)</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="Platform" class="form-label"></label>
+                <select asp-for="Platform" asp-items="Html.GetEnumSelectList<TransactionPlatform>()" class="form-control"></select>
+                <span asp-validation-for="Platform" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="OrderId" class="form-label"></label>
+                <input asp-for="OrderId" class="form-control" />
+                <span asp-validation-for="OrderId" class="text-danger"></span>
+                <small class="form-text text-muted">Optional order ID for reference.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="CustomerEmail" class="form-label"></label>
+                <input asp-for="CustomerEmail" class="form-control" type="email" />
+                <span asp-validation-for="CustomerEmail" class="text-danger"></span>
+                <small class="form-text text-muted">Email address to send the reward notification to.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="CustomerPhone" class="form-label"></label>
+                <input asp-for="CustomerPhone" class="form-control" type="tel" />
+                <span asp-validation-for="CustomerPhone" class="text-danger"></span>
+                <small class="form-text text-muted">Optional phone number for SMS delivery (not yet implemented).</small>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">Create Test Reward</button>
+                <a asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+

@@ -1,10 +1,13 @@
 #nullable enable
 using System;
 using System.Threading.Tasks;
+using System.Threading;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Models;
 using BTCPayServer.Services.Rates;
 using BTCPayServer.Services.Stores;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
@@ -16,6 +19,7 @@ public class BitcoinRewardsService
     private readonly ICashuService _cashuService;
     private readonly IEmailNotificationService _emailService;
     private readonly CurrencyNameTable _currencyNameTable;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
     private readonly ILogger<BitcoinRewardsService> _logger;
 
     public BitcoinRewardsService(
@@ -24,13 +28,15 @@ public class BitcoinRewardsService
         ICashuService cashuService,
         IEmailNotificationService emailService,
         CurrencyNameTable currencyNameTable,
-        ILogger<BitcoinRewardsService> logger)
+        ILogger<BitcoinRewardsService> logger,
+        IHttpContextAccessor? httpContextAccessor = null)
     {
         _storeRepository = storeRepository;
         _repository = repository;
         _cashuService = cashuService;
         _emailService = emailService;
         _currencyNameTable = currencyNameTable;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
@@ -84,16 +90,28 @@ public class BitcoinRewardsService
             // Calculate reward amount
             var rewardAmount = CalculateRewardAmount(transaction.Amount, settings.RewardPercentage);
             
-            // Convert to satoshis (simplified - assumes 1 BTC = 100,000,000 sats)
-            // TODO: Use proper currency conversion service
-            var rewardSatoshis = ConvertToSatoshis(rewardAmount);
+            // Convert reward amount from store currency to BTC/satoshis
+            var rewardSatoshis = await ConvertToSatoshisAsync(transaction.Currency, rewardAmount, storeId);
+            if (rewardSatoshis <= 0)
+            {
+                _logger.LogError("Failed to convert reward amount {Amount} {Currency} to satoshis for store {StoreId}", 
+                    rewardAmount, transaction.Currency, storeId);
+                return false;
+            }
 
             // Apply maximum reward cap if set
             if (settings.MaximumRewardSatoshis.HasValue && 
                 rewardSatoshis > settings.MaximumRewardSatoshis.Value)
             {
                 rewardSatoshis = settings.MaximumRewardSatoshis.Value;
-                rewardAmount = rewardSatoshis / 100_000_000m;
+                // Recalculate rewardAmount in original currency based on capped satoshis
+                var btcAmount = rewardSatoshis / 100_000_000m;
+                var btcRate = await GetBtcRateAsync(transaction.Currency);
+                if (btcRate.HasValue)
+                {
+                    var cappedBtc = rewardSatoshis / 100_000_000m;
+                    rewardAmount = cappedBtc * btcRate.Value;
+                }
             }
 
             // Create reward record
@@ -177,11 +195,52 @@ public class BitcoinRewardsService
         return transactionAmount * (percentage / 100m);
     }
 
-    public long ConvertToSatoshis(decimal btcAmount)
+    private Task<decimal?> GetBtcRateAsync(string fromCurrency)
     {
-        // Simplified conversion - assumes 1 BTC = 100,000,000 sats
-        // TODO: Use proper rate service for currency conversion
-        return (long)(btcAmount * 100_000_000m);
+        // Simplified for now - use approximate USD/BTC rate
+        // TODO: Integrate with actual rate service
+        return Task.FromResult<decimal?>(50000m); // Approximate BTC price in USD
+    }
+
+    private async Task<long> ConvertToSatoshisAsync(string fromCurrency, decimal amount, string storeId)
+    {
+        try
+        {
+            // Simplified conversion for now
+            // For manual testing, we'll use a fixed rate approximation
+            // TODO: Integrate with actual BTCPay Server rate service
+            
+            // Approximate conversion: assume $50k per BTC if USD, otherwise use a rough estimate
+            decimal btcPrice;
+            if (fromCurrency.Equals("USD", StringComparison.OrdinalIgnoreCase))
+            {
+                btcPrice = 50000m; // Approximate BTC price in USD
+            }
+            else if (fromCurrency.Equals("EUR", StringComparison.OrdinalIgnoreCase))
+            {
+                btcPrice = 45000m; // Rough EUR estimate
+            }
+            else
+            {
+                // For other currencies, use a conservative estimate
+                btcPrice = 50000m;
+                _logger.LogWarning("Using default BTC price for currency {Currency}", fromCurrency);
+            }
+
+            // Convert fiat amount to BTC
+            var btcAmount = amount / btcPrice;
+            
+            // Convert BTC to satoshis (1 BTC = 100,000,000 sats)
+            var satoshis = (long)(btcAmount * 100_000_000m);
+            
+            // Ensure minimum of 1 satoshi
+            return Math.Max(1, satoshis);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error converting {Amount} {Currency} to satoshis", amount, fromCurrency);
+            return 0;
+        }
     }
 }
 
