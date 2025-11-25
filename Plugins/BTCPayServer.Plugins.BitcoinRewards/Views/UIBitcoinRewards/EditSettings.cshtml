@@ -27,7 +27,7 @@
             <div class="form-group mb-4">
                 <div class="form-check form-switch">
                     <input type="hidden" name="Enabled" value="false">
-                    <input asp-for="Enabled" class="form-check-input" type="checkbox" id="Enabled" value="true" checked="@Model.Enabled">
+                    <input name="Enabled" class="form-check-input" type="checkbox" id="Enabled" value="true" @(Model.Enabled ? "checked" : "")>
                     <label asp-for="Enabled" class="form-check-label"></label>
                 </div>
                 <span asp-validation-for="Enabled" class="text-danger"></span>
@@ -62,7 +62,7 @@
             <div class="form-group mb-4">
                 <div class="form-check form-switch">
                     <input type="hidden" name="EnableShopify" value="false">
-                    <input asp-for="EnableShopify" class="form-check-input" type="checkbox" id="EnableShopify" value="true" checked="@Model.EnableShopify">
+                    <input name="EnableShopify" class="form-check-input" type="checkbox" id="EnableShopify" value="true" @(Model.EnableShopify ? "checked" : "")>
                     <label asp-for="EnableShopify" class="form-check-label"></label>
                 </div>
                 <small class="form-text text-muted">Enable rewards for Shopify transactions.</small>
@@ -87,7 +87,7 @@
             <div class="form-group mb-4">
                 <div class="form-check form-switch">
                     <input type="hidden" name="EnableSquare" value="false">
-                    <input asp-for="EnableSquare" class="form-check-input" type="checkbox" id="EnableSquare" value="true" checked="@Model.EnableSquare">
+                    <input name="EnableSquare" class="form-check-input" type="checkbox" id="EnableSquare" value="true" @(Model.EnableSquare ? "checked" : "")>
                     <label asp-for="EnableSquare" class="form-check-label"></label>
                 </div>
                 <small class="form-text text-muted">Enable rewards for Square transactions.</small>

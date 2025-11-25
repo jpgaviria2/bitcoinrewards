@@ -72,15 +72,26 @@ public class UIBitcoinRewardsController : Controller
     {
         if (command == "Save")
         {
-            // For checkboxes in ASP.NET Core, if unchecked they don't send a value
-            // Read checkbox values directly from form to ensure correct binding
-            vm.Enabled = Request.Form.ContainsKey("Enabled") && Request.Form["Enabled"].ToString() == "true";
-            vm.EnableShopify = Request.Form.ContainsKey("EnableShopify") && Request.Form["EnableShopify"].ToString() == "true";
-            vm.EnableSquare = Request.Form.ContainsKey("EnableSquare") && Request.Form["EnableSquare"].ToString() == "true";
+            // For checkboxes with hidden inputs, Request.Form may contain multiple values
+            // Check if "true" is in the collection (checkbox value) vs just "false" (hidden input)
+            var enabledValues = Request.Form["Enabled"];
+            vm.Enabled = enabledValues.Count > 0 && enabledValues.Contains("true");
             
-            // Log what we received from the form
-            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled}, Percentage={Percentage}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}", 
-                storeId, vm.Enabled, vm.RewardPercentage, vm.EnableShopify, vm.EnableSquare);
+            var enableShopifyValues = Request.Form["EnableShopify"];
+            vm.EnableShopify = enableShopifyValues.Count > 0 && enableShopifyValues.Contains("true");
+            
+            var enableSquareValues = Request.Form["EnableSquare"];
+            vm.EnableSquare = enableSquareValues.Count > 0 && enableSquareValues.Contains("true");
+            
+            // Clear ModelState for checkboxes to use our explicitly read values
+            ModelState.Remove(nameof(vm.Enabled));
+            ModelState.Remove(nameof(vm.EnableShopify));
+            ModelState.Remove(nameof(vm.EnableSquare));
+            
+            // Log what we received from the form for debugging
+            var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
+            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), Percentage={Percentage}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}", 
+                storeId, vm.Enabled, enabledValuesStr, vm.RewardPercentage, vm.EnableShopify, vm.EnableSquare);
             
             if (!ModelState.IsValid)
             {
@@ -109,28 +120,29 @@ public class UIBitcoinRewardsController : Controller
                 }
             }
 
-            _logger.LogInformation("Saving settings for store {StoreId}: Enabled={Enabled}, Percentage={Percentage}, ViewModel.Enabled={VmEnabled}", 
-                storeId, vm.Enabled, vm.RewardPercentage, vm.Enabled);
-            
             var settings = vm.ToSettings();
             
-            _logger.LogInformation("Converted to settings: Enabled={Enabled}, Percentage={Percentage}", 
-                settings.Enabled, settings.RewardPercentage);
+            _logger.LogInformation("Saving settings for store {StoreId}: ViewModel.Enabled={VmEnabled}, Settings.Enabled={SettingsEnabled}, Percentage={Percentage}", 
+                storeId, vm.Enabled, settings.Enabled, settings.RewardPercentage);
             
             await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
             
-            // Verify settings were saved
+            // Verify settings were saved correctly
             var savedSettings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
                 storeId, 
                 BitcoinRewardsStoreSettings.SettingsName);
             
-            _logger.LogInformation("Verified saved settings for store {StoreId}: Enabled={Enabled}", 
-                storeId, savedSettings?.Enabled ?? false);
+            _logger.LogInformation("Verified saved settings for store {StoreId}: Enabled={Enabled}, Percentage={Percentage}", 
+                storeId, savedSettings?.Enabled ?? false, savedSettings?.RewardPercentage ?? 0);
             
-            if (savedSettings == null || savedSettings.Enabled != settings.Enabled)
+            if (savedSettings == null)
             {
-                _logger.LogWarning("Settings persistence issue: Expected Enabled={Expected}, Got={Actual}", 
-                    settings.Enabled, savedSettings?.Enabled ?? false);
+                _logger.LogError("Settings were not saved - savedSettings is null for store {StoreId}", storeId);
+            }
+            else if (savedSettings.Enabled != settings.Enabled)
+            {
+                _logger.LogError("Settings persistence issue for store {StoreId}: Expected Enabled={Expected}, Got={Actual}", 
+                    storeId, settings.Enabled, savedSettings.Enabled);
             }
             
             TempData.SetStatusMessageModel(new StatusMessageModel
