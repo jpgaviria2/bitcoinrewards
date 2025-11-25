@@ -84,6 +84,17 @@ public class BitcoinRewardsSettingsViewModel
     
     public void SetFromSettings(BitcoinRewardsStoreSettings settings)
     {
+        if (settings == null)
+        {
+            // Use defaults if settings are null
+            Enabled = false;
+            RewardPercentage = 0m;
+            DeliveryMethod = DeliveryMethod.Email;
+            EnableShopify = false;
+            EnableSquare = false;
+            return;
+        }
+        
         Enabled = settings.Enabled;
         RewardPercentage = settings.RewardPercentage;
         DeliveryMethod = settings.DeliveryMethod;

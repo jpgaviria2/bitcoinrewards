@@ -14,6 +14,7 @@ using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BTCPayServer.Plugins.BitcoinRewards;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
@@ -24,15 +25,18 @@ public class UIBitcoinRewardsController : Controller
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _rewardsRepository;
     private readonly ICashuService _cashuService;
+    private readonly ILogger<UIBitcoinRewardsController> _logger;
 
     public UIBitcoinRewardsController(
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
-        ICashuService cashuService)
+        ICashuService cashuService,
+        ILogger<UIBitcoinRewardsController> logger)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _cashuService = cashuService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -42,13 +46,19 @@ public class UIBitcoinRewardsController : Controller
     {
         var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
             storeId, 
-            BitcoinRewardsStoreSettings.SettingsName) ?? new BitcoinRewardsStoreSettings();
+            BitcoinRewardsStoreSettings.SettingsName);
+        
+        _logger.LogDebug("Loading settings for store {StoreId}: Enabled={Enabled}", storeId, settings?.Enabled ?? false);
         
         var vm = new BitcoinRewardsSettingsViewModel
         {
             StoreId = storeId
         };
-        vm.SetFromSettings(settings);
+        
+        if (settings != null)
+        {
+            vm.SetFromSettings(settings);
+        }
         
         ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
         return View("EditSettings", vm);
@@ -68,15 +78,8 @@ public class UIBitcoinRewardsController : Controller
                 return View("EditSettings", vm);
             }
 
-            // Validate that at least one platform is enabled
-            if (!vm.EnableShopify && !vm.EnableSquare)
-            {
-                ModelState.AddModelError("", "Please enable at least one platform (Shopify or Square)");
-                ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
-                return View("EditSettings", vm);
-            }
-
-            // Validate platform-specific credentials
+            // Only validate platform credentials if platforms are enabled
+            // Allow plugin to be enabled without platforms configured (for manual testing)
             if (vm.EnableShopify && string.IsNullOrWhiteSpace(vm.ShopifyAccessToken))
             {
                 ModelState.AddModelError(nameof(vm.ShopifyAccessToken), "Shopify access token is required when Shopify is enabled");
@@ -96,8 +99,29 @@ public class UIBitcoinRewardsController : Controller
                 }
             }
 
+            _logger.LogInformation("Saving settings for store {StoreId}: Enabled={Enabled}, Percentage={Percentage}, ViewModel.Enabled={VmEnabled}", 
+                storeId, vm.Enabled, vm.RewardPercentage, vm.Enabled);
+            
             var settings = vm.ToSettings();
+            
+            _logger.LogInformation("Converted to settings: Enabled={Enabled}, Percentage={Percentage}", 
+                settings.Enabled, settings.RewardPercentage);
+            
             await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
+            
+            // Verify settings were saved
+            var savedSettings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+                storeId, 
+                BitcoinRewardsStoreSettings.SettingsName);
+            
+            _logger.LogInformation("Verified saved settings for store {StoreId}: Enabled={Enabled}", 
+                storeId, savedSettings?.Enabled ?? false);
+            
+            if (savedSettings == null || savedSettings.Enabled != settings.Enabled)
+            {
+                _logger.LogWarning("Settings persistence issue: Expected Enabled={Expected}, Got={Actual}", 
+                    settings.Enabled, savedSettings?.Enabled ?? false);
+            }
             
             TempData.SetStatusMessageModel(new StatusMessageModel
             {

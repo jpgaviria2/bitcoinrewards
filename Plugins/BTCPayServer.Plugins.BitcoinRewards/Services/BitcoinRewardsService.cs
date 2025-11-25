@@ -202,7 +202,7 @@ public class BitcoinRewardsService
         return Task.FromResult<decimal?>(50000m); // Approximate BTC price in USD
     }
 
-    private async Task<long> ConvertToSatoshisAsync(string fromCurrency, decimal amount, string storeId)
+    private Task<long> ConvertToSatoshisAsync(string fromCurrency, decimal amount, string storeId)
     {
         try
         {
@@ -234,12 +234,12 @@ public class BitcoinRewardsService
             var satoshis = (long)(btcAmount * 100_000_000m);
             
             // Ensure minimum of 1 satoshi
-            return Math.Max(1, satoshis);
+            return Task.FromResult(Math.Max(1, satoshis));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error converting {Amount} {Currency} to satoshis", amount, fromCurrency);
-            return 0;
+            return Task.FromResult(0L);
         }
     }
 }
