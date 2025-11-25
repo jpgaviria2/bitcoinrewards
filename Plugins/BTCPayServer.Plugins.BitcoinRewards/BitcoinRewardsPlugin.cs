@@ -20,5 +20,12 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Register navigation menu item - view is in Views/Shared/BitcoinRewardsNavExtension.cshtml
         // Using just the view name (no path) - BTCPay Server automatically searches Views/Shared/
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
+        
+        // Register services
+        services.AddScoped<Services.BitcoinRewardsRepository>();
+        services.AddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
+        services.AddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
+        services.AddScoped<Services.BitcoinRewardsService>();
+        services.AddHttpClient<Clients.SquareApiClient>();
     }
 }

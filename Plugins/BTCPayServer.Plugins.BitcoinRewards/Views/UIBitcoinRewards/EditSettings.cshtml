@@ -1,13 +1,160 @@
 @using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@using BTCPayServer.Plugins.BitcoinRewards
+@model BitcoinRewardsSettingsViewModel
 @{
     ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
     Layout = "_Layout";
 }
 
 <div class="row">
+    <div class="sticky-header">
+        <h2 class="my-1">@ViewData["Title"]</h2>
+        <div>
+            <form method="post">
+                <button name="command" type="submit" class="btn btn-danger" value="Reset">
+                    Reset
+                </button>
+            </form>
+        </div>
+    </div>
+    <partial name="_StatusMessage"/>
     <div class="col-xxl-constrain col-xl-8">
-        <h2 class="mb-4">@ViewData["Title"]</h2>
-        <p>Bitcoin Rewards plugin configuration page. This will be implemented step by step.</p>
+        <form method="post">
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input asp-for="Enabled" class="form-check-input" type="checkbox" id="Enabled">
+                    <label asp-for="Enabled" class="form-check-label"></label>
+                </div>
+                <span asp-validation-for="Enabled" class="text-danger"></span>
+                <small class="form-text text-muted">Enable Bitcoin Rewards for this store. When disabled, no rewards will be processed.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="RewardPercentage" class="form-label"></label>
+                <input asp-for="RewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
+                <span asp-validation-for="RewardPercentage" class="text-danger"></span>
+                <small class="form-text text-muted">Percentage of transaction amount to give as reward (0-100). For example, 5 means 5% cashback.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="DeliveryMethod" class="form-label"></label>
+                <div>
+                    <div class="form-check form-check-inline">
+                        <input asp-for="DeliveryMethod" class="form-check-input" type="radio" value="@DeliveryMethod.Email" id="DeliveryMethod_Email" checked="@(Model.DeliveryMethod == DeliveryMethod.Email)">
+                        <label class="form-check-label" for="DeliveryMethod_Email">Email</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input asp-for="DeliveryMethod" class="form-check-input" type="radio" value="@DeliveryMethod.Sms" id="DeliveryMethod_Sms" checked="@(Model.DeliveryMethod == DeliveryMethod.Sms)">
+                        <label class="form-check-label" for="DeliveryMethod_Sms">SMS</label>
+                    </div>
+                </div>
+                <span asp-validation-for="DeliveryMethod" class="text-danger"></span>
+                <small class="form-text text-muted">How rewards will be delivered to customers.</small>
+            </div>
+
+            <h3 class="mt-5 mb-3">Platform Integration</h3>
+            
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input asp-for="EnableShopify" class="form-check-input" type="checkbox" id="EnableShopify">
+                    <label asp-for="EnableShopify" class="form-check-label"></label>
+                </div>
+                <small class="form-text text-muted">Enable rewards for Shopify transactions.</small>
+            </div>
+
+            <div id="shopify-settings" style="display: @(Model.EnableShopify ? "block" : "none");">
+                <div class="form-group mb-3">
+                    <label asp-for="ShopifyShopUrl" class="form-label"></label>
+                    <input asp-for="ShopifyShopUrl" class="form-control" placeholder="https://your-store.myshopify.com" />
+                    <span asp-validation-for="ShopifyShopUrl" class="text-danger"></span>
+                    <small class="form-text text-muted">Your Shopify store URL.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="ShopifyAccessToken" class="form-label"></label>
+                    <input asp-for="ShopifyAccessToken" class="form-control" type="password" />
+                    <span asp-validation-for="ShopifyAccessToken" class="text-danger"></span>
+                    <small class="form-text text-muted">Shopify API access token for webhook authentication.</small>
+                </div>
+            </div>
+
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input asp-for="EnableSquare" class="form-check-input" type="checkbox" id="EnableSquare">
+                    <label asp-for="EnableSquare" class="form-check-label"></label>
+                </div>
+                <small class="form-text text-muted">Enable rewards for Square transactions.</small>
+            </div>
+
+            <div id="square-settings" style="display: @(Model.EnableSquare ? "block" : "none");">
+                <div class="form-group mb-3">
+                    <label asp-for="SquareApplicationId" class="form-label"></label>
+                    <input asp-for="SquareApplicationId" class="form-control" />
+                    <span asp-validation-for="SquareApplicationId" class="text-danger"></span>
+                    <small class="form-text text-muted">Square Application ID from your Square Developer Dashboard.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="SquareAccessToken" class="form-label"></label>
+                    <input asp-for="SquareAccessToken" class="form-control" type="password" />
+                    <span asp-validation-for="SquareAccessToken" class="text-danger"></span>
+                    <small class="form-text text-muted">Square API access token.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="SquareLocationId" class="form-label"></label>
+                    <input asp-for="SquareLocationId" class="form-control" />
+                    <span asp-validation-for="SquareLocationId" class="text-danger"></span>
+                    <small class="form-text text-muted">Square Location ID where transactions occur.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="SquareEnvironment" class="form-label"></label>
+                    <select asp-for="SquareEnvironment" class="form-select">
+                        <option value="production">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                    </select>
+                    <span asp-validation-for="SquareEnvironment" class="text-danger"></span>
+                    <small class="form-text text-muted">Square API environment.</small>
+                </div>
+            </div>
+
+            <h3 class="mt-5 mb-3">Advanced Settings</h3>
+
+            <div class="form-group mb-4">
+                <label asp-for="MinimumTransactionAmount" class="form-label"></label>
+                <input asp-for="MinimumTransactionAmount" class="form-control" type="number" step="0.01" min="0" />
+                <span asp-validation-for="MinimumTransactionAmount" class="text-danger"></span>
+                <small class="form-text text-muted">Minimum transaction amount (in store currency) to trigger a reward. Leave empty for no minimum.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="MaximumRewardSatoshis" class="form-label"></label>
+                <input asp-for="MaximumRewardSatoshis" class="form-control" type="number" min="0" />
+                <span asp-validation-for="MaximumRewardSatoshis" class="text-danger"></span>
+                <small class="form-text text-muted">Maximum reward cap in satoshis. Leave empty for no limit.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="EmailTemplate" class="form-label"></label>
+                <textarea asp-for="EmailTemplate" class="form-control" rows="6"></textarea>
+                <span asp-validation-for="EmailTemplate" class="text-danger"></span>
+                <small class="form-text text-muted">Optional: Custom email template. Use {RewardAmount}, {EcashToken}, {OrderId} as placeholders.</small>
+            </div>
+
+            <button name="command" type="submit" class="btn btn-primary" value="Save">Save Settings</button>
+        </form>
     </div>
 </div>
 
+@section PageFootContent {
+    <script>
+        document.getElementById('EnableShopify').addEventListener('change', function() {
+            document.getElementById('shopify-settings').style.display = this.checked ? 'block' : 'none';
+        });
+        document.getElementById('EnableSquare').addEventListener('change', function() {
+            document.getElementById('square-settings').style.display = this.checked ? 'block' : 'none';
+        });
+    </script>
+}
