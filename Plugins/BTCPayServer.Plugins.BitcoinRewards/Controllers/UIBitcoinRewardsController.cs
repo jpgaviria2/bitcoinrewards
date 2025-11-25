@@ -135,14 +135,26 @@ public class UIBitcoinRewardsController : Controller
         var currentPage = page ?? 1;
         var pageSize = 20;
         
-        var (rewards, totalCount) = await _rewardsRepository.GetRewardsAsync(
-            storeId,
-            currentPage,
-            pageSize,
-            status,
-            platform,
-            dateFrom,
-            dateTo);
+        System.Collections.Generic.List<BitcoinRewardRecord> rewards;
+        int totalCount;
+        
+        try
+        {
+            (rewards, totalCount) = await _rewardsRepository.GetRewardsAsync(
+                storeId,
+                currentPage,
+                pageSize,
+                status,
+                platform,
+                dateFrom,
+                dateTo);
+        }
+        catch (Exception)
+        {
+            // Database table might not exist yet - show empty list
+            rewards = new System.Collections.Generic.List<BitcoinRewardRecord>();
+            totalCount = 0;
+        }
 
         var vm = new BitcoinRewardHistoryViewModel
         {

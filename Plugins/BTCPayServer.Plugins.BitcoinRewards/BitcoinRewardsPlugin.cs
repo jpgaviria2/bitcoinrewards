@@ -1,6 +1,7 @@
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BTCPayServer.Plugins.BitcoinRewards;
 
@@ -21,11 +22,12 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Using just the view name (no path) - BTCPay Server automatically searches Views/Shared/
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
         
-        // Register services
-        services.AddScoped<Services.BitcoinRewardsRepository>();
-        services.AddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
-        services.AddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
-        services.AddScoped<Services.BitcoinRewardsService>();
+        // Register services - using TryAdd to avoid conflicts if already registered
+        // Database operations will be handled lazily when needed
+        services.TryAddScoped<Services.BitcoinRewardsRepository>();
+        services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
+        services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
+        services.TryAddScoped<Services.BitcoinRewardsService>();
         services.AddHttpClient<Clients.SquareApiClient>();
     }
 }

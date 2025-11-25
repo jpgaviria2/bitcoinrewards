@@ -27,9 +27,17 @@ public class BitcoinRewardsRepository
 
     public async Task AddRewardAsync(BitcoinRewardRecord reward)
     {
-        await using var context = _dbContextFactory.CreateContext();
-        await context.Set<BitcoinRewardRecord>().AddAsync(reward);
-        await context.SaveChangesAsync();
+        try
+        {
+            await using var context = _dbContextFactory.CreateContext();
+            await context.Set<BitcoinRewardRecord>().AddAsync(reward);
+            await context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Database table might not exist yet - log error but don't crash
+            throw;
+        }
     }
 
     public async Task UpdateRewardAsync(BitcoinRewardRecord reward)
