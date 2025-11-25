@@ -72,6 +72,16 @@ public class UIBitcoinRewardsController : Controller
     {
         if (command == "Save")
         {
+            // For checkboxes in ASP.NET Core, if unchecked they don't send a value
+            // Read checkbox values directly from form to ensure correct binding
+            vm.Enabled = Request.Form.ContainsKey("Enabled") && Request.Form["Enabled"].ToString() == "true";
+            vm.EnableShopify = Request.Form.ContainsKey("EnableShopify") && Request.Form["EnableShopify"].ToString() == "true";
+            vm.EnableSquare = Request.Form.ContainsKey("EnableSquare") && Request.Form["EnableSquare"].ToString() == "true";
+            
+            // Log what we received from the form
+            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled}, Percentage={Percentage}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}", 
+                storeId, vm.Enabled, vm.RewardPercentage, vm.EnableShopify, vm.EnableSquare);
+            
             if (!ModelState.IsValid)
             {
                 ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
