@@ -195,6 +195,10 @@ public class PayoutProcessorDiscoveryService
 
     /// <summary>
     /// Check if Cashu wallet is installed and configured for the store
+    /// Returns true if:
+    /// 1. BTCNutServer Cashu plugin is installed (assembly found)
+    /// 2. Cashu payment method is configured for the store
+    /// 3. TrustedMintsUrls is configured (indicates wallet is active)
     /// </summary>
     public async Task<bool> IsCashuWalletInstalledAsync(string storeId)
     {
@@ -202,21 +206,38 @@ public class PayoutProcessorDiscoveryService
         {
             var store = await _storeRepository.FindStore(storeId);
             if (store == null)
-                return false;
-
-            // Try to use CashuPayoutHandler to check if Cashu is supported
-            var cashuAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == "btcnutserver-test" || 
-                                    a.GetName().Name == "BTCPayServer.Plugins.Cashu" ||
-                                    a.FullName?.Contains("Cashu") == true);
-            
-            if (cashuAssembly == null)
             {
-                _logger.LogDebug("Cashu plugin assembly not found for store {StoreId}", storeId);
+                _logger.LogDebug("Store {StoreId} not found", storeId);
                 return false;
             }
 
-            // Check if Cashu payment method is configured
+            // Step 1: Check if BTCNutServer Cashu plugin assembly is loaded
+            var cashuAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "btcnutserver-test" || 
+                                    a.GetName().Name == "BTCPayServer.Plugins.Cashu" ||
+                                    a.FullName?.Contains("Cashu") == true ||
+                                    a.GetTypes().Any(t => t.Namespace?.Contains("Cashu") == true));
+            
+            if (cashuAssembly == null)
+            {
+                _logger.LogDebug("BTCNutServer Cashu plugin assembly not found for store {StoreId}", storeId);
+                return false;
+            }
+
+            _logger.LogDebug("BTCNutServer Cashu plugin assembly found: {AssemblyName} for store {StoreId}", 
+                cashuAssembly.GetName().Name, storeId);
+
+            // Step 2: Check if Cashu payment method handler is registered
+            if (!_paymentHandlers.TryGetValue(CashuPmid, out var handler))
+            {
+                _logger.LogDebug("Cashu payment method handler not registered for store {StoreId}", storeId);
+                return false;
+            }
+
+            _logger.LogDebug("Cashu payment method handler registered: {HandlerType} for store {StoreId}", 
+                handler.GetType().Name, storeId);
+
+            // Step 3: Check if Cashu payment method is configured for this store
             var config = store.GetPaymentMethodConfig(CashuPmid, _paymentHandlers);
             if (config == null)
             {
@@ -224,24 +245,87 @@ public class PayoutProcessorDiscoveryService
                 return false;
             }
 
-            // Check if TrustedMintsUrls is configured
+            _logger.LogDebug("Cashu payment method config found for store {StoreId}", storeId);
+
+            // Step 4: Check if TrustedMintsUrls is configured (indicates wallet is active)
             var trustedMintsProperty = config.GetType().GetProperty("TrustedMintsUrls");
             if (trustedMintsProperty == null)
             {
-                _logger.LogDebug("TrustedMintsUrls property not found in Cashu config for store {StoreId}", storeId);
+                _logger.LogDebug("TrustedMintsUrls property not found in Cashu config for store {StoreId}. Config type: {ConfigType}", 
+                    storeId, config.GetType().FullName);
                 return false;
             }
 
             var trustedMints = trustedMintsProperty.GetValue(config) as List<string>;
             var hasTrustedMints = trustedMints != null && trustedMints.Count > 0;
             
-            _logger.LogDebug("Cashu wallet check for store {StoreId}: {HasWallet}", storeId, hasTrustedMints);
+            if (hasTrustedMints)
+            {
+                _logger.LogInformation("Cashu wallet is installed and active for store {StoreId}. Trusted mints count: {Count}", 
+                    storeId, trustedMints?.Count ?? 0);
+            }
+            else
+            {
+                _logger.LogDebug("Cashu wallet plugin installed but not configured (no trusted mints) for store {StoreId}", storeId);
+            }
+            
             return hasTrustedMints;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking if Cashu wallet is installed for store {StoreId}", storeId);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Get detailed information about Cashu wallet status
+    /// </summary>
+    public async Task<(bool PluginInstalled, bool WalletConfigured, string? Details)> GetCashuWalletStatusAsync(string storeId)
+    {
+        try
+        {
+            var store = await _storeRepository.FindStore(storeId);
+            if (store == null)
+                return (false, false, "Store not found");
+
+            // Check if plugin assembly exists
+            var cashuAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "btcnutserver-test" || 
+                                    a.GetName().Name == "BTCPayServer.Plugins.Cashu" ||
+                                    a.FullName?.Contains("Cashu") == true ||
+                                    a.GetTypes().Any(t => t.Namespace?.Contains("Cashu") == true));
+            
+            if (cashuAssembly == null)
+                return (false, false, "BTCNutServer Cashu plugin not installed");
+
+            // Check if payment handler is registered
+            if (!_paymentHandlers.TryGetValue(CashuPmid, out var handler))
+                return (true, false, "Plugin installed but payment handler not registered");
+
+            // Check if configured
+            var config = store.GetPaymentMethodConfig(CashuPmid, _paymentHandlers);
+            if (config == null)
+                return (true, false, "Plugin installed but not configured for this store");
+
+            // Check if wallet is active
+            var trustedMintsProperty = config.GetType().GetProperty("TrustedMintsUrls");
+            if (trustedMintsProperty == null)
+                return (true, false, "Plugin installed but TrustedMintsUrls property not found");
+
+            var trustedMints = trustedMintsProperty.GetValue(config) as List<string>;
+            var hasTrustedMints = trustedMints != null && trustedMints.Count > 0;
+
+            if (hasTrustedMints)
+                return (true, true, $"Plugin installed and wallet active with {trustedMints.Count} trusted mint(s)");
+            else
+                return (true, false, "Plugin installed but no trusted mints configured");
+
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting Cashu wallet status for store {StoreId}", storeId);
+            return (false, false, $"Error: {ex.Message}");
         }
     }
 }
