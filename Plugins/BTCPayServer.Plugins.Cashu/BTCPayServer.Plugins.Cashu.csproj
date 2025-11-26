@@ -12,6 +12,7 @@
         <Description>Enables trustless Cashu eCash payments in BTCPay Server. Early beta, don't be reckless.</Description>
         <Version>0.0.1</Version>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <AssemblyName>btcpay-nuts</AssemblyName>
     </PropertyGroup>
     <!-- Plugin development properties -->
     <PropertyGroup>
