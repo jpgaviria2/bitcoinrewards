@@ -316,7 +316,7 @@ public class PayoutProcessorDiscoveryService
             var trustedMints = trustedMintsProperty.GetValue(config) as List<string>;
             var hasTrustedMints = trustedMints != null && trustedMints.Count > 0;
 
-            if (hasTrustedMints)
+            if (hasTrustedMints && trustedMints != null)
                 return (true, true, $"Plugin installed and wallet active with {trustedMints.Count} trusted mint(s)");
             else
                 return (true, false, "Plugin installed but no trusted mints configured");
