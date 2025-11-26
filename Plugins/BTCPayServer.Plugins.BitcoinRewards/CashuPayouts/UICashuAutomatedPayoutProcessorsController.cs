@@ -63,6 +63,7 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
                 }))
             .FirstOrDefault();
 
+        ViewData["StoreId"] = storeId;
         return View(new CashuTransferViewModel(activeProcessor is null ? new CashuAutomatedPayoutBlob() : CashuAutomatedPayoutProcessor.GetBlob(activeProcessor)));
     }
 
