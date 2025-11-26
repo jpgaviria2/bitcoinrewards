@@ -4,7 +4,8 @@
 @model BTCPayServer.Plugins.BitcoinRewards.CashuPayouts.UICashuAutomatedPayoutProcessorsController.CashuTransferViewModel
 @{
     var storeId = ViewData["StoreId"]?.ToString() ?? "";
-    ViewData.SetLayoutModel(new(nameof(StoreNavPages.PayoutProcessors), StringLocalizer["Cashu Payout Processor"]));
+    ViewData["Title"] = StringLocalizer["Cashu Payout Processor"];
+    ViewData["ActivePage"] = nameof(StoreNavPages.PayoutProcessors);
 }
 
 <form method="post" permissioned="@Policies.CanModifyStoreSettings">
