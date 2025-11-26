@@ -102,10 +102,20 @@ public class EmailNotificationService : IEmailNotificationService
 Order: {orderId}
 Reward Amount: {rewardAmountBtc} BTC ({rewardAmountSatoshis} satoshis)
 
-Your ecash token:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR CASHU ECASH TOKEN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 {ecashToken}
 
-You can redeem this token using any Cashu-compatible wallet.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HOW TO REDEEM:
+1. Copy the token above
+2. Open any Cashu-compatible wallet (e.g., Cashu wallet, Minibits)
+3. Paste or scan the token to redeem your reward
+
+Your token contains {rewardAmountSatoshis} satoshis and can be used for payments or converted to Bitcoin.
 
 Thank you for your purchase!";
 

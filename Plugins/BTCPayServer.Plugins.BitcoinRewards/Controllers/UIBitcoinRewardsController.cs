@@ -25,17 +25,20 @@ public class UIBitcoinRewardsController : Controller
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _rewardsRepository;
     private readonly ICashuService _cashuService;
+    private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
 
     public UIBitcoinRewardsController(
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
         ICashuService cashuService,
+        PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
         ILogger<UIBitcoinRewardsController> logger)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _cashuService = cashuService;
+        _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
         _logger = logger;
     }
 
@@ -58,6 +61,21 @@ public class UIBitcoinRewardsController : Controller
         if (settings != null)
         {
             vm.SetFromSettings(settings);
+        }
+        
+        // Discover available payout processors
+        vm.AvailablePayoutProcessors = await _payoutProcessorDiscoveryService.GetAvailablePayoutProcessorsAsync(storeId);
+        vm.CashuWalletAvailable = await _payoutProcessorDiscoveryService.IsCashuWalletInstalledAsync(storeId);
+        
+        // Auto-select Cashu processor if wallet is installed and no processor is selected
+        if (vm.CashuWalletAvailable && string.IsNullOrEmpty(vm.SelectedPayoutProcessorFactory))
+        {
+            var cashuProcessor = vm.AvailablePayoutProcessors.FirstOrDefault(p => p.IsCashu && p.IsAvailable);
+            if (cashuProcessor != null)
+            {
+                vm.SelectedPayoutProcessorFactory = cashuProcessor.FactoryName;
+                vm.PayoutProcessorEnabled = true;
+            }
         }
         
         ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
@@ -83,20 +101,51 @@ public class UIBitcoinRewardsController : Controller
             var enableSquareValues = Request.Form["EnableSquare"];
             vm.EnableSquare = enableSquareValues.Count > 0 && enableSquareValues.Contains("true");
             
+            var payoutProcessorEnabledValues = Request.Form["PayoutProcessorEnabled"];
+            vm.PayoutProcessorEnabled = payoutProcessorEnabledValues.Count > 0 && payoutProcessorEnabledValues.Contains("true");
+            
+            // Get selected payout processor from form
+            vm.SelectedPayoutProcessorFactory = Request.Form["SelectedPayoutProcessorFactory"].ToString();
+            
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
             ModelState.Remove(nameof(vm.EnableShopify));
             ModelState.Remove(nameof(vm.EnableSquare));
+            ModelState.Remove(nameof(vm.PayoutProcessorEnabled));
+            ModelState.Remove(nameof(vm.SelectedPayoutProcessorFactory));
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
             _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), Percentage={Percentage}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}", 
                 storeId, vm.Enabled, enabledValuesStr, vm.RewardPercentage, vm.EnableShopify, vm.EnableSquare);
             
+            // Reload available payout processors for validation
+            vm.AvailablePayoutProcessors = await _payoutProcessorDiscoveryService.GetAvailablePayoutProcessorsAsync(storeId);
+            vm.CashuWalletAvailable = await _payoutProcessorDiscoveryService.IsCashuWalletInstalledAsync(storeId);
+            
             if (!ModelState.IsValid)
             {
                 ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
                 return View("EditSettings", vm);
+            }
+            
+            // Validate selected payout processor if enabled
+            if (vm.PayoutProcessorEnabled && !string.IsNullOrEmpty(vm.SelectedPayoutProcessorFactory))
+            {
+                var selectedProcessor = vm.AvailablePayoutProcessors.FirstOrDefault(p => p.FactoryName == vm.SelectedPayoutProcessorFactory);
+                if (selectedProcessor == null)
+                {
+                    ModelState.AddModelError(nameof(vm.SelectedPayoutProcessorFactory), "Selected payout processor is not available");
+                    ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
+                    return View("EditSettings", vm);
+                }
+                
+                if (!selectedProcessor.IsAvailable && selectedProcessor.IsCashu)
+                {
+                    ModelState.AddModelError(nameof(vm.SelectedPayoutProcessorFactory), "Cashu wallet is not installed or not configured");
+                    ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
+                    return View("EditSettings", vm);
+                }
             }
 
             // Only validate platform credentials if platforms are enabled

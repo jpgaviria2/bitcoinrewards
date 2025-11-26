@@ -1,5 +1,7 @@
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
+using BTCPayServer.Payouts;
+using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -28,6 +30,16 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
         services.TryAddScoped<Services.BitcoinRewardsService>();
+        services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.AddHttpClient<Clients.SquareApiClient>();
+
+        // Register Cashu payout processor components
+        // Using TryAdd to avoid conflicts if BTCNutServer already registered them
+        services.TryAddSingleton(provider =>
+            (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayoutHandler)));
+        
+        services.TryAddSingleton<CashuAutomatedPayoutSenderFactory>();
+        services.TryAddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
+            provider.GetRequiredService<CashuAutomatedPayoutSenderFactory>());
     }
 }
