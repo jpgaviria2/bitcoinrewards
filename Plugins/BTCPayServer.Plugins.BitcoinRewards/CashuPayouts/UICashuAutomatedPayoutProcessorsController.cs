@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
+using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Extensions;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Client;
@@ -131,8 +132,16 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
 
         public CashuTransferViewModel(CashuAutomatedPayoutBlob blob)
         {
-            IntervalMinutes = blob.Interval.TotalMinutes;
-            ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
+            if (blob == null)
+            {
+                IntervalMinutes = AutomatedPayoutConstants.DefaultIntervalMinutes;
+                ProcessNewPayoutsInstantly = false;
+            }
+            else
+            {
+                IntervalMinutes = blob.Interval.TotalMinutes;
+                ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
+            }
         }
 
         [Display(Name = "Process approved payouts instantly")]
