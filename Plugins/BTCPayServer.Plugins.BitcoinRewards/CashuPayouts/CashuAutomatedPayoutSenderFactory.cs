@@ -52,7 +52,7 @@ public class CashuAutomatedPayoutSenderFactory : IPayoutProcessorFactory
             "UICashuAutomatedPayoutProcessors", new
             {
                 storeId
-            }, request.Scheme, request.Host, request.PathBase);
+            }, request.Scheme, request.Host, request.PathBase) ?? string.Empty;
     }
 }
 
