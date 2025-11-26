@@ -33,29 +33,26 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
     private static readonly PaymentMethodId CashuPmid = new PaymentMethodId("CASHU");
 
     public CashuAutomatedPayoutProcessor(
-        PayoutProcessorData payoutProcessorSettings,
+        PayoutMethodId payoutMethodId,
         ILoggerFactory loggerFactory,
         StoreRepository storeRepository,
+        PayoutProcessorData payoutProcessorSettings,
         ApplicationDbContextFactory applicationDbContextFactory,
-        PaymentMethodHandlerDictionary paymentHandlers,
+        PaymentMethodHandlerDictionary handlers,
         IPluginHookService pluginHookService,
         EventAggregator eventAggregator,
         IServiceProvider serviceProvider) :
-        base(
-            CashuPmid,
-            loggerFactory,
-            storeRepository,
-            payoutProcessorSettings,
-            applicationDbContextFactory,
-            paymentHandlers,
-            pluginHookService,
-            eventAggregator)
+        base(CashuPmid, loggerFactory, storeRepository, payoutProcessorSettings, applicationDbContextFactory,
+            handlers, pluginHookService, eventAggregator)
     {
         _serviceProvider = serviceProvider;
         _logger = loggerFactory.CreateLogger<CashuAutomatedPayoutProcessor>();
+        PayoutMethodId = payoutMethodId;
     }
 
-    protected override Task Process(object paymentMethodConfig, List<PayoutData> payouts)
+    private PayoutMethodId PayoutMethodId { get; }
+
+    protected override async Task<bool> ProcessShouldSave(object paymentMethodConfig, List<PayoutData> payouts)
     {
         // Check if BTCNutServer's payout processor is available
         var cashuAssembly = AppDomain.CurrentDomain.GetAssemblies()
@@ -68,7 +65,7 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
             Logs.PayServer.LogWarning(
                 "BTCNutServer Cashu plugin not found. Payout processor cannot function without it. " +
                 "Please install the BTCNutServer plugin to enable Cashu payout processing.");
-            return Task.CompletedTask;
+            return false;
         }
 
         // Check if BTCNutServer's payout processor factory is registered
@@ -85,19 +82,19 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
                     "Using BTCNutServer's implementation for store {StoreId}. " +
                     "This Bitcoin Rewards payout processor will skip processing to avoid conflicts.",
                     PayoutProcessorSettings.StoreId);
-                return Task.CompletedTask;
+                return false;
             }
         }
 
         // If we reach here, BTCNutServer plugin is installed but payout processor might not be registered
         // For now, log a warning and skip processing
         // A full implementation would require extensive reflection to access Cashu services
-            Logs.PayServer.LogWarning(
-                "BTCNutServer Cashu plugin found but payout processor not fully accessible. " +
-                "Payout processing for store {StoreId} skipped. " +
-                "Please ensure BTCNutServer plugin is properly configured with payout processor enabled.",
-                PayoutProcessorSettings.StoreId);
-            return Task.CompletedTask;
+        Logs.PayServer.LogWarning(
+            "BTCNutServer Cashu plugin found but payout processor not fully accessible. " +
+            "Payout processing for store {StoreId} skipped. " +
+            "Please ensure BTCNutServer plugin is properly configured with payout processor enabled.",
+            PayoutProcessorSettings.StoreId);
+        return false;
     }
 }
 

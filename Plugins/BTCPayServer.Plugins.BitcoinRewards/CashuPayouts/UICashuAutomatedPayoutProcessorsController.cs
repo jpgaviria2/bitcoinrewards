@@ -64,25 +64,7 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
             .FirstOrDefault();
 
         ViewData["StoreId"] = storeId;
-        CashuAutomatedPayoutBlob blob;
-        if (activeProcessor is null)
-        {
-            blob = new CashuAutomatedPayoutBlob
-            {
-                Interval = TimeSpan.FromMinutes(AutomatedPayoutConstants.DefaultIntervalMinutes),
-                ProcessNewPayoutsInstantly = false
-            };
-        }
-        else
-        {
-            blob = CashuAutomatedPayoutProcessor.GetBlob(activeProcessor);
-            // Ensure interval has a valid value
-            if (blob.Interval == TimeSpan.Zero)
-            {
-                blob.Interval = TimeSpan.FromMinutes(AutomatedPayoutConstants.DefaultIntervalMinutes);
-            }
-        }
-        return View(new CashuTransferViewModel(blob));
+        return View(new CashuTransferViewModel(activeProcessor is null ? new CashuAutomatedPayoutBlob() : CashuAutomatedPayoutProcessor.GetBlob(activeProcessor)));
     }
 
     [HttpPost("~/stores/{storeId}/payout-processors/cashu-automated")]
@@ -149,24 +131,8 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
 
         public CashuTransferViewModel(CashuAutomatedPayoutBlob blob)
         {
-            if (blob == null)
-            {
-                IntervalMinutes = AutomatedPayoutConstants.DefaultIntervalMinutes;
-                ProcessNewPayoutsInstantly = false;
-            }
-            else
-            {
-                // Ensure interval has a valid value
-                if (blob.Interval == TimeSpan.Zero || blob.Interval.TotalMinutes < AutomatedPayoutConstants.MinIntervalMinutes)
-                {
-                    IntervalMinutes = AutomatedPayoutConstants.DefaultIntervalMinutes;
-                }
-                else
-                {
-                    IntervalMinutes = blob.Interval.TotalMinutes;
-                }
-                ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
-            }
+            IntervalMinutes = blob.Interval.TotalMinutes;
+            ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
         }
 
         [Display(Name = "Process approved payouts instantly")]
