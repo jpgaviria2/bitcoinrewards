@@ -73,7 +73,10 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
     public async Task<IActionResult> Configure(string storeId, CashuTransferViewModel automatedTransferBlob)
     {
         if (!ModelState.IsValid)
+        {
+            ViewData["StoreId"] = storeId;
             return View(automatedTransferBlob);
+        }
 
         var id = GetPayoutMethodId();
         if (!_cashuAutomatedPayoutSenderFactory.GetSupportedPayoutMethods().Any(i => id == i))
