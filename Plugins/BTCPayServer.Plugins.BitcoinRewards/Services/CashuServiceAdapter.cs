@@ -16,8 +16,8 @@ public class CashuServiceAdapter : ICashuService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CashuServiceAdapter> _logger;
-    private readonly bool _cashuServiceAvailable;
-    private readonly object? _cashuService;
+    private bool _cashuServiceAvailable;
+    private object? _cashuService;
 
     public CashuServiceAdapter(
         IServiceProvider serviceProvider,
@@ -25,7 +25,15 @@ public class CashuServiceAdapter : ICashuService
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
-        
+        TryDiscoverCashuService();
+    }
+
+    private void TryDiscoverCashuService()
+    {
+        // Don't re-discover if we already found it
+        if (_cashuServiceAvailable && _cashuService != null)
+            return;
+
         try
         {
             // Try to find Cashu plugin assembly and service
@@ -35,6 +43,12 @@ public class CashuServiceAdapter : ICashuService
             
             if (cashuAssembly != null)
             {
+                _logger.LogInformation("Cashu plugin assembly found: {AssemblyName}", cashuAssembly.FullName);
+                
+                // First, try to find services registered in DI by enumerating all types
+                var allTypes = cashuAssembly.GetTypes();
+                _logger.LogDebug("Cashu assembly contains {Count} types", allTypes.Length);
+                
                 // Look for CashuWallet service - common name pattern in Cashu plugins
                 // Try multiple possible service type names
                 var serviceTypeNames = new[]
@@ -42,23 +56,85 @@ public class CashuServiceAdapter : ICashuService
                     "BTCPayServer.Plugins.Cashu.Services.CashuService",
                     "BTCPayServer.Plugins.Cashu.CashuAbstractions.CashuWallet",
                     "BTCPayServer.Plugins.Cashu.Services.ICashuService",
-                    "BTCPayServer.Plugins.Cashu.Services.CashuWalletService"
+                    "BTCPayServer.Plugins.Cashu.Services.CashuWalletService",
+                    "BTCPayServer.Plugins.Cashu.Services.CashuMintService"
                 };
                 
+                // Try each type name
                 foreach (var typeName in serviceTypeNames)
                 {
-                    var serviceType = cashuAssembly.GetType(typeName);
-                    if (serviceType != null)
+                    try
                     {
-                        _cashuService = _serviceProvider.GetService(serviceType);
+                        var serviceType = cashuAssembly.GetType(typeName);
+                        if (serviceType != null)
+                        {
+                            _logger.LogDebug("Found Cashu service type: {TypeName}", typeName);
+                            _cashuService = _serviceProvider.GetService(serviceType);
+                            if (_cashuService != null)
+                            {
+                                _cashuServiceAvailable = true;
+                                _logger.LogInformation("Cashu plugin service found and resolved: {ServiceType}", typeName);
+                                return;
+                            }
+                            else
+                            {
+                                _logger.LogDebug("Service type {TypeName} exists but is not registered in DI container", typeName);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error checking service type {TypeName}", typeName);
+                    }
+                }
+                
+                // If we still haven't found it, try searching by name patterns
+                _logger.LogDebug("Attempting to find Cashu service by name patterns");
+                var candidateTypes = allTypes
+                    .Where(t => (t.Name.Contains("Cashu") || t.Name.Contains("Wallet") || t.Name.Contains("Mint")) 
+                               && !t.IsAbstract 
+                               && !t.IsInterface
+                               && !t.IsGenericTypeDefinition)
+                    .ToList();
+                
+                foreach (var candidateType in candidateTypes)
+                {
+                    try
+                    {
+                        _logger.LogDebug("Checking candidate service type: {TypeName} ({FullName})", 
+                            candidateType.Name, candidateType.FullName);
+                        
+                        _cashuService = _serviceProvider.GetService(candidateType);
                         if (_cashuService != null)
                         {
                             _cashuServiceAvailable = true;
-                            _logger.LogInformation("Cashu plugin service found: {ServiceType}", typeName);
-                            break;
+                            _logger.LogInformation("Cashu plugin service found via pattern search: {ServiceType} ({FullName})", 
+                                candidateType.Name, candidateType.FullName);
+                            return;
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error checking candidate type {TypeName}", candidateType.Name);
+                    }
                 }
+                
+                // Log all public types for debugging
+                var publicTypes = allTypes
+                    .Where(t => t.IsPublic && !t.IsAbstract && !t.IsInterface)
+                    .Select(t => t.FullName)
+                    .Take(20) // Limit to first 20 to avoid log spam
+                    .ToList();
+                _logger.LogDebug("Cashu assembly public types (sample): {Types}", string.Join(", ", publicTypes));
+            }
+            else
+            {
+                var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+                    .Where(a => a.GetName().Name?.Contains("Cashu") == true || a.FullName?.Contains("Cashu") == true)
+                    .Select(a => a.GetName().Name)
+                    .ToList();
+                _logger.LogDebug("Cashu assembly not found. Assemblies with 'Cashu' in name: {Assemblies}", 
+                    string.Join(", ", loadedAssemblies));
             }
             
             if (!_cashuServiceAvailable)
@@ -70,17 +146,24 @@ public class CashuServiceAdapter : ICashuService
         {
             _cashuServiceAvailable = false;
             _cashuService = null;
-            _logger.LogError(ex, "Error initializing CashuServiceAdapter. Cashu plugin service could not be resolved.");
+            _logger.LogError(ex, "Error discovering Cashu service. Cashu plugin service could not be resolved.");
         }
     }
 
     public async Task<string?> MintTokenAsync(long amountSatoshis, string storeId)
     {
+        // Try to discover service lazily if it wasn't found during construction
         if (!_cashuServiceAvailable || _cashuService == null)
         {
-            _logger.LogWarning("Cashu plugin not available - cannot mint token for {AmountSatoshis} sats in store {StoreId}", 
-                amountSatoshis, storeId);
-            return null;
+            _logger.LogDebug("Cashu service not found during construction, attempting lazy discovery");
+            TryDiscoverCashuService();
+            
+            if (!_cashuServiceAvailable || _cashuService == null)
+            {
+                _logger.LogWarning("Cashu plugin not available - cannot mint token for {AmountSatoshis} sats in store {StoreId}. Please ensure the Cashu plugin is installed and enabled.", 
+                    amountSatoshis, storeId);
+                return null;
+            }
         }
 
         try
