@@ -47,10 +47,7 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
     {
         _serviceProvider = serviceProvider;
         _logger = loggerFactory.CreateLogger<CashuAutomatedPayoutProcessor>();
-        PayoutMethodId = payoutMethodId;
     }
-
-    private PayoutMethodId PayoutMethodId { get; }
 
     protected override async Task<bool> ProcessShouldSave(object paymentMethodConfig, List<PayoutData> payouts)
     {

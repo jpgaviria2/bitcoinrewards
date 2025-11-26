@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using BTCPayServer.Data;
 using BTCPayServer.PayoutProcessors;
 using BTCPayServer.Payouts;
 using Microsoft.AspNetCore.Http;
