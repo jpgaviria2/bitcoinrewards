@@ -371,22 +371,39 @@ public class UIBitcoinRewardsController : Controller
             TransactionDate = DateTime.UtcNow
         };
 
-        var rewardsService = HttpContext.RequestServices.GetRequiredService<BitcoinRewardsService>();
-        var success = await rewardsService.ProcessRewardAsync(storeId, transaction);
+        try
+        {
+            var rewardsService = HttpContext.RequestServices.GetRequiredService<BitcoinRewardsService>();
+            _logger.LogInformation("Creating test reward for store {StoreId}: Amount={Amount}, Currency={Currency}, Platform={Platform}, Email={Email}", 
+                storeId, transaction.Amount, transaction.Currency, transaction.Platform, transaction.CustomerEmail);
+            
+            var success = await rewardsService.ProcessRewardAsync(storeId, transaction);
 
-        if (success)
-        {
-            TempData.SetStatusMessageModel(new StatusMessageModel
+            if (success)
             {
-                Message = "Test reward created successfully",
-                Severity = StatusMessageModel.StatusSeverity.Success
-            });
+                _logger.LogInformation("Test reward created successfully for store {StoreId}", storeId);
+                TempData.SetStatusMessageModel(new StatusMessageModel
+                {
+                    Message = "Test reward created successfully",
+                    Severity = StatusMessageModel.StatusSeverity.Success
+                });
+            }
+            else
+            {
+                _logger.LogWarning("Test reward creation failed for store {StoreId} - ProcessRewardAsync returned false", storeId);
+                TempData.SetStatusMessageModel(new StatusMessageModel
+                {
+                    Message = "Failed to create test reward. Check logs for details.",
+                    Severity = StatusMessageModel.StatusSeverity.Error
+                });
+            }
         }
-        else
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Exception occurred while creating test reward for store {StoreId}", storeId);
             TempData.SetStatusMessageModel(new StatusMessageModel
             {
-                Message = "Failed to create test reward. Check logs for details.",
+                Message = $"Failed to create test reward: {ex.Message}. Check logs for details.",
                 Severity = StatusMessageModel.StatusSeverity.Error
             });
         }

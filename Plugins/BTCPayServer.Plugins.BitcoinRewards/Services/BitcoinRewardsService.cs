@@ -56,14 +56,23 @@ public class BitcoinRewardsService
             }
 
             // Check if platform is enabled
-            var platform = transaction.Platform == TransactionPlatform.Shopify 
-                ? PlatformFlags.Shopify 
-                : PlatformFlags.Square;
-            
-            if ((settings.EnabledPlatforms & platform) == PlatformFlags.None)
+            // For manual test rewards, skip platform validation if no platform flags are set
+            if (settings.EnabledPlatforms != PlatformFlags.None)
             {
-                _logger.LogDebug("Platform {Platform} not enabled for store {StoreId}", transaction.Platform, storeId);
-                return false;
+                var platform = transaction.Platform == TransactionPlatform.Shopify 
+                    ? PlatformFlags.Shopify 
+                    : PlatformFlags.Square;
+                
+                if ((settings.EnabledPlatforms & platform) == PlatformFlags.None)
+                {
+                    _logger.LogWarning("Platform {Platform} not enabled for store {StoreId}. Enabled platforms: {EnabledPlatforms}", 
+                        transaction.Platform, storeId, settings.EnabledPlatforms);
+                    return false;
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Platform validation skipped for store {StoreId} - no platforms explicitly enabled (likely manual test)", storeId);
             }
 
             // Check minimum transaction amount
