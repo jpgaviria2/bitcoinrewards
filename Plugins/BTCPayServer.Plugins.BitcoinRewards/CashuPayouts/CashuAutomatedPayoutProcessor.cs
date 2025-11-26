@@ -36,13 +36,13 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
         PayoutMethodId payoutMethodId,
         ILoggerFactory loggerFactory,
         StoreRepository storeRepository,
-        PayoutProcessorData payoutProcessorSettings,
+        PayoutProcessorData settings,
         ApplicationDbContextFactory applicationDbContextFactory,
         PaymentMethodHandlerDictionary handlers,
         IPluginHookService pluginHookService,
         EventAggregator eventAggregator,
         IServiceProvider serviceProvider) :
-        base(CashuPmid, loggerFactory, storeRepository, payoutProcessorSettings, applicationDbContextFactory,
+        base(CashuPmid, loggerFactory, storeRepository, settings, applicationDbContextFactory,
             handlers, pluginHookService, eventAggregator)
     {
         _serviceProvider = serviceProvider;

@@ -127,12 +127,22 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
     {
         public CashuTransferViewModel()
         {
+            IntervalMinutes = AutomatedPayoutConstants.DefaultIntervalMinutes;
+            ProcessNewPayoutsInstantly = false;
         }
 
         public CashuTransferViewModel(CashuAutomatedPayoutBlob blob)
         {
-            IntervalMinutes = blob.Interval.TotalMinutes;
-            ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
+            if (blob == null)
+            {
+                IntervalMinutes = AutomatedPayoutConstants.DefaultIntervalMinutes;
+                ProcessNewPayoutsInstantly = false;
+            }
+            else
+            {
+                IntervalMinutes = blob.Interval == TimeSpan.Zero ? AutomatedPayoutConstants.DefaultIntervalMinutes : blob.Interval.TotalMinutes;
+                ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
+            }
         }
 
         [Display(Name = "Process approved payouts instantly")]
