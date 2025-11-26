@@ -49,7 +49,7 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
         _logger = loggerFactory.CreateLogger<CashuAutomatedPayoutProcessor>();
     }
 
-    protected override async Task<bool> ProcessShouldSave(object paymentMethodConfig, List<PayoutData> payouts)
+    protected override Task<bool> ProcessShouldSave(object paymentMethodConfig, List<PayoutData> payouts)
     {
         // Check if BTCNutServer's payout processor is available
         var cashuAssembly = AppDomain.CurrentDomain.GetAssemblies()
@@ -62,7 +62,7 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
             Logs.PayServer.LogWarning(
                 "BTCNutServer Cashu plugin not found. Payout processor cannot function without it. " +
                 "Please install the BTCNutServer plugin to enable Cashu payout processing.");
-            return false;
+            return Task.FromResult(false);
         }
 
         // Check if BTCNutServer's payout processor factory is registered
@@ -79,7 +79,7 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
                     "Using BTCNutServer's implementation for store {StoreId}. " +
                     "This Bitcoin Rewards payout processor will skip processing to avoid conflicts.",
                     PayoutProcessorSettings.StoreId);
-                return false;
+                return Task.FromResult(false);
             }
         }
 
@@ -91,7 +91,7 @@ public class CashuAutomatedPayoutProcessor : BaseAutomatedPayoutProcessor<CashuA
             "Payout processing for store {StoreId} skipped. " +
             "Please ensure BTCNutServer plugin is properly configured with payout processor enabled.",
             PayoutProcessorSettings.StoreId);
-        return false;
+        return Task.FromResult(false);
     }
 }
 
