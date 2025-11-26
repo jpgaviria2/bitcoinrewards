@@ -60,6 +60,9 @@ public class PayoutProcessorDiscoveryService
                 var supportedMethods = factory.GetSupportedPayoutMethods().ToList();
                 var isCashu = IsCashuProcessor(factory);
                 
+                _logger.LogDebug("Found payout processor factory: {ProcessorName} ({FriendlyName}), IsCashu: {IsCashu}, SupportedMethods: {Methods}",
+                    factory.Processor, factory.FriendlyName, isCashu, string.Join(", ", supportedMethods.Select(m => m.ToString())));
+
                 var option = new PayoutProcessorOption
                 {
                     FactoryName = factory.Processor,
@@ -78,6 +81,7 @@ public class PayoutProcessorDiscoveryService
                     {
                         option.UnavailableReason = "Cashu wallet not installed or not configured";
                     }
+                    _logger.LogDebug("Cashu processor availability for store {StoreId}: {Available}", storeId, cashuAvailable);
                 }
 
                 options.Add(option);
@@ -88,6 +92,52 @@ public class PayoutProcessorDiscoveryService
             }
         }
 
+        // If Cashu wallet is installed but no Cashu processor was found, add our Bitcoin Rewards Cashu processor
+        var cashuWalletAvailable = await IsCashuWalletInstalledAsync(storeId);
+        var cashuProcessorExists = options.Any(o => o.IsCashu);
+        
+        _logger.LogDebug("Payout processor discovery for store {StoreId}: Total factories found={Total}, Cashu wallet available={CashuAvailable}, Cashu processor in list={CashuInList}",
+            storeId, _payoutProcessorFactories.Count(), cashuWalletAvailable, cashuProcessorExists);
+        
+        if (cashuWalletAvailable && !cashuProcessorExists)
+        {
+            _logger.LogInformation("Cashu wallet is available but no Cashu processor found in factory list. Adding Bitcoin Rewards Cashu processor option for store {StoreId}.", storeId);
+            
+            // Try to find any Cashu factory that might exist but wasn't detected
+            var allFactories = _payoutProcessorFactories.ToList();
+            var cashuFactory = allFactories.FirstOrDefault(f => 
+                f.Processor.Contains("Cashu", StringComparison.OrdinalIgnoreCase));
+            
+            if (cashuFactory != null)
+            {
+                _logger.LogDebug("Found Cashu factory '{FactoryName}' that wasn't detected earlier. Adding it now.", cashuFactory.Processor);
+                var supportedMethods = cashuFactory.GetSupportedPayoutMethods().ToList();
+                options.Add(new PayoutProcessorOption
+                {
+                    FactoryName = cashuFactory.Processor,
+                    FriendlyName = cashuFactory.FriendlyName,
+                    SupportedMethods = supportedMethods,
+                    IsCashu = true,
+                    IsAvailable = true
+                });
+            }
+            else
+            {
+                // Add our Bitcoin Rewards Cashu processor as a manual option
+                // This ensures users can select it even if the factory registration had issues
+                _logger.LogInformation("No Cashu factory found in DI. Adding manual Cashu processor option for store {StoreId}.", storeId);
+                options.Add(new PayoutProcessorOption
+                {
+                    FactoryName = "BitcoinRewardsCashuAutomatedPayoutSender",
+                    FriendlyName = "Cashu Automated Payout Sender (Bitcoin Rewards)",
+                    SupportedMethods = new List<PayoutMethodId> { CashuPmid },
+                    IsCashu = true,
+                    IsAvailable = true
+                });
+            }
+        }
+
+        _logger.LogDebug("Total payout processors discovered for store {StoreId}: {Count}", storeId, options.Count);
         return options;
     }
 

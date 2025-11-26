@@ -34,12 +34,14 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.AddHttpClient<Clients.SquareApiClient>();
 
         // Register Cashu payout processor components
-        // Using TryAdd to avoid conflicts if BTCNutServer already registered them
+        // Register our factory so it appears in BTCPay Server's Payout Processors page
+        // If BTCNutServer's Cashu plugin also registers a factory, both will appear
+        // Users configure which one to use in Store Settings → Payout Processors
+        services.AddSingleton<CashuAutomatedPayoutSenderFactory>();
+        services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
+            provider.GetRequiredService<CashuAutomatedPayoutSenderFactory>());
+        
         services.TryAddSingleton(provider =>
             (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayoutHandler)));
-        
-        services.TryAddSingleton<CashuAutomatedPayoutSenderFactory>();
-        services.TryAddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
-            provider.GetRequiredService<CashuAutomatedPayoutSenderFactory>());
     }
 }

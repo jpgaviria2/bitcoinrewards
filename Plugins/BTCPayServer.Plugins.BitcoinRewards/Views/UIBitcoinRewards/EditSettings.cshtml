@@ -150,55 +150,34 @@
             </div>
 
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
-            <p class="text-muted mb-4">Configure how rewards are paid out. Payout processors automatically send Cashu tokens or other payment methods to customers.</p>
+            <p class="text-muted mb-4">
+                Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.
+            </p>
             
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="PayoutProcessorEnabled" value="false">
-                    <input name="PayoutProcessorEnabled" class="form-check-input" type="checkbox" id="PayoutProcessorEnabled" value="true" @(Model.PayoutProcessorEnabled ? "checked" : "")>
-                    <label asp-for="PayoutProcessorEnabled" class="form-check-label"></label>
-                </div>
-                <small class="form-text text-muted">Enable automatic payout processing for rewards. When enabled, rewards will be automatically sent using the selected payout processor.</small>
+            <div class="alert alert-info mb-4">
+                <strong>Payout Processor Setup:</strong>
+                <p class="mb-2">To enable automatic reward payouts, configure a payout processor in:</p>
+                <p class="mb-0">
+                    <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
+                        Store Settings → Payout Processors
+                    </a>
+                </p>
             </div>
-
-            <div id="payout-processor-settings" style="display: @(Model.PayoutProcessorEnabled ? "block" : "none");">
-                <div class="form-group mb-4">
-                    <label asp-for="SelectedPayoutProcessorFactory" class="form-label"></label>
-                    <select asp-for="SelectedPayoutProcessorFactory" class="form-select" id="SelectedPayoutProcessorFactory">
-                        <option value="">-- Select Payout Processor --</option>
-                        @foreach (var processor in Model.AvailablePayoutProcessors)
-                        {
-                            var isSelected = Model.SelectedPayoutProcessorFactory == processor.FactoryName;
-                            <option value="@processor.FactoryName" selected="@isSelected" disabled="@(!processor.IsAvailable && processor.IsCashu)">
-                                @processor.FriendlyName
-                                @if (processor.IsCashu)
-                                {
-                                    if (processor.IsAvailable)
-                                    {
-                                        <text> ✓ (Cashu wallet installed)</text>
-                                    }
-                                    else
-                                    {
-                                        <text> ✗ (Cashu wallet not installed)</text>
-                                    }
-                                }
-                            </option>
-                        }
-                    </select>
-                    <span asp-validation-for="SelectedPayoutProcessorFactory" class="text-danger"></span>
-                    <small class="form-text text-muted">
-                        Select the payout processor to use for sending rewards.
-                        @if (Model.CashuWalletAvailable)
-                        {
-                            <span class="text-success">Cashu wallet is installed and ready to use.</span>
-                        }
-                        else
-                        {
-                            <span class="text-warning">Cashu wallet is not installed. Install the BTCNutServer plugin and configure a Cashu wallet to use Cashu payout processor.</span>
-                        }
-                    </small>
+            
+            @if (Model.CashuWalletAvailable)
+            {
+                <div class="alert alert-success mb-4">
+                    <strong>✓ Cashu Wallet Available</strong>
+                    <p class="mb-0">Cashu wallet is installed and configured. You can configure the Cashu Automated Payout Sender in the Payout Processors page above.</p>
                 </div>
-            </div>
+            }
+            else
+            {
+                <div class="alert alert-warning mb-4">
+                    <strong>Cashu Wallet Not Installed</strong>
+                    <p class="mb-0">Install and configure the BTCNutServer plugin with a Cashu wallet to use Cashu payouts for rewards.</p>
+                </div>
+            }
 
             <button name="command" type="submit" class="btn btn-primary" value="Save">Save Settings</button>
         </form>
@@ -212,9 +191,6 @@
         });
         document.getElementById('EnableSquare').addEventListener('change', function() {
             document.getElementById('square-settings').style.display = this.checked ? 'block' : 'none';
-        });
-        document.getElementById('PayoutProcessorEnabled').addEventListener('change', function() {
-            document.getElementById('payout-processor-settings').style.display = this.checked ? 'block' : 'none';
         });
     </script>
 }

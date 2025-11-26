@@ -69,16 +69,6 @@ public class BitcoinRewardsStoreSettings
     /// Maximum reward cap (in BTC/sats, optional)
     /// </summary>
     public long? MaximumRewardSatoshis { get; set; }
-    
-    /// <summary>
-    /// Selected payout processor factory name
-    /// </summary>
-    public string? SelectedPayoutProcessorFactory { get; set; }
-    
-    /// <summary>
-    /// Whether payout processor usage is enabled
-    /// </summary>
-    public bool PayoutProcessorEnabled { get; set; } = false;
 }
 
 public class ShopifyApiCredentials

@@ -32,7 +32,7 @@ public class CashuAutomatedPayoutSenderFactory : IPayoutProcessorFactory
     public string Processor => ProcessorName;
     public static string ProcessorName => "BitcoinRewardsCashuAutomatedPayoutSender";
 
-    public string FriendlyName => "Cashu Automated Payout Sender (Bitcoin Rewards)";
+    public string FriendlyName => "Cashu Automated Payout Sender";
 
     public IEnumerable<PayoutMethodId> GetSupportedPayoutMethods()
     {
