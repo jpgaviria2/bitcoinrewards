@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using BTCPayServer.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,9 +10,9 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
 public class BitcoinRewardsRepository
 {
-    private readonly ApplicationDbContextFactory _dbContextFactory;
+    private readonly BitcoinRewardsPluginDbContextFactory _dbContextFactory;
 
-    public BitcoinRewardsRepository(ApplicationDbContextFactory dbContextFactory)
+    public BitcoinRewardsRepository(BitcoinRewardsPluginDbContextFactory dbContextFactory)
     {
         _dbContextFactory = dbContextFactory;
     }
@@ -21,7 +20,7 @@ public class BitcoinRewardsRepository
     public async Task<BitcoinRewardRecord?> GetRewardAsync(Guid id, string storeId)
     {
         await using var context = _dbContextFactory.CreateContext();
-        return await context.Set<BitcoinRewardRecord>()
+        return await context.BitcoinRewardRecords
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId);
     }
 
@@ -30,7 +29,7 @@ public class BitcoinRewardsRepository
         try
         {
             await using var context = _dbContextFactory.CreateContext();
-            await context.Set<BitcoinRewardRecord>().AddAsync(reward);
+            await context.BitcoinRewardRecords.AddAsync(reward);
             await context.SaveChangesAsync();
         }
         catch
@@ -43,7 +42,7 @@ public class BitcoinRewardsRepository
     public async Task UpdateRewardAsync(BitcoinRewardRecord reward)
     {
         await using var context = _dbContextFactory.CreateContext();
-        context.Set<BitcoinRewardRecord>().Update(reward);
+        context.BitcoinRewardRecords.Update(reward);
         await context.SaveChangesAsync();
     }
 
@@ -57,7 +56,7 @@ public class BitcoinRewardsRepository
         DateTime? dateTo = null)
     {
         await using var context = _dbContextFactory.CreateContext();
-        var query = context.Set<BitcoinRewardRecord>()
+        var query = context.BitcoinRewardRecords
             .Where(r => r.StoreId == storeId);
 
         if (status.HasValue)
@@ -86,7 +85,7 @@ public class BitcoinRewardsRepository
     public async Task<List<BitcoinRewardRecord>> GetUnclaimedRewardsAsync(string storeId)
     {
         await using var context = _dbContextFactory.CreateContext();
-        return await context.Set<BitcoinRewardRecord>()
+        return await context.BitcoinRewardRecords
             .Where(r => r.StoreId == storeId && 
                        (r.Status == RewardStatus.Pending || r.Status == RewardStatus.Expired))
             .ToListAsync();
@@ -95,7 +94,7 @@ public class BitcoinRewardsRepository
     public async Task<List<BitcoinRewardRecord>> GetExpiredRewardsAsync(string storeId, DateTime before)
     {
         await using var context = _dbContextFactory.CreateContext();
-        return await context.Set<BitcoinRewardRecord>()
+        return await context.BitcoinRewardRecords
             .Where(r => r.StoreId == storeId && 
                        r.Status == RewardStatus.Expired &&
                        (r.ExpiresAt == null || r.ExpiresAt < before))
@@ -105,7 +104,7 @@ public class BitcoinRewardsRepository
     public async Task<bool> TransactionExistsAsync(string storeId, string transactionId, RewardPlatform platform)
     {
         await using var context = _dbContextFactory.CreateContext();
-        return await context.Set<BitcoinRewardRecord>()
+        return await context.BitcoinRewardRecords
             .AnyAsync(r => r.StoreId == storeId && 
                           r.TransactionId == transactionId && 
                           r.Platform == platform);

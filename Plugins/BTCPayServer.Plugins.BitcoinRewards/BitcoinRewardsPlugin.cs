@@ -26,6 +26,7 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         
         // Register services - using TryAdd to avoid conflicts if already registered
         // Database operations will be handled lazily when needed
+        services.TryAddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
         services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
