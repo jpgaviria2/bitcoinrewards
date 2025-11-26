@@ -26,6 +26,7 @@ public class PayoutProcessorDiscoveryService
     private readonly StoreRepository _storeRepository;
     private readonly ILogger<PayoutProcessorDiscoveryService> _logger;
     private static readonly PaymentMethodId CashuPmid = new PaymentMethodId("CASHU");
+    private static readonly PayoutMethodId CashuPayoutPmid = PayoutMethodId.Parse("CASHU");
 
     public PayoutProcessorDiscoveryService(
         IEnumerable<IPayoutProcessorFactory> payoutProcessorFactories,
@@ -130,7 +131,7 @@ public class PayoutProcessorDiscoveryService
                 {
                     FactoryName = "BitcoinRewardsCashuAutomatedPayoutSender",
                     FriendlyName = "Cashu Automated Payout Sender (Bitcoin Rewards)",
-                    SupportedMethods = new List<PayoutMethodId> { CashuPmid },
+                    SupportedMethods = new List<PayoutMethodId> { CashuPayoutPmid },
                     IsCashu = true,
                     IsAvailable = true
                 });

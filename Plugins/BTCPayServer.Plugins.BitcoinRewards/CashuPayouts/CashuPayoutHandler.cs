@@ -84,11 +84,12 @@ public class CashuPayoutHandler : IPayoutHandler
 
     public Task<(IClaimDestination destination, string error)> ParseClaimDestination(string destination, CancellationToken cancellationToken)
     {
-        destination = destination?.Trim();
-        if (string.IsNullOrEmpty(destination))
+        if (string.IsNullOrWhiteSpace(destination))
         {
             return Task.FromResult<(IClaimDestination, string)>((null!, "Destination cannot be empty"));
         }
+        
+        destination = destination.Trim();
 
         // Try to use CashuUtils.TryDecodeToken from BTCNutServer via reflection
         try
@@ -148,7 +149,7 @@ public class CashuPayoutHandler : IPayoutHandler
     public IPayoutProof ParseProof(PayoutData payout)
     {
         if (payout?.Proof == null)
-            return null;
+            return null!;
 
         try
         {
