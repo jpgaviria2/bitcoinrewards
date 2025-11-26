@@ -108,7 +108,8 @@ public class CashuPayoutHandler : IPayoutHandler
                     
                     if (tryDecodeTokenMethod != null)
                     {
-                        var parameters = new object[] { destination, null };
+                        var tokenPlaceholder = (object?)null;
+                        var parameters = new object[] { destination, tokenPlaceholder! };
                         var result = tryDecodeTokenMethod.Invoke(null, parameters);
                         
                         if (result is bool isValid && isValid)
@@ -147,7 +148,7 @@ public class CashuPayoutHandler : IPayoutHandler
     public IPayoutProof ParseProof(PayoutData payout)
     {
         if (payout?.Proof == null)
-            return null!;
+            return null;
 
         try
         {
