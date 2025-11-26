@@ -3,8 +3,9 @@
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @model BTCPayServer.Plugins.BitcoinRewards.CashuPayouts.UICashuAutomatedPayoutProcessorsController.CashuTransferViewModel
 @{
-    var storeId = ViewData["StoreId"]?.ToString() ?? "";
-    ViewData.SetLayoutModel(new(nameof(StoreNavPages.PayoutProcessors), StringLocalizer["Cashu Payout Processor"]));
+    var storeId = ViewData["StoreId"]?.ToString() ?? Context.GetRouteValue("storeId")?.ToString() ?? "";
+    ViewData["Title"] = StringLocalizer["Cashu Payout Processor"];
+    ViewData["ActivePage"] = StoreNavPages.PayoutProcessors;
 }
 
 <form method="post" permissioned="@Policies.CanModifyStoreSettings">
