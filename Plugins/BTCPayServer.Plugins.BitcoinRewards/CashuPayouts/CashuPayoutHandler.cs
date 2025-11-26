@@ -108,8 +108,8 @@ public class CashuPayoutHandler : IPayoutHandler
                     
                     if (tryDecodeTokenMethod != null)
                     {
-                        var tokenPlaceholder = (object?)null;
-                        var parameters = new object[] { destination, tokenPlaceholder! };
+                        object? tokenPlaceholder = null;
+                        var parameters = new object?[] { destination, tokenPlaceholder };
                         var result = tryDecodeTokenMethod.Invoke(null, parameters);
                         
                         if (result is bool isValid && isValid)
