@@ -72,7 +72,13 @@ public class BitcoinRewardsSettingsViewModel
     [Range(0, long.MaxValue, ErrorMessage = "Maximum reward must be positive")]
     public long? MaximumRewardSatoshis { get; set; }
     
-    // Payout Processor Settings (informational only - configured in BTCPay Server settings)
+    // Payout Processor Settings
+    [Display(Name = "Selected Payout Processor")]
+    public string? SelectedPayoutProcessorId { get; set; }
+    
+    [Display(Name = "Available Payout Processors")]
+    public List<PayoutProcessorOption> AvailablePayoutProcessors { get; set; } = new();
+    
     [Display(Name = "Cashu Wallet Available")]
     public bool CashuWalletAvailable { get; set; }
     
@@ -124,6 +130,7 @@ public class BitcoinRewardsSettingsViewModel
         
         MinimumTransactionAmount = settings.MinimumTransactionAmount;
         MaximumRewardSatoshis = settings.MaximumRewardSatoshis;
+        SelectedPayoutProcessorId = settings.SelectedPayoutProcessorId;
     }
     
     public BitcoinRewardsStoreSettings ToSettings()
@@ -136,7 +143,8 @@ public class BitcoinRewardsSettingsViewModel
             EnabledPlatforms = GetEnabledPlatforms(),
             EmailTemplate = EmailTemplate,
             MinimumTransactionAmount = MinimumTransactionAmount,
-            MaximumRewardSatoshis = MaximumRewardSatoshis
+            MaximumRewardSatoshis = MaximumRewardSatoshis,
+            SelectedPayoutProcessorId = SelectedPayoutProcessorId
         };
         
         if (EnableShopify)

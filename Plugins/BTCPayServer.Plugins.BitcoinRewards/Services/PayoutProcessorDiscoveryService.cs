@@ -13,6 +13,7 @@ using BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using Microsoft.Extensions.Logging;
+using PayoutProcessorData = BTCPayServer.Data.PayoutProcessorData;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -24,6 +25,7 @@ public class PayoutProcessorDiscoveryService
     private readonly IEnumerable<IPayoutProcessorFactory> _payoutProcessorFactories;
     private readonly BTCPayServer.Services.Invoices.PaymentMethodHandlerDictionary _paymentHandlers;
     private readonly StoreRepository _storeRepository;
+    private readonly PayoutProcessorService _payoutProcessorService;
     private readonly ILogger<PayoutProcessorDiscoveryService> _logger;
     private static readonly PaymentMethodId CashuPmid = new PaymentMethodId("CASHU");
     private static readonly PayoutMethodId CashuPayoutPmid = PayoutMethodId.Parse("CASHU");
@@ -32,12 +34,49 @@ public class PayoutProcessorDiscoveryService
         IEnumerable<IPayoutProcessorFactory> payoutProcessorFactories,
         BTCPayServer.Services.Invoices.PaymentMethodHandlerDictionary paymentHandlers,
         StoreRepository storeRepository,
+        PayoutProcessorService payoutProcessorService,
         ILogger<PayoutProcessorDiscoveryService> logger)
     {
         _payoutProcessorFactories = payoutProcessorFactories;
         _paymentHandlers = paymentHandlers;
         _storeRepository = storeRepository;
+        _payoutProcessorService = payoutProcessorService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Get all configured payout processors for the given store (for use in dropdown selection)
+    /// </summary>
+    public async Task<List<PayoutProcessorOption>> GetConfiguredPayoutProcessorsAsync(string storeId)
+    {
+        var options = new List<PayoutProcessorOption>();
+        
+        // Get all configured processors for this store
+        var configuredProcessors = await _payoutProcessorService.GetProcessors(
+            new PayoutProcessorService.PayoutProcessorQuery() { Stores = new[] { storeId } });
+        
+        foreach (var configuredProcessor in configuredProcessors)
+        {
+            var factory = _payoutProcessorFactories.FirstOrDefault(f => f.Processor == configuredProcessor.Processor);
+            if (factory == null)
+                continue;
+                
+            var payoutMethodId = configuredProcessor.GetPayoutMethodId();
+            var isCashu = IsCashuProcessor(factory);
+            
+            options.Add(new PayoutProcessorOption
+            {
+                FactoryName = factory.Processor,
+                FriendlyName = factory.FriendlyName,
+                SupportedMethods = new List<PayoutMethodId> { payoutMethodId },
+                IsCashu = isCashu,
+                IsAvailable = true,
+                IsConfigured = true,
+                ProcessorId = $"{configuredProcessor.Processor}:{payoutMethodId}"
+            });
+        }
+        
+        return options;
     }
 
     /// <summary>

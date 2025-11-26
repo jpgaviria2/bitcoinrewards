@@ -164,18 +164,52 @@
                 </p>
             </div>
             
-            @if (Model.CashuWalletAvailable)
+            <div class="form-group mb-4">
+                <label asp-for="SelectedPayoutProcessorId" class="form-label">Payout Processor for Rewards</label>
+                <select asp-for="SelectedPayoutProcessorId" class="form-select">
+                    <option value="">-- None (Disable automated payouts) --</option>
+                    @foreach (var processor in Model.AvailablePayoutProcessors)
+                    {
+                        var isSelected = Model.SelectedPayoutProcessorId == processor.ProcessorId;
+                        <option value="@processor.ProcessorId" selected="@isSelected">
+                            @processor.FriendlyName (@string.Join(", ", processor.SupportedMethods.Select(m => m.ToString())))
+                            @if (processor.IsCashu)
+                            {
+                                <text> - Cashu</text>
+                            }
+                        </option>
+                    }
+                </select>
+                <span asp-validation-for="SelectedPayoutProcessorId" class="text-danger"></span>
+                <small class="form-text text-muted">
+                    Select which payout processor to use for automatically sending rewards to customers. 
+                    Configure payout processors in <a href="~/stores/@Model.StoreId/payout-processors" target="_blank">Store Settings → Payout Processors</a>.
+                </small>
+            </div>
+            
+            @if (Model.AvailablePayoutProcessors.Count == 0)
             {
-                <div class="alert alert-success mb-4">
-                    <strong>✓ Cashu Wallet Available</strong>
-                    <p class="mb-0">Cashu wallet is installed and configured. You can configure the Cashu Automated Payout Sender in the Payout Processors page above.</p>
+                <div class="alert alert-info mb-4">
+                    <strong>No Payout Processors Configured</strong>
+                    <p class="mb-2">You need to configure at least one payout processor before you can automatically send rewards.</p>
+                    <p class="mb-0">
+                        <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
+                            Go to Payout Processors Settings
+                        </a>
+                    </p>
                 </div>
             }
-            else
+            
+            @if (Model.CashuWalletAvailable && !Model.AvailablePayoutProcessors.Any(p => p.IsCashu && p.IsConfigured))
             {
                 <div class="alert alert-warning mb-4">
-                    <strong>Cashu Wallet Not Installed</strong>
-                    <p class="mb-0">Install and configure the BTCNutServer plugin with a Cashu wallet to use Cashu payouts for rewards.</p>
+                    <strong>Cashu Wallet Available</strong>
+                    <p class="mb-2">Cashu wallet is installed but not configured as a payout processor.</p>
+                    <p class="mb-0">
+                        <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
+                            Configure Cashu Payout Processor
+                        </a>
+                    </p>
                 </div>
             }
 

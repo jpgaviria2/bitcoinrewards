@@ -14,6 +14,11 @@ public class PayoutProcessorOption
     public List<PayoutMethodId> SupportedMethods { get; set; } = new();
     public bool IsCashu { get; set; }
     public bool IsAvailable { get; set; }
+    public bool IsConfigured { get; set; }
     public string? UnavailableReason { get; set; }
+    /// <summary>
+    /// Processor ID in format "{Processor}:{PayoutMethodId}" for configured processors
+    /// </summary>
+    public string ProcessorId { get; set; } = string.Empty;
 }
 

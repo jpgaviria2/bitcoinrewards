@@ -63,7 +63,8 @@ public class UIBitcoinRewardsController : Controller
             vm.SetFromSettings(settings);
         }
         
-        // Check if Cashu wallet is available (for informational display only)
+        // Get configured payout processors and Cashu wallet availability
+        vm.AvailablePayoutProcessors = await _payoutProcessorDiscoveryService.GetConfiguredPayoutProcessorsAsync(storeId);
         vm.CashuWalletAvailable = await _payoutProcessorDiscoveryService.IsCashuWalletInstalledAsync(storeId);
         
         ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
