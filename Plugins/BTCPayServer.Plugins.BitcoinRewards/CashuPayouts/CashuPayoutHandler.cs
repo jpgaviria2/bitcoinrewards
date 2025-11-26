@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Client.Models;
 using BTCPayServer.Data;
+using BTCPayServer.HostedServices;
 using BTCPayServer.Payments;
 using BTCPayServer.Payouts;
 using BTCPayServer.Services;
@@ -26,7 +27,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 /// </summary>
 public class CashuPayoutHandler : IPayoutHandler
 {
-    private readonly PaymentMethodHandlerDictionary _paymentHandlers;
+    private readonly BTCPayServer.Services.Invoices.PaymentMethodHandlerDictionary _paymentHandlers;
     private readonly BTCPayNetworkJsonSerializerSettings _jsonSerializerSettings;
     private readonly ILogger<CashuPayoutHandler> _logger;
     private readonly IServiceProvider _serviceProvider;
@@ -35,7 +36,7 @@ public class CashuPayoutHandler : IPayoutHandler
     private static readonly PaymentMethodId CashuPmid = new PaymentMethodId("CASHU");
 
     public CashuPayoutHandler(
-        PaymentMethodHandlerDictionary paymentHandlers,
+        BTCPayServer.Services.Invoices.PaymentMethodHandlerDictionary paymentHandlers,
         BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
         ILogger<CashuPayoutHandler> logger,
         IServiceProvider serviceProvider)

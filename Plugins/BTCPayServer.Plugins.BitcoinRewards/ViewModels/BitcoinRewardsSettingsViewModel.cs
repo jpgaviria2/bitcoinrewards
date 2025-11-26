@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using BTCPayServer.Plugins.BitcoinRewards;
 

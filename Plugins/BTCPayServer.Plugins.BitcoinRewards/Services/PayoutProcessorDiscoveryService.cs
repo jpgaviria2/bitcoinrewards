@@ -5,9 +5,11 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using BTCPayServer.Payments;
+using BTCPayServer.PayoutProcessors;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 using BTCPayServer.Plugins.BitcoinRewards.ViewModels;
+using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using Microsoft.Extensions.Logging;
 
@@ -19,14 +21,14 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 public class PayoutProcessorDiscoveryService
 {
     private readonly IEnumerable<IPayoutProcessorFactory> _payoutProcessorFactories;
-    private readonly PaymentMethodHandlerDictionary _paymentHandlers;
+    private readonly BTCPayServer.Services.Invoices.PaymentMethodHandlerDictionary _paymentHandlers;
     private readonly StoreRepository _storeRepository;
     private readonly ILogger<PayoutProcessorDiscoveryService> _logger;
     private static readonly PaymentMethodId CashuPmid = new PaymentMethodId("CASHU");
 
     public PayoutProcessorDiscoveryService(
         IEnumerable<IPayoutProcessorFactory> payoutProcessorFactories,
-        PaymentMethodHandlerDictionary paymentHandlers,
+        BTCPayServer.Services.Invoices.PaymentMethodHandlerDictionary paymentHandlers,
         StoreRepository storeRepository,
         ILogger<PayoutProcessorDiscoveryService> logger)
     {
