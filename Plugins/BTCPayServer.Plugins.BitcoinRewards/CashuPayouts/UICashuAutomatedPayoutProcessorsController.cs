@@ -1,4 +1,3 @@
-#nullable enable
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -64,7 +63,6 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
                 }))
             .FirstOrDefault();
 
-        ViewData["StoreId"] = storeId;
         return View(new CashuTransferViewModel(activeProcessor is null ? new CashuAutomatedPayoutBlob() : CashuAutomatedPayoutProcessor.GetBlob(activeProcessor)));
     }
 
@@ -74,10 +72,7 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
     public async Task<IActionResult> Configure(string storeId, CashuTransferViewModel automatedTransferBlob)
     {
         if (!ModelState.IsValid)
-        {
-            ViewData["StoreId"] = storeId;
             return View(automatedTransferBlob);
-        }
 
         var id = GetPayoutMethodId();
         if (!_cashuAutomatedPayoutSenderFactory.GetSupportedPayoutMethods().Any(i => id == i))
@@ -132,16 +127,8 @@ public class UICashuAutomatedPayoutProcessorsController : Controller
 
         public CashuTransferViewModel(CashuAutomatedPayoutBlob blob)
         {
-            if (blob == null)
-            {
-                IntervalMinutes = AutomatedPayoutConstants.DefaultIntervalMinutes;
-                ProcessNewPayoutsInstantly = false;
-            }
-            else
-            {
-                IntervalMinutes = blob.Interval.TotalMinutes;
-                ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
-            }
+            IntervalMinutes = blob.Interval.TotalMinutes;
+            ProcessNewPayoutsInstantly = blob.ProcessNewPayoutsInstantly;
         }
 
         [Display(Name = "Process approved payouts instantly")]

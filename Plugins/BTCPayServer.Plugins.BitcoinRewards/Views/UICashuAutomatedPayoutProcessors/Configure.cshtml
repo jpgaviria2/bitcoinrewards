@@ -1,10 +1,9 @@
-@using BTCPayServer.Abstractions.Extensions
 @using BTCPayServer.Client
 @using BTCPayServer.Views.Stores
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @model BTCPayServer.Plugins.BitcoinRewards.CashuPayouts.UICashuAutomatedPayoutProcessorsController.CashuTransferViewModel
 @{
-    var storeId = ViewData["StoreId"]?.ToString() ?? string.Empty;
+    var storeId = Context.GetStoreData().Id;
     ViewData.SetLayoutModel(new(nameof(StoreNavPages.PayoutProcessors), StringLocalizer["Cashu Payout Processor"]));
 }
 
