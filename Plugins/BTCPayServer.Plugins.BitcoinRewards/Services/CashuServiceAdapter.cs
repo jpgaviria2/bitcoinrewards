@@ -113,9 +113,9 @@ public class CashuServiceAdapter : ICashuService
                 if (paymentServiceType != null)
                 {
                     _cashuService = _serviceProvider.GetService(paymentServiceType);
-                    if (_cashuService != null)
-                    {
-                        _cashuServiceAvailable = true;
+                            if (_cashuService != null)
+                            {
+                                _cashuServiceAvailable = true;
                         _logger.LogInformation("CashuPaymentService found and resolved");
                         
                         // Log available methods
@@ -132,9 +132,9 @@ public class CashuServiceAdapter : ICashuService
                     _cashuServiceAvailable = true;
                     _logger.LogInformation("Cashu plugin services discovered successfully");
                 }
-            }
-            else
-            {
+                            }
+                            else
+                            {
                 var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => a.GetName().Name?.Contains("Cashu") == true || a.FullName?.Contains("Cashu") == true)
                     .Select(a => a.GetName().Name)
@@ -146,10 +146,10 @@ public class CashuServiceAdapter : ICashuService
             if (!_cashuServiceAvailable)
             {
                 _logger.LogWarning("Cashu plugin service not available - token minting will be disabled. Install the BTCPay Server Cashu plugin to enable ecash token generation.");
-            }
-        }
-        catch (Exception ex)
-        {
+                        }
+                    }
+                    catch (Exception ex)
+                    {
             _cashuServiceAvailable = false;
             _cashuService = null;
             _logger.LogError(ex, "Error discovering Cashu service. Cashu plugin service could not be resolved.");
@@ -239,9 +239,9 @@ public class CashuServiceAdapter : ICashuService
     }
 
     private async Task<long> GetEcashBalanceAsync(string storeId, string mintUrl)
-    {
-        try
-        {
+                {
+                    try
+                    {
             if (_cashuDbContextFactory == null)
             {
                 _logger.LogWarning("CashuDbContextFactory not available");
@@ -398,7 +398,7 @@ public class CashuServiceAdapter : ICashuService
                     if (storeIdProperty?.GetValue(proof)?.ToString() == storeId &&
                         idProperty?.GetValue(proof) != null)
                     {
-                        var proofId = idProperty.GetValue(proof).ToString();
+                        var proofId = idProperty.GetValue(proof)?.ToString();
                         if (keysetIds.Contains(proofId ?? string.Empty))
                         {
                             var amount = amountProperty?.GetValue(proof);
@@ -421,10 +421,10 @@ public class CashuServiceAdapter : ICashuService
                 {
                     disposable.Dispose();
                 }
-            }
-        }
-        catch (Exception ex)
-        {
+                        }
+                    }
+                    catch (Exception ex)
+                    {
             _logger.LogError(ex, "Error getting ecash balance for store {StoreId}", storeId);
             return 0;
         }
@@ -520,9 +520,19 @@ public class CashuServiceAdapter : ICashuService
             }
 
             var cryptoCode = cryptoCodeProperty.GetValue(network)?.ToString() ?? "BTC";
+            if (getPaymentMethodIdMethod == null)
+            {
+                _logger.LogWarning("GetPaymentMethodId method not found");
+                return 0;
+            }
             var lightningPmi = getPaymentMethodIdMethod.Invoke(lnPaymentType, new object[] { cryptoCode });
 
             // Get Lightning config
+            if (lightningPmi == null)
+            {
+                _logger.LogWarning("Lightning payment method ID is null");
+                return 0;
+            }
             var getPaymentMethodConfigMethod = typeof(StoreData).GetMethod("GetPaymentMethodConfig", 
                 new[] { lightningPmi.GetType(), _paymentMethodHandlers.GetType() });
             if (getPaymentMethodConfigMethod == null)
@@ -675,7 +685,7 @@ public class CashuServiceAdapter : ICashuService
                 var idProperty = keyset.GetType().GetProperty("Id");
                 if (idProperty?.GetValue(keyset) != null)
                 {
-                    keysetIds.Add(idProperty.GetValue(keyset).ToString() ?? string.Empty);
+                    keysetIds.Add(idProperty.GetValue(keyset)?.ToString() ?? string.Empty);
                 }
             }
 
@@ -742,7 +752,7 @@ public class CashuServiceAdapter : ICashuService
                     if (storeIdProperty?.GetValue(proof)?.ToString() == storeId &&
                         idProperty?.GetValue(proof) != null)
                     {
-                        var proofId = idProperty.GetValue(proof).ToString();
+                        var proofId = idProperty.GetValue(proof)?.ToString();
                         if (keysetIds.Contains(proofId ?? string.Empty))
                         {
                             var amount = amountProperty?.GetValue(proof);
@@ -855,6 +865,10 @@ public class CashuServiceAdapter : ICashuService
 
             var keysetIdProperty = activeKeyset.GetType().GetProperty("Id");
             var keysetId = keysetIdProperty?.GetValue(activeKeyset);
+            if (keysetId == null)
+            {
+                return null;
+            }
 
             var getKeysMethod = _cashuWalletType.GetMethod("GetKeys", new[] { keysetId.GetType(), typeof(bool) });
             if (getKeysMethod == null)
@@ -1013,6 +1027,10 @@ public class CashuServiceAdapter : ICashuService
             var networkProviderType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .FirstOrDefault(t => t.Name == "BTCPayNetworkProvider");
+            if (networkProviderType == null)
+            {
+                return null;
+            }
             var networkProvider = _serviceProvider.GetService(networkProviderType);
             var getNetworkMethod = networkProviderType?.GetMethod("GetNetwork", new[] { typeof(string) });
             var network = getNetworkMethod?.Invoke(networkProvider, new object[] { "BTC" });
@@ -1089,6 +1107,10 @@ public class CashuServiceAdapter : ICashuService
             // Create request
             var requestType = mintQuoteRequestType;
             var request = Activator.CreateInstance(requestType);
+            if (request == null)
+            {
+                return null;
+            }
             var amountProperty = requestType.GetProperty("Amount");
             var unitProperty = requestType.GetProperty("Unit");
             amountProperty?.SetValue(request, (ulong)amountSatoshis);
@@ -1123,7 +1145,9 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
-            var payTask = payMethod.Invoke(lightningClient, new object[] { invoiceBolt11, null }) as Task;
+            var cancellationTokenType = typeof(CancellationToken);
+            var defaultCancellationToken = cancellationTokenType.GetProperty("None", BindingFlags.Public | BindingFlags.Static)?.GetValue(null) ?? default(CancellationToken);
+            var payTask = payMethod.Invoke(lightningClient, new object[] { invoiceBolt11, defaultCancellationToken }) as Task;
             if (payTask == null)
             {
                 return null;
@@ -1199,14 +1223,18 @@ public class CashuServiceAdapter : ICashuService
                         var proofList = new List<object>();
                         foreach (var proof in proofs)
                         {
-                            proofList.Add(proof);
+                            if (proof != null)
+                            {
+                                proofList.Add(proof);
+                            }
                         }
 
                         // Store proofs in database
-                        if (_cashuService != null)
+                        if (_cashuService != null && proofList.Count > 0)
                         {
+                            var firstProof = proofList[0];
                             var addProofsMethod = _cashuService.GetType().GetMethod("AddProofsToDb",
-                                new[] { typeof(IEnumerable<>).MakeGenericType(proofs.GetValue(0).GetType()), typeof(string), typeof(string) });
+                                new[] { typeof(IEnumerable<>).MakeGenericType(firstProof.GetType()), typeof(string), typeof(string) });
                             if (addProofsMethod != null)
                             {
                                 var addTask = addProofsMethod.Invoke(_cashuService, new object[] { proofs, storeId, mintUrl }) as Task;
@@ -1234,13 +1262,18 @@ public class CashuServiceAdapter : ICashuService
         }
     }
 
-    private async Task<object?> GetLightningClientForStore(string storeId)
+    private Task<object?> GetLightningClientForStore(string storeId)
     {
         // Simplified version - reuse logic from GetLightningBalanceAsync
         // This is a helper to avoid code duplication
+        return Task.FromResult<object?>(GetLightningClientForStoreSync(storeId));
+    }
+
+    private object? GetLightningClientForStoreSync(string storeId)
+    {
         try
         {
-            var store = await _storeRepository.FindStore(storeId);
+            var store = _storeRepository.FindStore(storeId).GetAwaiter().GetResult();
             if (store == null || _lightningClientFactoryService == null || _paymentMethodHandlers == null)
             {
                 return null;
@@ -1250,9 +1283,17 @@ public class CashuServiceAdapter : ICashuService
             var networkProviderType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .FirstOrDefault(t => t.Name == "BTCPayNetworkProvider");
+            if (networkProviderType == null)
+            {
+                return null;
+            }
             var networkProvider = _serviceProvider.GetService(networkProviderType);
-            var getNetworkMethod = networkProviderType?.GetMethod("GetNetwork", new[] { typeof(string) });
-            var network = getNetworkMethod?.Invoke(networkProvider, new object[] { "BTC" });
+            var getNetworkMethod = networkProviderType.GetMethod("GetNetwork", new[] { typeof(string) });
+            if (getNetworkMethod == null || networkProvider == null)
+            {
+                return null;
+            }
+            var network = getNetworkMethod.Invoke(networkProvider, new object[] { "BTC" });
             if (network == null)
             {
                 return null;
@@ -1262,17 +1303,37 @@ public class CashuServiceAdapter : ICashuService
             var paymentTypesType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .FirstOrDefault(t => t.Name == "PaymentTypes");
-            var lnProperty = paymentTypesType?.GetProperty("LN", BindingFlags.Public | BindingFlags.Static);
+            if (paymentTypesType == null)
+            {
+                return null;
+            }
+            var lnProperty = paymentTypesType.GetProperty("LN", BindingFlags.Public | BindingFlags.Static);
             var lnPaymentType = lnProperty?.GetValue(null);
-            var getPaymentMethodIdMethod = lnPaymentType?.GetType().GetMethod("GetPaymentMethodId", new[] { typeof(string) });
+            if (lnPaymentType == null)
+            {
+                return null;
+            }
+            var getPaymentMethodIdMethod = lnPaymentType.GetType().GetMethod("GetPaymentMethodId", new[] { typeof(string) });
+            if (getPaymentMethodIdMethod == null)
+            {
+                return null;
+            }
             var cryptoCodeProperty = network.GetType().GetProperty("CryptoCode");
             var cryptoCode = cryptoCodeProperty?.GetValue(network)?.ToString() ?? "BTC";
-            var lightningPmi = getPaymentMethodIdMethod?.Invoke(lnPaymentType, new object[] { cryptoCode });
+            var lightningPmi = getPaymentMethodIdMethod.Invoke(lnPaymentType, new object[] { cryptoCode });
+            if (lightningPmi == null)
+            {
+                return null;
+            }
 
             // Get config
             var getPaymentMethodConfigMethod = typeof(StoreData).GetMethod("GetPaymentMethodConfig",
                 new[] { lightningPmi.GetType(), _paymentMethodHandlers.GetType() });
-            var lightningConfig = getPaymentMethodConfigMethod?.Invoke(store, new[] { lightningPmi, _paymentMethodHandlers });
+            if (getPaymentMethodConfigMethod == null)
+            {
+                return null;
+            }
+            var lightningConfig = getPaymentMethodConfigMethod.Invoke(store, new[] { lightningPmi, _paymentMethodHandlers });
             if (lightningConfig == null)
             {
                 return null;
@@ -1281,6 +1342,10 @@ public class CashuServiceAdapter : ICashuService
             // Create client
             var createLightningClientMethod = lightningConfig.GetType().GetMethod("CreateLightningClient",
                 new[] { network.GetType(), typeof(object), _lightningClientFactoryService.GetType() });
+            if (createLightningClientMethod == null)
+            {
+                return null;
+            }
             var lightningNetworkOptionsType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .FirstOrDefault(t => t.Name == "LightningNetworkOptions");
@@ -1288,7 +1353,7 @@ public class CashuServiceAdapter : ICashuService
                 ? _serviceProvider.GetService(lightningNetworkOptionsType)
                 : null;
 
-            return createLightningClientMethod?.Invoke(lightningConfig,
+            return createLightningClientMethod.Invoke(lightningConfig,
                 new[] { network, lightningNetworkOptions, _lightningClientFactoryService });
         }
         catch
@@ -1297,13 +1362,13 @@ public class CashuServiceAdapter : ICashuService
         }
     }
 
-    private async Task<string?> CreateTokenFromProofs(List<object> proofs, string mintUrl, string unit)
+    private Task<string?> CreateTokenFromProofs(List<object> proofs, string mintUrl, string unit)
     {
         try
         {
             if (proofs == null || proofs.Count == 0)
             {
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             // Get CashuToken type
@@ -1313,21 +1378,21 @@ public class CashuServiceAdapter : ICashuService
             if (cashuTokenType == null)
             {
                 _logger.LogWarning("CashuToken type not found");
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             // Create token
             var token = Activator.CreateInstance(cashuTokenType);
             if (token == null)
             {
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             // Set Tokens property
             var tokensProperty = cashuTokenType.GetProperty("Tokens");
             if (tokensProperty == null)
             {
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             // Create Token object
@@ -1336,13 +1401,13 @@ public class CashuServiceAdapter : ICashuService
                 .FirstOrDefault(t => t.Name == "Token" && t.Namespace?.Contains("Cashu") == true);
             if (tokenItemType == null)
             {
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             var tokenItem = Activator.CreateInstance(tokenItemType);
             if (tokenItem == null)
             {
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             var mintProperty = tokenItemType.GetProperty("Mint");
@@ -1387,19 +1452,19 @@ public class CashuServiceAdapter : ICashuService
                     if (helperEncodeMethod != null)
                     {
                         var encoded = helperEncodeMethod.Invoke(null, new object[] { token });
-                        return encoded?.ToString();
+                        return Task.FromResult<string?>(encoded?.ToString());
                     }
                 }
-                return null;
+                return Task.FromResult<string?>(null);
             }
 
             var encodedToken = encodeMethod.Invoke(token, null);
-            return encodedToken?.ToString();
+            return Task.FromResult<string?>(encodedToken?.ToString());
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating token from proofs");
-            return null;
+            return Task.FromResult<string?>(null);
         }
     }
 
@@ -1502,8 +1567,8 @@ public class CashuServiceAdapter : ICashuService
             allProofs.AddRange(newProofs);
 
             // Create token from all proofs
-            var token = await CreateTokenFromProofs(allProofs, mintUrl, "sat");
-            if (token != null)
+            var finalToken = await CreateTokenFromProofs(allProofs, mintUrl, "sat");
+            if (finalToken != null)
             {
                 _logger.LogInformation("Token created successfully from combined proofs");
             }
@@ -1512,7 +1577,7 @@ public class CashuServiceAdapter : ICashuService
                 _logger.LogError("Failed to create token from combined proofs");
             }
 
-            return token;
+            return finalToken;
         }
         catch (Exception ex)
         {
