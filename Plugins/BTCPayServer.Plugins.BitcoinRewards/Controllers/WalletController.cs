@@ -106,8 +106,8 @@ public class WalletController : Controller
             return View(viewModel);
         }
 
-        var success = await _walletConfigurationService.SetMintUrlAsync(storeId, viewModel.MintUrl.Trim());
-        if (success)
+        var result = await _walletConfigurationService.SetMintUrlAsync(storeId, viewModel.MintUrl.Trim());
+        if (result.Success)
         {
             TempData.SetStatusMessageModel(new StatusMessageModel
             {
@@ -118,7 +118,14 @@ public class WalletController : Controller
         }
         else
         {
-            ModelState.AddModelError("", "Failed to save mint URL configuration");
+            var errorMessage = result.ErrorMessage ?? "Failed to save mint URL configuration";
+            // Add to both TempData (for status message) and ModelState (for validation summary)
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Error,
+                Message = errorMessage
+            });
+            ModelState.AddModelError("", errorMessage);
             return View(viewModel);
         }
     }

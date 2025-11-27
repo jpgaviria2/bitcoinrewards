@@ -114,16 +114,29 @@ public class WalletConfigurationService
     }
 
     /// <summary>
+    /// Result of setting mint URL
+    /// </summary>
+    public class SetMintUrlResult
+    {
+        public bool Success { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    /// <summary>
     /// Set mint URL for a store
     /// </summary>
-    public async Task<bool> SetMintUrlAsync(string storeId, string mintUrl, string unit = "sat")
+    public async Task<SetMintUrlResult> SetMintUrlAsync(string storeId, string mintUrl, string unit = "sat")
     {
         try
         {
             if (string.IsNullOrWhiteSpace(mintUrl))
             {
                 _logger.LogWarning("Cannot set empty mint URL for store {StoreId}", storeId);
-                return false;
+                return new SetMintUrlResult
+                {
+                    Success = false,
+                    ErrorMessage = "Mint URL cannot be empty"
+                };
             }
 
             await using var db = _dbContextFactory.CreateContext();
@@ -167,12 +180,30 @@ public class WalletConfigurationService
 
             await db.SaveChangesAsync();
             _logger.LogInformation("Set mint URL for store {StoreId}: {MintUrl}", storeId, mintUrl);
-            return true;
+            return new SetMintUrlResult { Success = true };
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error setting mint URL for store {StoreId}", storeId);
+            var errorMessage = "Database error occurred while saving mint URL configuration.";
+            if (ex.InnerException != null)
+            {
+                errorMessage += $" {ex.InnerException.Message}";
+            }
+            return new SetMintUrlResult
+            {
+                Success = false,
+                ErrorMessage = errorMessage
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error setting mint URL for store {StoreId}", storeId);
-            return false;
+            return new SetMintUrlResult
+            {
+                Success = false,
+                ErrorMessage = $"Failed to save mint URL configuration: {ex.Message}"
+            };
         }
     }
 

@@ -1,7 +1,11 @@
 #nullable enable
+using System.Text.Json;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Data.Models;
+using DotNut;
+using DotNut.JsonConverters;
 using Microsoft.EntityFrameworkCore;
+using ISecret = DotNut.ISecret;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 
@@ -44,6 +48,30 @@ public class BitcoinRewardsPluginDbContext : DbContext
             entity.HasIndex(e => new { e.StoreId, e.MintUrl });
             entity.HasIndex(e => e.Id); // Keyset ID
             entity.HasIndex(e => e.Amount);
+
+            // Configure value converters for DotNut types (same as Cashu plugin)
+            entity.Property(p => p.C)
+                .HasConversion(
+                    pk => pk.ToString(),
+                    pk => new PubKey(pk, false)
+                );
+            entity.Property(p => p.Id)
+                .HasConversion(
+                    ki => ki.ToString(),
+                    ki => new KeysetId(ki.ToString())
+                );
+            entity.Property(p => p.Secret)
+                .HasConversion(
+                    s => JsonSerializer.Serialize(s,
+                        new JsonSerializerOptions { Converters = { new SecretJsonConverter() } }),
+                    s => JsonSerializer.Deserialize<ISecret>(s,
+                        new JsonSerializerOptions { Converters = { new SecretJsonConverter() } })
+                );
+            entity.Property(p => p.DLEQ)
+                .HasConversion(
+                    d => d == null ? null : JsonSerializer.Serialize(d, (JsonSerializerOptions)null!),
+                    d => d == null ? null : JsonSerializer.Deserialize<DLEQProof>(d, (JsonSerializerOptions)null!)
+                );
         });
 
         // Configure Mint entity
