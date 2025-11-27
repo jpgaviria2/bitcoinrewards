@@ -7,8 +7,10 @@ using ISecret = DotNut.ISecret;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 
+#pragma warning disable CS9113 // Parameter 'designTime' is unread (matches Cashu plugin pattern for design-time compatibility)
 public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPluginDbContext> options, bool designTime = false)
     : DbContext(options)
+#pragma warning restore CS9113
 {
     public static string DefaultPluginSchema = "BTCPayServer.Plugins.BitcoinRewards";
 
