@@ -1517,12 +1517,16 @@ public class CashuServiceAdapter : ICashuService
 
             // Create token from all proofs
             var proofObjects = allProofs.Cast<object>().ToList();
+            _logger.LogDebug("Creating token from {Count} proof objects", proofObjects.Count);
             var token = await CreateTokenFromProofs(proofObjects, mintUrl, "sat");
             
             if (string.IsNullOrEmpty(token))
             {
-                return (false, null, "Failed to create token from proofs", 0);
+                _logger.LogError("CreateTokenFromProofs returned null or empty token for {Count} proofs", allProofs.Count);
+                return (false, null, "Failed to create token from proofs. Check logs for details.", 0);
             }
+            
+            _logger.LogDebug("Token created successfully (length: {Length})", token.Length);
 
             // Remove proofs from database after successful token creation
             await _proofStorageService.RemoveAllProofsAsync(storeId, mintUrl);

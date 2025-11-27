@@ -116,9 +116,15 @@
                     if (barcodeDetector) {
                         scanQRWithBarcodeDetector();
                     } else {
-                        statusDiv.textContent = 'QR scanning requires Chrome/Edge browser. Please paste token manually.';
+                        statusDiv.textContent = 'QR scanning requires Chrome/Edge browser. Please paste token manually in the textarea above.';
                         statusDiv.className = 'text-warning small mt-2';
-                        stopScanning();
+                        // Don't stop scanning - let user know they can paste manually
+                        // Focus on textarea to make it clear
+                        setTimeout(() => {
+                            if (tokenInput) {
+                                tokenInput.focus();
+                            }
+                        }, 500);
                     }
                 } catch (err) {
                     statusDiv.textContent = 'Error accessing camera: ' + err.message;
