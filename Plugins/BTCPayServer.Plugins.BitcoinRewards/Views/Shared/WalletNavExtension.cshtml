@@ -1,7 +1,9 @@
 @using BTCPayServer.Abstractions.Contracts
 @using BTCPayServer.Abstractions.Extensions
 @using Microsoft.AspNetCore.Mvc.TagHelpers
+@using BTCPayServer.Plugins.BitcoinRewards.Services
 @inject IScopeProvider ScopeProvider
+@inject WalletConfigurationService WalletConfigurationService
 @{
     var storeId = ScopeProvider.GetCurrentStoreId();
 }
@@ -10,6 +12,11 @@
 {
     <li class="nav-item">
         <a asp-controller="Wallet" asp-action="Index" asp-route-storeId="@storeId" class="nav-link" id="Nav-BitcoinRewards-Wallet">
+            @{
+                var config = await WalletConfigurationService.GetConfigurationAsync(storeId);
+                var isInitialized = config != null;
+            }
+            <span class="me-2 btcpay-status btcpay-status--@(isInitialized ? "enabled" : "pending")"></span>
             <svg role="img" class="icon icon-plugin" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 @* Star outline *@
                 <path d="M16 2L20 12L30 14L22 21L24 31L16 26L8 31L10 21L2 14L12 12L16 2Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
