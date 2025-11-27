@@ -1468,25 +1468,96 @@ public class CashuServiceAdapter : ICashuService
                 return (false, null, "No proofs available for active keysets", 0);
             }
 
-            var tokenAmount = selectedProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
-            _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", selectedProofs.Count, tokenAmount);
+            // Validate proofs before creating token
+            var validProofs = selectedProofs
+                .Where(p => p != null && p.Secret != null && p.C != null && p.Amount > 0)
+                .ToList();
+
+            if (validProofs.Count == 0)
+            {
+                _logger.LogError("No valid proofs found after validation");
+                return (false, null, "No valid proofs available to export", 0);
+            }
+
+            if (validProofs.Count < selectedProofs.Count)
+            {
+                _logger.LogWarning("Filtered out {InvalidCount} invalid proofs, using {ValidCount} valid proofs", 
+                    selectedProofs.Count - validProofs.Count, validProofs.Count);
+            }
+
+            var tokenAmount = validProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+            _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", validProofs.Count, tokenAmount);
 
             // 3. Create token directly from proofs (NO swap - matching Cashu plugin line 251-263)
+            // Match Cashu plugin exactly - ensure all properties are set
+            var tokenItem = new CashuToken.Token
+            {
+                Mint = mintUrl,
+                Proofs = validProofs
+            };
+
+            // Validate token item before creating CashuToken
+            if (string.IsNullOrWhiteSpace(tokenItem.Mint))
+            {
+                _logger.LogError("Token item has null or empty Mint");
+                return (false, null, "Invalid mint URL", 0);
+            }
+
+            if (tokenItem.Proofs == null || tokenItem.Proofs.Count == 0)
+            {
+                _logger.LogError("Token item has no proofs");
+                return (false, null, "No proofs in token", 0);
+            }
+
             var createdToken = new CashuToken()
             {
-                Tokens =
-                [
-                    new CashuToken.Token
-                    {
-                        Mint = mintUrl,
-                        Proofs = selectedProofs,
-                    }
-                ],
+                Tokens = [tokenItem],
                 Memo = "Bitcoin Rewards Token",
                 Unit = "sat"
             };
             
-            var serializedToken = createdToken.Encode();
+            // Validate token before encoding
+            if (createdToken.Tokens == null || createdToken.Tokens.Count == 0)
+            {
+                _logger.LogError("Created token has no tokens");
+                return (false, null, "Failed to create token structure", 0);
+            }
+
+            if (createdToken.Tokens[0].Proofs == null || createdToken.Tokens[0].Proofs.Count == 0)
+            {
+                _logger.LogError("Created token has no proofs");
+                return (false, null, "Failed to create token with proofs", 0);
+            }
+
+            // Log token structure for debugging
+            _logger.LogDebug("Token structure: Unit={Unit}, Memo={Memo}, TokensCount={TokensCount}, ProofsCount={ProofsCount}, Mint={Mint}",
+                createdToken.Unit ?? "null", createdToken.Memo ?? "null", createdToken.Tokens.Count, 
+                createdToken.Tokens[0].Proofs.Count, createdToken.Tokens[0].Mint ?? "null");
+
+            string serializedToken;
+            try
+            {
+                serializedToken = createdToken.Encode();
+            }
+            catch (NullReferenceException ex)
+            {
+                _logger.LogError(ex, "NullReferenceException when encoding token. Token structure: Unit={Unit}, Memo={Memo}, TokensCount={TokensCount}, ProofsCount={ProofsCount}, Mint={Mint}",
+                    createdToken.Unit ?? "null", createdToken.Memo ?? "null", createdToken.Tokens?.Count ?? 0, 
+                    createdToken.Tokens?[0].Proofs?.Count ?? 0, createdToken.Tokens?[0].Mint ?? "null");
+                
+                // Log first proof details for debugging
+                if (createdToken.Tokens?[0].Proofs?.Count > 0)
+                {
+                    var firstProof = createdToken.Tokens[0].Proofs[0];
+                    _logger.LogError("First proof: Id={Id}, Amount={Amount}, Secret={Secret}, C={C}, DLEQ={DLEQ}",
+                        firstProof.Id?.ToString() ?? "null", firstProof.Amount, 
+                        firstProof.Secret != null ? "not null" : "null",
+                        firstProof.C != null ? "not null" : "null",
+                        firstProof.DLEQ != null ? "not null" : "null");
+                }
+                
+                return (false, null, $"Failed to encode token: {ex.Message}", 0);
+            }
             
             if (string.IsNullOrEmpty(serializedToken))
             {
