@@ -212,5 +212,57 @@ public class WalletController : Controller
 
         return RedirectToAction(nameof(Index), new { storeId });
     }
+
+    [HttpPost("topup/token")]
+    public async Task<IActionResult> TopUpFromToken(string storeId, [FromForm] string token)
+    {
+        var store = await _storeRepository.FindStore(storeId);
+        if (store == null)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Error,
+                Message = "Token cannot be empty"
+            });
+            return RedirectToAction(nameof(TopUp), new { storeId });
+        }
+
+        var config = await _walletConfigurationService.GetConfigurationAsync(storeId);
+        if (config == null)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Warning,
+                Message = "Please configure mint URL first"
+            });
+            return RedirectToAction(nameof(Configure), new { storeId });
+        }
+
+        // Receive the token
+        var result = await _cashuService.ReceiveTokenAsync(token.Trim(), storeId);
+        if (result.Success)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Success,
+                Message = $"Successfully received Cashu token! Added {result.Amount} sat to your wallet."
+            });
+        }
+        else
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Error,
+                Message = result.ErrorMessage ?? "Failed to receive token. Check logs for details."
+            });
+        }
+
+        return RedirectToAction(nameof(Index), new { storeId });
+    }
 }
 

@@ -18,7 +18,7 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-header">
                 <h5 class="mb-0">Top Up from Lightning</h5>
             </div>
@@ -37,6 +37,121 @@
                 </form>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Receive Cashu Token</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-action="TopUpFromToken" asp-route-storeId="@Model.StoreId" id="tokenForm">
+                    <div class="form-group mb-3">
+                        <label for="token" class="form-label">Cashu Token</label>
+                        <textarea name="token" id="token" class="form-control" rows="4" placeholder="Paste Cashu token here or scan QR code below"></textarea>
+                        <div class="form-text">Paste a Cashu token or scan a QR code to receive ecash</div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="form-label">Scan QR Code</label>
+                        <div class="d-flex flex-column align-items-center">
+                            <video id="qr-video" width="300" height="300" style="display: none; border: 1px solid #ddd; border-radius: 4px;"></video>
+                            <canvas id="qr-canvas" style="display: none;"></canvas>
+                            <div id="qr-status" class="text-muted small mt-2"></div>
+                            <button type="button" id="start-scan" class="btn btn-outline-primary mt-2">
+                                <span class="me-2">📷</span>Start Camera
+                            </button>
+                            <button type="button" id="stop-scan" class="btn btn-outline-secondary mt-2" style="display: none;">
+                                Stop Camera
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <button type="submit" class="btn btn-primary">Receive Token</button>
+                        <a asp-action="Index" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
+
+@section PageFootContent {
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+        (function() {
+            const video = document.getElementById('qr-video');
+            const canvas = document.getElementById('qr-canvas');
+            const ctx = canvas.getContext('2d');
+            const tokenInput = document.getElementById('token');
+            const startButton = document.getElementById('start-scan');
+            const stopButton = document.getElementById('stop-scan');
+            const statusDiv = document.getElementById('qr-status');
+            let stream = null;
+            let scanning = false;
+
+            startButton.addEventListener('click', async function() {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' } 
+                    });
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    startButton.style.display = 'none';
+                    stopButton.style.display = 'inline-block';
+                    statusDiv.textContent = 'Point camera at QR code...';
+                    scanning = true;
+                    scanQR();
+                } catch (err) {
+                    statusDiv.textContent = 'Error accessing camera: ' + err.message;
+                    console.error('Camera error:', err);
+                }
+            });
+
+            stopButton.addEventListener('click', function() {
+                stopScanning();
+            });
+
+            function stopScanning() {
+                scanning = false;
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                video.style.display = 'none';
+                startButton.style.display = 'inline-block';
+                stopButton.style.display = 'none';
+                statusDiv.textContent = '';
+            }
+
+            function scanQR() {
+                if (!scanning) return;
+
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (code) {
+                        tokenInput.value = code.data;
+                        statusDiv.textContent = '✓ QR code scanned successfully!';
+                        statusDiv.className = 'text-success small mt-2';
+                        stopScanning();
+                        setTimeout(() => {
+                            statusDiv.textContent = '';
+                            statusDiv.className = 'text-muted small mt-2';
+                        }, 3000);
+                        return;
+                    }
+                }
+
+                requestAnimationFrame(scanQR);
+            }
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', stopScanning);
+        })();
+    </script>
+}
 

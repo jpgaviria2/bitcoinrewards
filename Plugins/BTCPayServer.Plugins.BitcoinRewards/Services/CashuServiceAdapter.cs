@@ -1193,5 +1193,169 @@ public class CashuServiceAdapter : ICashuService
             return false;
         }
     }
+
+    public async Task<(bool Success, string? ErrorMessage, ulong? Amount)> ReceiveTokenAsync(string token, string storeId)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return (false, "Token cannot be empty", null);
+        }
+
+        try
+        {
+            // Try to decode the token using CashuUtils or CashuTokenHelper
+            object? decodedToken = null;
+            bool tokenDecoded = false;
+
+            // Method 1: Try CashuUtils.TryDecodeToken (from Cashu plugin)
+            if (_cashuAssembly != null)
+            {
+                try
+                {
+                    var cashuUtilsType = _cashuAssembly.GetType("BTCPayServer.Plugins.Cashu.CashuAbstractions.CashuUtils");
+                    if (cashuUtilsType != null)
+                    {
+                        var tryDecodeTokenMethod = cashuUtilsType.GetMethod("TryDecodeToken",
+                            new[] { typeof(string), typeof(object).MakeByRefType() });
+
+                        if (tryDecodeTokenMethod != null)
+                        {
+                            object? tokenPlaceholder = null;
+                            var parameters = new object?[] { token, tokenPlaceholder };
+                            var result = tryDecodeTokenMethod.Invoke(null, parameters);
+
+                            if (result is bool isValid && isValid)
+                            {
+                                decodedToken = parameters[1];
+                                tokenDecoded = true;
+                                _logger.LogDebug("Successfully decoded token using CashuUtils.TryDecodeToken");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Could not decode token using CashuUtils, trying alternative method");
+                }
+            }
+
+            // Method 2: Try CashuTokenHelper.Decode (from DotNut)
+            if (!tokenDecoded)
+            {
+                try
+                {
+                    var cashuTokenHelperType = typeof(Proof).Assembly.GetTypes()
+                        .FirstOrDefault(t => t.Name == "CashuTokenHelper");
+
+                    if (cashuTokenHelperType != null)
+                    {
+                        var decodeMethod = cashuTokenHelperType.GetMethod("Decode",
+                            new[] { typeof(string), typeof(string).MakeByRefType() });
+
+                        if (decodeMethod != null)
+                        {
+                            string? memo = null;
+                            var parameters = new object?[] { token, memo };
+                            decodedToken = decodeMethod.Invoke(null, parameters);
+                            if (decodedToken != null)
+                            {
+                                tokenDecoded = true;
+                                _logger.LogDebug("Successfully decoded token using CashuTokenHelper.Decode");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Could not decode token using CashuTokenHelper");
+                }
+            }
+
+            if (!tokenDecoded || decodedToken == null)
+            {
+                return (false, "Invalid Cashu token format", null);
+            }
+
+            // Extract proofs and mint URL from the decoded token
+            var tokenType = decodedToken.GetType();
+            var tokensProperty = tokenType.GetProperty("Tokens");
+            if (tokensProperty == null)
+            {
+                return (false, "Token does not contain Tokens property", null);
+            }
+
+            var tokens = tokensProperty.GetValue(decodedToken) as System.Collections.IEnumerable;
+            if (tokens == null)
+            {
+                return (false, "Token does not contain any tokens", null);
+            }
+
+            var allProofs = new List<Proof>();
+            string? mintUrl = null;
+            string? unit = null;
+
+            foreach (var tokenItem in tokens)
+            {
+                var tokenItemType = tokenItem.GetType();
+                
+                // Get mint URL
+                var mintProperty = tokenItemType.GetProperty("Mint");
+                if (mintProperty != null)
+                {
+                    mintUrl = mintProperty.GetValue(tokenItem)?.ToString();
+                }
+
+                // Get unit
+                var unitProperty = tokenType.GetProperty("Unit");
+                if (unitProperty != null)
+                {
+                    unit = unitProperty.GetValue(decodedToken)?.ToString();
+                }
+
+                // Get proofs
+                var proofsProperty = tokenItemType.GetProperty("Proofs");
+                if (proofsProperty != null)
+                {
+                    var proofs = proofsProperty.GetValue(tokenItem) as System.Collections.IEnumerable;
+                    if (proofs != null)
+                    {
+                        foreach (var proof in proofs)
+                        {
+                            if (proof is Proof dotNutProof)
+                            {
+                                allProofs.Add(dotNutProof);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (allProofs.Count == 0)
+            {
+                return (false, "Token does not contain any proofs", null);
+            }
+
+            if (string.IsNullOrWhiteSpace(mintUrl))
+            {
+                return (false, "Token does not contain a mint URL", null);
+            }
+
+            // Calculate total amount
+            var totalAmount = allProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+
+            // Store proofs using ProofStorageService
+            await _proofStorageService.AddProofsAsync(allProofs, storeId, mintUrl);
+
+            _logger.LogInformation("Successfully received Cashu token with {Count} proofs totaling {Amount} sat for store {StoreId}",
+                allProofs.Count, totalAmount, storeId);
+
+            return (true, null, totalAmount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error receiving Cashu token for store {StoreId}", storeId);
+            return (false, $"Error receiving token: {ex.Message}", null);
+        }
+    }
 }
 

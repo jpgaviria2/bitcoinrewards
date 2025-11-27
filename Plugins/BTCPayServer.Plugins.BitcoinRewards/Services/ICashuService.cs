@@ -24,5 +24,10 @@ public interface ICashuService
     /// Get Lightning wallet balance for a store
     /// </summary>
     Task<long> GetLightningBalanceAsync(string storeId);
+
+    /// <summary>
+    /// Receive a Cashu token (from QR code or paste) and store the proofs
+    /// </summary>
+    Task<(bool Success, string? ErrorMessage, ulong? Amount)> ReceiveTokenAsync(string token, string storeId);
 }
 
