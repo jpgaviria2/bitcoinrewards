@@ -1,19 +1,14 @@
-#nullable enable
-using System;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+#nullable disable
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
 {
-    [DbContext(typeof(BitcoinRewardsPluginDbContext))]
-    [Migration("20250101000000_InitialCreate")]
-    partial class InitialCreate
+    /// <inheritdoc />
+    public partial class InitialCreate : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Create schema
@@ -25,7 +20,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 schema: "BTCPayServer.Plugins.BitcoinRewards",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<System.Guid>(type: "uuid", nullable: false),
                     StoreId = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Platform = table.Column<int>(type: "integer", nullable: false),
                     TransactionId = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
@@ -38,10 +33,10 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                     RewardAmountSatoshis = table.Column<long>(type: "bigint", nullable: false),
                     EcashToken = table.Column<string>(type: "character varying(10000)", maxLength: 10000, nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    SentAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    RedeemedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    CreatedAt = table.Column<System.DateTime>(type: "timestamp with time zone", nullable: false),
+                    SentAt = table.Column<System.DateTime>(type: "timestamp with time zone", nullable: true),
+                    RedeemedAt = table.Column<System.DateTime>(type: "timestamp with time zone", nullable: true),
+                    ExpiresAt = table.Column<System.DateTime>(type: "timestamp with time zone", nullable: true),
                     ErrorMessage = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     RetryCount = table.Column<int>(type: "integer", nullable: false)
                 },
@@ -70,6 +65,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 columns: new[] { "StoreId", "TransactionId", "Platform" });
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -79,8 +75,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
             // Optionally drop schema (commented out to preserve data during rollback)
             // migrationBuilder.Sql(@"DROP SCHEMA IF EXISTS ""BTCPayServer.Plugins.BitcoinRewards"" CASCADE;");
         }
-
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
