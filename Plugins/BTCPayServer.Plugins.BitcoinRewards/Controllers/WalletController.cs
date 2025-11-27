@@ -80,7 +80,8 @@ public class WalletController : Controller
         var viewModel = new WalletConfigurationViewModel
         {
             StoreId = storeId,
-            MintUrl = config?.MintUrl ?? string.Empty
+            MintUrl = config?.MintUrl ?? string.Empty,
+            Enabled = config?.Enabled ?? true
         };
 
         return View(viewModel);
@@ -106,7 +107,7 @@ public class WalletController : Controller
             return View(viewModel);
         }
 
-        var result = await _walletConfigurationService.SetMintUrlAsync(storeId, viewModel.MintUrl.Trim());
+        var result = await _walletConfigurationService.SetMintUrlAsync(storeId, viewModel.MintUrl.Trim(), "sat", viewModel.Enabled);
         if (result.Success)
         {
             TempData.SetStatusMessageModel(new StatusMessageModel

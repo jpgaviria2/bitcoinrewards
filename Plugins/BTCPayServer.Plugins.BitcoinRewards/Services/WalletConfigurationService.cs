@@ -125,7 +125,7 @@ public class WalletConfigurationService
     /// <summary>
     /// Set mint URL for a store
     /// </summary>
-    public async Task<SetMintUrlResult> SetMintUrlAsync(string storeId, string mintUrl, string unit = "sat")
+    public async Task<SetMintUrlResult> SetMintUrlAsync(string storeId, string mintUrl, string unit = "sat", bool enabled = true)
     {
         try
         {
@@ -161,6 +161,7 @@ public class WalletConfigurationService
                 // Reactivate existing mint
                 existingMintRecord.IsActive = true;
                 existingMintRecord.Unit = unit;
+                existingMintRecord.Enabled = enabled;
                 existingMintRecord.UpdatedAt = DateTime.UtcNow;
             }
             else
@@ -173,6 +174,7 @@ public class WalletConfigurationService
                     Url = mintUrl.TrimEnd('/'), // Remove trailing slash for consistency
                     Unit = unit,
                     IsActive = true,
+                    Enabled = enabled,
                     CreatedAt = DateTime.UtcNow
                 };
                 db.Mints.Add(newMint);
@@ -236,6 +238,7 @@ public class WalletConfigurationService
                 MintUrl = mint.Url,
                 Unit = mint.Unit,
                 Balance = (ulong)balanceDecimal,
+                Enabled = mint.Enabled,
                 CreatedAt = mint.CreatedAt
             };
         }
@@ -256,6 +259,7 @@ public class WalletConfiguration
     public string MintUrl { get; set; } = string.Empty;
     public string Unit { get; set; } = "sat";
     public ulong Balance { get; set; }
+    public bool Enabled { get; set; } = true;
     public DateTime CreatedAt { get; set; }
 }
 

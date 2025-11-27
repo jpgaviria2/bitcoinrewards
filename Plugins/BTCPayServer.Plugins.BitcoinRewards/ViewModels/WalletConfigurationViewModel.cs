@@ -11,5 +11,8 @@ public class WalletConfigurationViewModel
     [Url(ErrorMessage = "Must be a valid URL")]
     [Display(Name = "Mint URL")]
     public string MintUrl { get; set; } = string.Empty;
+
+    [Display(Name = "Enable Wallet")]
+    public bool Enabled { get; set; } = true;
 }
 

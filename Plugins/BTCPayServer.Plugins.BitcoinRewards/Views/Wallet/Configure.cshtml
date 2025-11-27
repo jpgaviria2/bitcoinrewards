@@ -14,12 +14,30 @@
         <form method="post" asp-action="Configure" asp-route-storeId="@Model.StoreId">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-            <div class="form-group">
-                <label asp-for="MintUrl" class="form-label"></label>
-                <input asp-for="MintUrl" class="form-control" placeholder="https://mint.example.com" />
-                <span asp-validation-for="MintUrl" class="text-danger"></span>
-                <div class="form-text">Enter the URL of your Cashu mint server</div>
+            <div class="form-group my-4">
+                <div class="d-flex align-items-center">
+                    <input asp-for="Enabled" type="checkbox" class="btcpay-toggle me-3"/>
+                    <label asp-for="Enabled" class="form-check-label">Enable Wallet</label>
+                </div>
+                <span asp-validation-for="Enabled" class="text-danger"></span>
             </div>
+
+            @if (Model.Enabled)
+            {
+                <div class="form-group">
+                    <label asp-for="MintUrl" class="form-label"></label>
+                    <input asp-for="MintUrl" class="form-control" placeholder="https://mint.example.com" />
+                    <span asp-validation-for="MintUrl" class="text-danger"></span>
+                    <div class="form-text">Enter the URL of your Cashu mint server</div>
+                </div>
+            }
+            else
+            {
+                <input type="hidden" asp-for="MintUrl" />
+                <div class="alert alert-info">
+                    Wallet is disabled. Enable it to configure the mint URL.
+                </div>
+            }
 
             <div class="form-group mt-3">
                 <button type="submit" class="btn btn-primary">Save Configuration</button>
