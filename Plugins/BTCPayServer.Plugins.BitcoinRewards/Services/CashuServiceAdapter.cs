@@ -675,26 +675,15 @@ public class CashuServiceAdapter : ICashuService
             // Split amount to proof amounts
             var outputAmounts = InternalCashuWallet.SplitToProofsAmounts(amount, keys);
 
-            // Call Swap
+            // Call Swap - the mint will validate if proofs are spent
             var swapResult = await wallet.Swap(proofList, outputAmounts, keysetId, keys);
             if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
             {
                 var errorMsg = swapResult.Error?.Message ?? "Unknown error";
-                _logger.LogWarning("Swap failed: {Error}. Attempting direct token creation as fallback", errorMsg);
+                _logger.LogWarning("Swap failed: {Error}", errorMsg);
                 
-                // Fallback: Try creating token directly from proofs if swap fails
-                // This works for small amounts where swap might not be necessary
-                if (amount <= 1000)
-                {
-                    var totalProofAmount = proofList.Aggregate(0UL, (sum, p) => sum + p.Amount);
-                    if (totalProofAmount >= amount)
-                    {
-                        _logger.LogInformation("Creating token directly from proofs as fallback (swap failed)");
-                        var fallbackProofList = proofList.Cast<object>().ToList();
-                        return await CreateTokenFromProofs(fallbackProofList, mintUrl, "sat");
-                    }
-                }
-                
+                // Don't try fallback - swap is required for security and token rotation
+                // If swap fails, the proofs might be invalid or the mint is having issues
                 return null;
             }
 
@@ -931,163 +920,61 @@ public class CashuServiceAdapter : ICashuService
         {
             if (proofs == null || proofs.Count == 0)
             {
+                _logger.LogWarning("CreateTokenFromProofs: No proofs provided");
                 return Task.FromResult<string?>(null);
             }
 
-            // Get CashuToken type
-            var cashuTokenType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(t => t.Name == "CashuToken");
-            if (cashuTokenType == null)
-            {
-                _logger.LogWarning("CashuToken type not found");
-                return Task.FromResult<string?>(null);
-            }
+            _logger.LogDebug("CreateTokenFromProofs: Creating token from {Count} proofs, mint: {MintUrl}, unit: {Unit}", 
+                proofs.Count, mintUrl, unit);
 
-            // Create token
-            var token = Activator.CreateInstance(cashuTokenType);
-            if (token == null)
+            // Convert proofs to DotNut Proof objects
+            var dotNutProofs = new List<Proof>();
+            foreach (var proof in proofs)
             {
-                return Task.FromResult<string?>(null);
-            }
-
-            // Set Tokens property
-            var tokensProperty = cashuTokenType.GetProperty("Tokens");
-            if (tokensProperty == null)
-            {
-                return Task.FromResult<string?>(null);
-            }
-
-            // Create Token object - CashuToken.Token is a nested type
-            var tokenItemType = cashuTokenType.GetNestedType("Token");
-            if (tokenItemType == null)
-            {
-                // Fallback: try to find it by name
-                tokenItemType = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes())
-                    .FirstOrDefault(t => t.Name == "Token" && 
-                                        (t.DeclaringType == cashuTokenType || 
-                                         t.Namespace?.Contains("Cashu") == true));
-            }
-            if (tokenItemType == null)
-            {
-                _logger.LogWarning("CashuToken.Token nested type not found");
-                return Task.FromResult<string?>(null);
-            }
-
-            var tokenItem = Activator.CreateInstance(tokenItemType);
-            if (tokenItem == null)
-            {
-                return Task.FromResult<string?>(null);
-            }
-
-            var mintProperty = tokenItemType.GetProperty("Mint");
-            var proofsProperty = tokenItemType.GetProperty("Proofs");
-            if (mintProperty == null || proofsProperty == null)
-            {
-                _logger.LogWarning("Mint or Proofs property not found on Token type");
-                return Task.FromResult<string?>(null);
-            }
-            
-            mintProperty.SetValue(tokenItem, mintUrl);
-            
-            // Convert proofs to list - proofs should be List<Proof> type
-            var proofsPropertyType = proofsProperty.PropertyType;
-            if (proofsPropertyType.IsGenericType && proofsPropertyType.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                var proofType = proofsPropertyType.GetGenericArguments()[0];
-                var listType = typeof(List<>).MakeGenericType(proofType);
-                var proofList = Activator.CreateInstance(listType);
-                var addMethod = listType.GetMethod("Add");
-                
-                foreach (var proof in proofs)
+                if (proof is Proof dotNutProof)
                 {
-                    // Ensure proof is of the correct type
-                    object proofToAdd = proof;
-                    if (proof.GetType() != proofType)
-                    {
-                        // Try to convert if needed
-                        if (proof is Proof dotNutProof)
-                        {
-                            proofToAdd = dotNutProof;
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Proof type mismatch: expected {Expected}, got {Actual}", 
-                                proofType.Name, proof.GetType().Name);
-                            continue;
-                        }
-                    }
-                    addMethod?.Invoke(proofList, new[] { proofToAdd });
+                    dotNutProofs.Add(dotNutProof);
                 }
-                proofsProperty.SetValue(tokenItem, proofList);
+                else
+                {
+                    _logger.LogWarning("Proof is not a DotNut.Proof type: {Type}. Skipping.", proof.GetType().FullName);
+                }
             }
-            else
+
+            if (dotNutProofs.Count == 0)
             {
-                _logger.LogWarning("Proofs property is not a List type: {Type}", proofsPropertyType.FullName);
+                _logger.LogError("No valid DotNut.Proof objects found in proofs list");
                 return Task.FromResult<string?>(null);
             }
 
-            // Set tokens - should be a List<CashuToken.Token> or array
-            var tokensPropertyType = tokensProperty.PropertyType;
-            if (tokensPropertyType.IsGenericType && tokensPropertyType.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                // It's a List<Token>
-                var listType = typeof(List<>).MakeGenericType(tokenItemType);
-                var tokensList = Activator.CreateInstance(listType);
-                var listAddMethod = listType.GetMethod("Add");
-                listAddMethod?.Invoke(tokensList, new[] { tokenItem });
-                tokensProperty.SetValue(token, tokensList);
-            }
-            else if (tokensPropertyType.IsArray)
-            {
-                // It's an array
-                var tokensArray = Array.CreateInstance(tokenItemType, 1);
-                tokensArray.SetValue(tokenItem, 0);
-                tokensProperty.SetValue(token, tokensArray);
-            }
-            else
-            {
-                _logger.LogWarning("Tokens property type not recognized: {Type}", tokensPropertyType.FullName);
-                return Task.FromResult<string?>(null);
-            }
+            _logger.LogDebug("Converted {Count} proofs to DotNut.Proof objects", dotNutProofs.Count);
 
-            // Set Unit and Memo
-            var unitProperty = cashuTokenType.GetProperty("Unit");
-            var memoProperty = cashuTokenType.GetProperty("Memo");
-            unitProperty?.SetValue(token, unit);
-            memoProperty?.SetValue(token, "Bitcoin Rewards Token");
+            // Create CashuToken directly using DotNut (same as Cashu plugin)
+            var createdToken = new CashuToken()
+            {
+                Tokens =
+                [
+                    new CashuToken.Token
+                    {
+                        Mint = mintUrl,
+                        Proofs = dotNutProofs,
+                    }
+                ],
+                Memo = "Bitcoin Rewards Token",
+                Unit = unit
+            };
 
             // Encode token
-            var encodeMethod = cashuTokenType.GetMethod("Encode");
-            if (encodeMethod == null)
+            var serializedToken = createdToken.Encode();
+            
+            if (string.IsNullOrEmpty(serializedToken))
             {
-                // Try CashuTokenHelper.Decode/Encode
-                var cashuTokenHelperType = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes())
-                    .FirstOrDefault(t => t.Name == "CashuTokenHelper");
-                if (cashuTokenHelperType != null)
-                {
-                    var helperEncodeMethod = cashuTokenHelperType.GetMethod("Encode",
-                        BindingFlags.Public | BindingFlags.Static, null, new[] { cashuTokenType }, null);
-                    if (helperEncodeMethod != null)
-                    {
-                        var encoded = helperEncodeMethod.Invoke(null, new object[] { token });
-                        return Task.FromResult<string?>(encoded?.ToString());
-                    }
-                }
+                _logger.LogError("Encode() returned null or empty string");
                 return Task.FromResult<string?>(null);
             }
 
-            var encodedToken = encodeMethod.Invoke(token, null);
-            if (encodedToken == null)
-            {
-                _logger.LogWarning("Encode method returned null");
-                return Task.FromResult<string?>(null);
-            }
-            var tokenString = encodedToken.ToString();
-            _logger.LogDebug("Successfully created and encoded token (length: {Length})", tokenString?.Length ?? 0);
-            return Task.FromResult<string?>(tokenString);
+            _logger.LogDebug("Successfully created and encoded token (length: {Length})", serializedToken.Length);
+            return Task.FromResult<string?>(serializedToken);
         }
         catch (Exception ex)
         {
