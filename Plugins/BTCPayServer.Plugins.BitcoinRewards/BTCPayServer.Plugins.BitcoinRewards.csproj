@@ -37,25 +37,46 @@
   <!-- Build JavaScript bundle before building the project -->
   <Target Name="BuildJavaScriptBundle" BeforeTargets="BeforeBuild">
     <PropertyGroup>
-      <JsDir>$(MSBuildProjectDirectory)\Resources\js</JsDir>
-      <BundleJs>$(JsDir)\bundle.js</BundleJs>
+      <JsDir>$(MSBuildProjectDirectory)/Resources/js</JsDir>
+      <BundleJs>$(JsDir)/bundle.js</BundleJs>
+    </PropertyGroup>
+    
+    <!-- Check if npm is available -->
+    <Exec Command="which npm" 
+          ContinueOnError="true" 
+          IgnoreExitCode="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="NpmAvailable" />
+    </Exec>
+    
+    <!-- Only build if npm is available and bundle.js doesn't exist or is older than source files -->
+    <PropertyGroup>
+      <NpmAvailable Condition="'$(NpmAvailable)' == ''">1</NpmAvailable>
+      <ShouldBuildJs Condition="'$(NpmAvailable)' == '0' AND Exists('$(JsDir)/AnimatedToken.js')">true</ShouldBuildJs>
     </PropertyGroup>
     
     <!-- Check if node_modules exists, if not, run npm install -->
     <Exec Command="npm install" 
           WorkingDirectory="$(JsDir)" 
-          Condition="!Exists('$(JsDir)\node_modules')" 
-          ContinueOnError="false" />
+          Condition="'$(ShouldBuildJs)' == 'true' AND !Exists('$(JsDir)/node_modules')" 
+          ContinueOnError="true"
+          IgnoreExitCode="true" />
     
     <!-- Build the bundle using webpack -->
     <Exec Command="npx webpack" 
           WorkingDirectory="$(JsDir)" 
-          Condition="Exists('$(JsDir)\node_modules')" 
-          ContinueOnError="false" />
+          Condition="'$(ShouldBuildJs)' == 'true' AND Exists('$(JsDir)/node_modules')" 
+          ContinueOnError="true"
+          IgnoreExitCode="true" />
     
-    <!-- Warn if bundle.js doesn't exist after build attempt -->
-    <Warning Text="JavaScript bundle.js was not created. Make sure npm and webpack are installed." 
-             Condition="!Exists('$(BundleJs)')" />
+    <!-- Warn if npm is not available -->
+    <Warning Text="npm is not available. JavaScript bundle.js will not be built. Install Node.js and npm to build the QR code bundle, or provide a pre-built bundle.js file." 
+             Condition="'$(NpmAvailable)' != '0'" />
+    
+    <!-- Warn if bundle.js doesn't exist after build attempt (but npm was available) -->
+    <Warning Text="JavaScript bundle.js was not created. The QR code feature may not work. Make sure webpack is installed (npm install)." 
+             Condition="'$(NpmAvailable)' == '0' AND !Exists('$(BundleJs)')" />
   </Target>
 	
   <ItemGroup>
