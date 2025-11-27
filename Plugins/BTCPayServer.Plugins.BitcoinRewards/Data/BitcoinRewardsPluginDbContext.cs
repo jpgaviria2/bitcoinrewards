@@ -5,6 +5,7 @@ using BTCPayServer.Plugins.BitcoinRewards.Data.Models;
 using DotNut;
 using DotNut.JsonConverters;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using ISecret = DotNut.ISecret;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
@@ -29,8 +30,9 @@ public class BitcoinRewardsPluginDbContext : DbContext
         // Set default schema first (like Cashu plugin)
         builder.HasDefaultSchema("BTCPayServer.Plugins.BitcoinRewards");
         
-        // Ignore PrivKey and related types to prevent EF Core from mapping them as entities
-        // This must be done early to prevent discovery during model building
+        // CRITICAL: Ignore PrivKey and related types BEFORE any entity configuration
+        // This must be done very early to prevent EF Core from discovering them as entities
+        // during model finalization
         builder.Ignore<PrivKey>();
         
         // Also ignore ECPrivKey if it exists (used in DLEQProof.R)
