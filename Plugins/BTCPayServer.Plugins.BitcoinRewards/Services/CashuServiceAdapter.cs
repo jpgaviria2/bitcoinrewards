@@ -1371,11 +1371,44 @@ public class CashuServiceAdapter : ICashuService
             // Calculate total amount
             var totalAmount = allProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
 
-            // Store proofs using ProofStorageService
-            await _proofStorageService.AddProofsAsync(allProofs, storeId, mintUrl);
+            // Swap proofs to get fresh proofs before storing (prevents double-spend issues)
+            // This is critical: we must swap received proofs to get new secrets
+            _logger.LogInformation("Swapping {Count} received proofs to get fresh proofs before storing", allProofs.Count);
+            
+            var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
+            var wallet = new InternalCashuWallet(mintUrl, unit ?? "sat", walletLogger);
+            
+            // Get active keyset and keys
+            var activeKeyset = await wallet.GetActiveKeyset();
+            var keysetId = new KeysetId(activeKeyset.Id.ToString());
+            var keys = await wallet.GetKeys(keysetId);
+            if (keys == null)
+            {
+                _logger.LogError("Could not get keys for keyset when receiving token");
+                return (false, "Could not get keys from mint", null);
+            }
 
-            _logger.LogInformation("Successfully received Cashu token with {Count} proofs totaling {Amount} sat for store {StoreId}",
-                allProofs.Count, totalAmount, storeId);
+            // Swap to get fresh proofs with same amounts
+            var amounts = allProofs.Select(p => p.Amount).ToList();
+            var swapResult = await wallet.Swap(allProofs, amounts, keysetId, keys);
+            
+            if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
+            {
+                var errorMsg = swapResult.Error?.Message ?? "Unknown error";
+                _logger.LogError("Failed to swap received proofs: {Error}", errorMsg);
+                return (false, $"Failed to swap proofs: {errorMsg}", null);
+            }
+
+            // Use the fresh swapped proofs
+            var freshProofs = swapResult.ResultProofs.ToList();
+            _logger.LogInformation("Successfully swapped {Count} proofs, received {FreshCount} fresh proofs", 
+                allProofs.Count, freshProofs.Count);
+
+            // Store fresh proofs using ProofStorageService
+            await _proofStorageService.AddProofsAsync(freshProofs, storeId, mintUrl);
+
+            _logger.LogInformation("Successfully received Cashu token with {Count} fresh proofs totaling {Amount} sat for store {StoreId}",
+                freshProofs.Count, totalAmount, storeId);
 
             return (true, null, totalAmount);
         }
@@ -1402,23 +1435,59 @@ public class CashuServiceAdapter : ICashuService
             var totalAmount = allProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
             _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", allProofs.Count, totalAmount);
 
-            // Create token from all proofs
-            var proofObjects = allProofs.Cast<object>().ToList();
-            _logger.LogDebug("Creating token from {Count} proof objects", proofObjects.Count);
+            // CRITICAL: Swap proofs to get fresh proofs before creating export token
+            // This ensures the exported token has new secrets and is not already spent
+            _logger.LogInformation("Swapping {Count} proofs to get fresh proofs for export", allProofs.Count);
+            
+            var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
+            var wallet = new InternalCashuWallet(mintUrl, "sat", walletLogger);
+            
+            // Get active keyset and keys
+            var activeKeyset = await wallet.GetActiveKeyset();
+            var keysetId = new KeysetId(activeKeyset.Id.ToString());
+            var keys = await wallet.GetKeys(keysetId);
+            if (keys == null)
+            {
+                _logger.LogError("Could not get keys for keyset when exporting token");
+                return (false, null, "Could not get keys from mint", 0);
+            }
+
+            // Split amount to proof amounts based on keyset
+            var outputAmounts = InternalCashuWallet.SplitToProofsAmounts(totalAmount, keys);
+            
+            // Perform swap to create fresh proofs
+            var swapResult = await wallet.Swap(allProofs, outputAmounts, keysetId, keys);
+            
+            if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
+            {
+                var errorMsg = swapResult.Error?.Message ?? "Unknown error";
+                _logger.LogError("Failed to swap proofs for export: {Error}", errorMsg);
+                return (false, null, $"Failed to swap proofs: {errorMsg}", 0);
+            }
+
+            // Use the fresh swapped proofs for the export token
+            var freshProofs = swapResult.ResultProofs.ToList();
+            _logger.LogInformation("Successfully swapped {Count} proofs, received {FreshCount} fresh proofs for export", 
+                allProofs.Count, freshProofs.Count);
+
+            // Create token from fresh proofs
+            var proofObjects = freshProofs.Cast<object>().ToList();
+            _logger.LogDebug("Creating token from {Count} fresh proof objects", proofObjects.Count);
             var token = await CreateTokenFromProofs(proofObjects, mintUrl, "sat");
             
             if (string.IsNullOrEmpty(token))
             {
-                _logger.LogError("CreateTokenFromProofs returned null or empty token for {Count} proofs", allProofs.Count);
-                return (false, null, "Failed to create token from proofs. Check logs for details.", 0);
+                _logger.LogError("CreateTokenFromProofs returned null or empty token for {Count} fresh proofs", freshProofs.Count);
+                return (false, null, "Failed to create token from fresh proofs. Check logs for details.", 0);
             }
             
-            _logger.LogDebug("Token created successfully (length: {Length})", token.Length);
+            _logger.LogDebug("Token created successfully from fresh proofs (length: {Length})", token.Length);
 
-            // Remove proofs from database after successful token creation
+            // Remove original proofs from database after successful token creation
+            // Note: The swapped proofs are already "spent" (they were swapped), so we remove the originals
             await _proofStorageService.RemoveAllProofsAsync(storeId, mintUrl);
 
-            _logger.LogInformation("Successfully exported token for {Amount} sat and removed proofs from database", totalAmount);
+            _logger.LogInformation("Successfully exported token for {Amount} sat with fresh proofs and removed original proofs from database", totalAmount);
 
             return (true, token, null, totalAmount);
         }
