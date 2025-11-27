@@ -28,6 +28,9 @@ public class BitcoinRewardsPluginDbContext : DbContext
     {
         base.OnModelCreating(builder);
         
+        // Ignore PrivKey type - it's not an entity, just used in value conversions
+        builder.Ignore<PrivKey>();
+        
         // Configure BitcoinRewardRecord entity
         builder.Entity<BitcoinRewardRecord>(entity =>
         {
