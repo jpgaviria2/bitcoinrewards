@@ -36,6 +36,7 @@
 	
   <ItemGroup>
 	<ProjectReference Include="..\..\submodules\BTCPayServer\BTCPayServer.csproj" />
+	<EmbeddedResource Include="Resources\**" />
   </ItemGroup>
   
   <ItemGroup>
