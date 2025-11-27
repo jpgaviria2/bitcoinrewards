@@ -660,8 +660,8 @@ public class CashuServiceAdapter : ICashuService
                         {
                             _logger.LogInformation("Creating token directly from {Count} proofs totaling {Amount} sat", 
                                 selectedProofs.Count, selectedAmount);
-                            var resultProofList = selectedProofs.Cast<object>().ToList();
-                            return await CreateTokenFromProofs(resultProofList, mintUrl, "sat");
+                            var directProofList = selectedProofs.Cast<object>().ToList();
+                            return await CreateTokenFromProofs(directProofList, mintUrl, "sat");
                         }
                     }
                 }
@@ -690,8 +690,8 @@ public class CashuServiceAdapter : ICashuService
                     if (totalProofAmount >= amount)
                     {
                         _logger.LogInformation("Creating token directly from proofs as fallback (swap failed)");
-                        var resultProofList = proofList.Cast<object>().ToList();
-                        return await CreateTokenFromProofs(resultProofList, mintUrl, "sat");
+                        var fallbackProofList = proofList.Cast<object>().ToList();
+                        return await CreateTokenFromProofs(fallbackProofList, mintUrl, "sat");
                     }
                 }
                 
