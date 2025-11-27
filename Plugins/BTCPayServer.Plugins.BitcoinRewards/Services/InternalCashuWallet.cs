@@ -119,6 +119,11 @@ public class InternalCashuWallet
         keysetId ??= (await GetActiveKeyset()).Id;
         keys ??= await GetKeys(keysetId);
 
+        if (keys == null)
+        {
+            throw new InvalidOperationException("Could not get keys for keyset");
+        }
+
         var outputs = CreateOutputs(amounts, keysetId, keys);
 
         var request = new PostSwapRequest()
