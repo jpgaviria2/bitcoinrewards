@@ -1,30 +1,28 @@
-#nullable enable
+using System;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 
 /// <summary>
 /// DbContextFactory for the BitcoinRewards plugin DbContext.
 /// Uses the plugin's own schema.
+/// Matches the pattern used by Cashu plugin's CashuDbContextFactory.
 /// </summary>
 public class BitcoinRewardsPluginDbContextFactory : BaseDbContextFactory<BitcoinRewardsPluginDbContext>
 {
-    public BitcoinRewardsPluginDbContextFactory(IOptions<DatabaseOptions> options, ILoggerFactory loggerFactory) 
-        : base(options, "BTCPayServer.Plugins.BitcoinRewards")
+    public BitcoinRewardsPluginDbContextFactory(IOptions<DatabaseOptions> options)
+        : base(options, BitcoinRewardsPluginDbContext.DefaultPluginSchema)
     {
-        LoggerFactory = loggerFactory;
     }
 
-    public ILoggerFactory LoggerFactory { get; }
-
-    public override BitcoinRewardsPluginDbContext CreateContext(System.Action<Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.NpgsqlDbContextOptionsBuilder>? npgsqlOptionsAction = null)
+    public override BitcoinRewardsPluginDbContext CreateContext(
+        Action<NpgsqlDbContextOptionsBuilder> npgsqlOptionsAction = null)
     {
         var builder = new DbContextOptionsBuilder<BitcoinRewardsPluginDbContext>();
-        builder.UseLoggerFactory(LoggerFactory);
         ConfigureBuilder(builder, npgsqlOptionsAction);
         return new BitcoinRewardsPluginDbContext(builder.Options);
     }

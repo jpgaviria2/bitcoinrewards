@@ -16,7 +16,7 @@ public class BitcoinRewardsPluginDbContext : DbContext
 {
     public static string DefaultPluginSchema = "BTCPayServer.Plugins.BitcoinRewards";
     
-    public BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPluginDbContext> options)
+    public BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPluginDbContext> options, bool designTime = false)
         : base(options)
     {
     }

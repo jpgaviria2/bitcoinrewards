@@ -3,6 +3,7 @@ using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -31,6 +32,15 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Register services - using TryAdd to avoid conflicts if already registered
         // Database operations will be handled lazily when needed
         services.TryAddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
+        
+        // Register DbContext with AddDbContext - matches Cashu plugin pattern
+        // This is critical for EF Core to properly manage model discovery
+        services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
+        {
+            var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
+            factory.ConfigureBuilder(o);
+        });
+        
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
         services.TryAddScoped<Services.DatabaseCleanupService>();
         
