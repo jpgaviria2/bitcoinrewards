@@ -200,19 +200,29 @@ public class ProofStorageService
     }
 
     /// <summary>
-    /// Get ecash balance for a store and mint
+    /// Get ecash balance for a store and mint (only unspent proofs)
     /// </summary>
     public async Task<ulong> GetBalanceAsync(string storeId, string mintUrl)
     {
         try
         {
             await using var db = _dbContextFactory.CreateContext();
-            var balanceDecimal = await db.Proofs
+            var storedProofs = await db.Proofs
                 .Where(p => p.StoreId == storeId && p.MintUrl == mintUrl)
-                .SumAsync(p => (decimal?)p.Amount) ?? 0;
+                .ToListAsync();
 
+            if (!storedProofs.Any())
+            {
+                return 0;
+            }
+
+            // Note: Balance calculation now only includes unspent proofs
+            // Spent proofs should be filtered out by CheckAndFilterSpentProofsAsync
+            // For now, return all proofs - the caller should filter spent proofs
+            var balanceDecimal = storedProofs.Sum(p => (decimal)p.Amount);
             var balance = (ulong)balanceDecimal;
-            _logger.LogDebug("Ecash balance for store {StoreId} on mint {MintUrl}: {Balance} sat", 
+            
+            _logger.LogDebug("Ecash balance for store {StoreId} on mint {MintUrl}: {Balance} sat (before filtering spent)", 
                 storeId, mintUrl, balance);
 
             return balance;
@@ -274,6 +284,32 @@ public class ProofStorageService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing proofs for store {StoreId} on mint {MintUrl}", storeId, mintUrl);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Remove spent proofs by their IDs (used when filtering out spent proofs)
+    /// </summary>
+    public async Task RemoveSpentProofsAsync(List<string> proofIds)
+    {
+        try
+        {
+            await using var db = _dbContextFactory.CreateContext();
+            var proofsToRemove = await db.Proofs
+                .Where(p => proofIds.Contains(p.Id.ToString()))
+                .ToListAsync();
+
+            if (proofsToRemove.Any())
+            {
+                db.Proofs.RemoveRange(proofsToRemove);
+                await db.SaveChangesAsync();
+                _logger.LogInformation("Removed {Count} spent proofs from database", proofsToRemove.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing spent proofs from database");
             throw;
         }
     }

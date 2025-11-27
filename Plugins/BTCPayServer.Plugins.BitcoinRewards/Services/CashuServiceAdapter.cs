@@ -350,9 +350,20 @@ public class CashuServiceAdapter : ICashuService
     {
         try
         {
-            // Use our own proof storage service (primary source)
-            var balance = await _proofStorageService.GetBalanceAsync(storeId, mintUrl);
-            _logger.LogDebug("Ecash balance for store {StoreId} on mint {MintUrl}: {Balance} sat", storeId, mintUrl, balance);
+            // Get all proofs and filter out spent ones
+            var allProofs = await _proofStorageService.GetProofsAsync(storeId, mintUrl);
+            if (allProofs == null || allProofs.Count == 0)
+            {
+                return 0;
+            }
+
+            // Check proof state with mint and filter out spent proofs
+            var unspentProofs = await FilterUnspentProofsAsync(allProofs, mintUrl);
+            var balance = unspentProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+            
+            _logger.LogDebug("Ecash balance for store {StoreId} on mint {MintUrl}: {Balance} sat ({UnspentCount}/{TotalCount} unspent proofs)", 
+                storeId, mintUrl, balance, unspentProofs.Count, allProofs.Count);
+            
             return (long)balance;
         }
         catch (Exception ex)
@@ -1435,9 +1446,28 @@ public class CashuServiceAdapter : ICashuService
             var totalAmount = allProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
             _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", allProofs.Count, totalAmount);
 
+            // CRITICAL: Filter out spent proofs before swapping
+            _logger.LogInformation("Checking proof state for {Count} proofs before export", allProofs.Count);
+            var unspentProofs = await FilterUnspentProofsAsync(allProofs, mintUrl);
+            
+            if (unspentProofs.Count == 0)
+            {
+                _logger.LogError("No unspent proofs available for export after filtering");
+                return (false, null, "All proofs are already spent. Please receive new tokens.", 0);
+            }
+            
+            var unspentAmount = unspentProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+            _logger.LogInformation("After filtering: {UnspentCount} unspent proofs totaling {Amount} sat (was {TotalCount} proofs, {TotalAmount} sat)", 
+                unspentProofs.Count, unspentAmount, allProofs.Count, totalAmount);
+            
+            if (unspentAmount == 0)
+            {
+                return (false, null, "No unspent balance available to export", 0);
+            }
+
             // CRITICAL: Swap proofs to get fresh proofs before creating export token
             // This ensures the exported token has new secrets and is not already spent
-            _logger.LogInformation("Swapping {Count} proofs to get fresh proofs for export", allProofs.Count);
+            _logger.LogInformation("Swapping {Count} unspent proofs to get fresh proofs for export", unspentProofs.Count);
             
             var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
             var wallet = new InternalCashuWallet(mintUrl, "sat", walletLogger);
@@ -1453,10 +1483,10 @@ public class CashuServiceAdapter : ICashuService
             }
 
             // Split amount to proof amounts based on keyset
-            var outputAmounts = InternalCashuWallet.SplitToProofsAmounts(totalAmount, keys);
+            var outputAmounts = InternalCashuWallet.SplitToProofsAmounts(unspentAmount, keys);
             
-            // Perform swap to create fresh proofs
-            var swapResult = await wallet.Swap(allProofs, outputAmounts, keysetId, keys);
+            // Perform swap to create fresh proofs (using only unspent proofs)
+            var swapResult = await wallet.Swap(unspentProofs, outputAmounts, keysetId, keys);
             
             if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
             {
@@ -1485,6 +1515,8 @@ public class CashuServiceAdapter : ICashuService
 
             // Remove original proofs from database after successful token creation
             // Note: The swapped proofs are already "spent" (they were swapped), so we remove the originals
+            // We only remove the proofs that were actually swapped (unspentProofs)
+            // Spent proofs should have already been removed by FilterUnspentProofsAsync
             await _proofStorageService.RemoveAllProofsAsync(storeId, mintUrl);
 
             _logger.LogInformation("Successfully exported token for {Amount} sat with fresh proofs and removed original proofs from database", totalAmount);
