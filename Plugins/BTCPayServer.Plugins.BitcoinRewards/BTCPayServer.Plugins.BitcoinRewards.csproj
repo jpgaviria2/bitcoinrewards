@@ -37,4 +37,9 @@
   <ItemGroup>
 	<ProjectReference Include="..\..\submodules\BTCPayServer\BTCPayServer.csproj" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="DotNut" Version="1.0.4" />
+    <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />
+  </ItemGroup>
 </Project>

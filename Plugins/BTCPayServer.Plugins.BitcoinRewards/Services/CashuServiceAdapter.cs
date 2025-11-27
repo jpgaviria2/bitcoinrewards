@@ -2,15 +2,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Data;
+using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Services.Stores;
+using DotNut;
+using DotNut.Api;
+using DotNut.ApiModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using NBitcoin;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -881,43 +887,38 @@ public class CashuServiceAdapter : ICashuService
     {
         try
         {
-            if (_cashuWalletType == null || _cashuDbContextFactory == null)
-            {
-                _logger.LogWarning("CashuWallet type or DbContextFactory not available");
-                return null;
-            }
-
             _logger.LogInformation("Swapping proofs for {Amount} sat on mint {MintUrl}", amount, mintUrl);
 
-            // Get stored proofs
-            var proofs = await GetStoredProofsAsync(storeId, mintUrl, amount);
-            if (proofs == null || proofs.Count == 0)
+            // Get stored proofs from database
+            var storedProofs = await GetStoredProofsAsync(storeId, mintUrl, amount);
+            if (storedProofs == null || storedProofs.Count == 0)
             {
                 _logger.LogWarning("No proofs available for swapping");
                 return null;
             }
 
-            // Create wallet instance
-            var walletConstructor = _cashuWalletType.GetConstructor(new[] { typeof(string), typeof(string), _cashuDbContextFactory.GetType() });
-            if (walletConstructor == null)
-            {
-                return null;
-            }
+            // Create internal wallet (logger is optional)
+            var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
+            var wallet = new InternalCashuWallet(mintUrl, "sat", walletLogger);
 
-            var wallet = walletConstructor.Invoke(new object[] { mintUrl, "sat", _cashuDbContextFactory });
-            if (wallet == null)
+            // Get active keyset and keys
+            var activeKeyset = await wallet.GetActiveKeyset();
+            var keysetId = new KeysetId(activeKeyset.Id.ToString());
+            var keys = await wallet.GetKeys(keysetId);
+            if (keys == null)
             {
+                _logger.LogWarning("Could not get keys for keyset");
                 return null;
             }
 
             // Convert stored proofs to DotNut Proof objects
-            var proofList = new List<object>();
-            foreach (var storedProof in proofs)
+            var proofList = new List<Proof>();
+            foreach (var storedProof in storedProofs)
             {
                 var toDotNutProofMethod = storedProof.GetType().GetMethod("ToDotNutProof");
                 if (toDotNutProofMethod != null)
                 {
-                    var dotNutProof = toDotNutProofMethod.Invoke(storedProof, null);
+                    var dotNutProof = toDotNutProofMethod.Invoke(storedProof, null) as Proof;
                     if (dotNutProof != null)
                     {
                         proofList.Add(dotNutProof);
@@ -931,155 +932,19 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
-            // Get active keyset and keys
-            var getActiveKeysetMethod = _cashuWalletType.GetMethod("GetActiveKeyset");
-            if (getActiveKeysetMethod == null)
-            {
-                return null;
-            }
-
-            var keysetTask = getActiveKeysetMethod.Invoke(wallet, null) as Task;
-            if (keysetTask == null)
-            {
-                return null;
-            }
-
-            await keysetTask;
-            var activeKeyset = keysetTask.GetType().GetProperty("Result")?.GetValue(keysetTask);
-            if (activeKeyset == null)
-            {
-                return null;
-            }
-
-            var keysetIdProperty = activeKeyset.GetType().GetProperty("Id");
-            var keysetId = keysetIdProperty?.GetValue(activeKeyset);
-            if (keysetId == null)
-            {
-                return null;
-            }
-
-            var getKeysMethod = _cashuWalletType.GetMethod("GetKeys", new[] { keysetId.GetType(), typeof(bool) });
-            if (getKeysMethod == null)
-            {
-                getKeysMethod = _cashuWalletType.GetMethod("GetKeys", new[] { keysetId.GetType() });
-            }
-
-            if (getKeysMethod == null)
-            {
-                return null;
-            }
-
-            var keysTask = getKeysMethod.Invoke(wallet, new[] { keysetId, false }) as Task;
-            if (keysTask == null)
-            {
-                keysTask = getKeysMethod.Invoke(wallet, new[] { keysetId }) as Task;
-            }
-
-            if (keysTask == null)
-            {
-                return null;
-            }
-
-            await keysTask;
-            var keys = keysTask.GetType().GetProperty("Result")?.GetValue(keysTask);
-            if (keys == null)
-            {
-                return null;
-            }
-
             // Split amount to proof amounts
-            var cashuUtilsType = _cashuAssembly?.GetType("BTCPayServer.Plugins.Cashu.CashuAbstractions.CashuUtils");
-            if (cashuUtilsType == null)
+            var outputAmounts = InternalCashuWallet.SplitToProofsAmounts(amount, keys);
+
+            // Call Swap
+            var swapResult = await wallet.Swap(proofList, outputAmounts, keysetId, keys);
+            if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
             {
+                _logger.LogWarning("Swap failed: {Error}", swapResult.Error?.Message ?? "Unknown error");
                 return null;
             }
 
-            var splitToProofsAmountsMethod = cashuUtilsType.GetMethod("SplitToProofsAmounts",
-                BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(ulong), keys.GetType() }, null);
-            if (splitToProofsAmountsMethod == null)
-            {
-                return null;
-            }
-
-            var outputAmounts = splitToProofsAmountsMethod.Invoke(null, new object[] { amount, keys }) as List<ulong>;
-            if (outputAmounts == null || outputAmounts.Count == 0)
-            {
-                return null;
-            }
-
-            // Call Swap method
-            var swapMethod = _cashuWalletType.GetMethod("Swap",
-                new[] { typeof(List<>).MakeGenericType(proofList[0].GetType()), typeof(List<ulong>), keysetId.GetType(), keys.GetType() });
-            if (swapMethod == null)
-            {
-                // Try without keysetId and keys parameters
-                swapMethod = _cashuWalletType.GetMethod("Swap",
-                    new[] { typeof(List<>).MakeGenericType(proofList[0].GetType()), typeof(List<ulong>) });
-            }
-
-            if (swapMethod == null)
-            {
-                _logger.LogWarning("Swap method not found on CashuWallet");
-                return null;
-            }
-
-            // Create typed list
-            var proofType = proofList[0].GetType();
-            var listType = typeof(List<>).MakeGenericType(proofType);
-            var typedProofList = Activator.CreateInstance(listType);
-            var addMethod = listType.GetMethod("Add");
-            foreach (var proof in proofList)
-            {
-                addMethod?.Invoke(typedProofList, new[] { proof });
-            }
-
-            object? swapResult;
-            if (swapMethod.GetParameters().Length == 4)
-            {
-                swapResult = swapMethod.Invoke(wallet, new[] { typedProofList, outputAmounts, keysetId, keys });
-            }
-            else
-            {
-                swapResult = swapMethod.Invoke(wallet, new[] { typedProofList, outputAmounts });
-            }
-
-            if (swapResult == null)
-            {
-                return null;
-            }
-
-            var swapTask = swapResult as Task;
-            if (swapTask != null)
-            {
-                await swapTask;
-                swapResult = swapTask.GetType().GetProperty("Result")?.GetValue(swapTask);
-            }
-
-            if (swapResult == null)
-            {
-                return null;
-            }
-
-            // Get ResultProofs from SwapResult
-            var resultProofsProperty = swapResult.GetType().GetProperty("ResultProofs");
-            if (resultProofsProperty == null)
-            {
-                return null;
-            }
-
-            var resultProofs = resultProofsProperty.GetValue(swapResult) as Array;
-            if (resultProofs == null || resultProofs.Length == 0)
-            {
-                _logger.LogWarning("Swap returned no proofs");
-                return null;
-            }
-
-            // Convert proofs to list
-            var resultProofList = new List<object>();
-            foreach (var proof in resultProofs)
-            {
-                resultProofList.Add(proof);
-            }
+            // Convert proofs to list of objects for CreateTokenFromProofs
+            var resultProofList = swapResult.ResultProofs.Cast<object>().ToList();
 
             // Create token from proofs
             return await CreateTokenFromProofs(resultProofList, mintUrl, "sat");
@@ -1098,214 +963,65 @@ public class CashuServiceAdapter : ICashuService
             _logger.LogInformation("Minting {Amount} sat from Lightning for store {StoreId} on mint {MintUrl}", 
                 amountSatoshis, storeId, mintUrl);
 
-            if (_cashuWalletType == null || _cashuDbContextFactory == null)
-            {
-                _logger.LogWarning("CashuWallet type or DbContextFactory not available");
-                return null;
-            }
-
-            // Get Lightning client (reuse logic from GetLightningBalanceAsync)
-            var store = await _storeRepository.FindStore(storeId);
-            if (store == null)
-            {
-                return null;
-            }
-
-            // Get network
-            var networkProviderType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(t => t.Name == "BTCPayNetworkProvider");
-            if (networkProviderType == null)
-            {
-                return null;
-            }
-            var networkProvider = _serviceProvider.GetService(networkProviderType);
-            var getNetworkMethod = networkProviderType?.GetMethod("GetNetwork", new[] { typeof(string) });
-            var network = getNetworkMethod?.Invoke(networkProvider, new object[] { "BTC" });
-            if (network == null)
-            {
-                return null;
-            }
-
-            // Get Lightning client (simplified - reuse GetLightningBalanceAsync logic)
-            var lightningClient = await GetLightningClientForStore(storeId);
-            if (lightningClient == null)
+            // Get Lightning client
+            var lightningClientObj = await GetLightningClientForStore(storeId);
+            if (lightningClientObj == null)
             {
                 _logger.LogWarning("Lightning client not available for store {StoreId}", storeId);
                 return null;
             }
 
-            // Create wallet with Lightning client
-            var walletConstructor = _cashuWalletType.GetConstructor(
-                new[] { lightningClient.GetType(), typeof(string), typeof(string), _cashuDbContextFactory.GetType() });
-            if (walletConstructor == null)
+            // Cast to ILightningClient
+            var lightningClient = lightningClientObj as ILightningClient;
+            if (lightningClient == null)
             {
+                _logger.LogWarning("Lightning client is not ILightningClient");
                 return null;
             }
 
-            var wallet = walletConstructor.Invoke(new object[] { lightningClient, mintUrl, "sat", _cashuDbContextFactory });
-            if (wallet == null)
-            {
-                return null;
-            }
+            // Create wallet with Lightning client (logger is optional)
+            var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
+            var wallet = new InternalCashuWallet(lightningClient, mintUrl, "sat", walletLogger);
 
             // Create mint quote (NUT-04)
-            var cashuHttpClientType = _cashuAssembly?.GetType("BTCPayServer.Plugins.Cashu.CashuAbstractions.CashuUtils");
-            if (cashuHttpClientType == null)
+            var mintQuote = await wallet.CreateMintQuote((ulong)amountSatoshis, "sat");
+            if (mintQuote == null || string.IsNullOrEmpty(mintQuote.Request))
             {
-                return null;
-            }
-
-            var getCashuHttpClientMethod = cashuHttpClientType.GetMethod("GetCashuHttpClient",
-                BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
-            if (getCashuHttpClientMethod == null)
-            {
-                return null;
-            }
-
-            var cashuHttpClient = getCashuHttpClientMethod.Invoke(null, new object[] { mintUrl });
-            if (cashuHttpClient == null)
-            {
-                return null;
-            }
-
-            // Create mint quote
-            var createMintQuoteMethod = cashuHttpClient.GetType().GetMethod("CreateMintQuote");
-            if (createMintQuoteMethod == null)
-            {
-                return null;
-            }
-
-            // Get generic method
-            var mintQuoteRequestType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(t => t.Name == "PostMintQuoteBolt11Request");
-            var mintQuoteResponseType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(t => t.Name == "PostMintQuoteBolt11Response");
-
-            if (mintQuoteRequestType == null || mintQuoteResponseType == null)
-            {
-                _logger.LogWarning("Mint quote types not found");
-                return null;
-            }
-
-            var genericCreateMintQuote = createMintQuoteMethod.MakeGenericMethod(mintQuoteResponseType, mintQuoteRequestType);
-            
-            // Create request
-            var requestType = mintQuoteRequestType;
-            var request = Activator.CreateInstance(requestType);
-            if (request == null)
-            {
-                return null;
-            }
-            var amountProperty = requestType.GetProperty("Amount");
-            var unitProperty = requestType.GetProperty("Unit");
-            amountProperty?.SetValue(request, (ulong)amountSatoshis);
-            unitProperty?.SetValue(request, "sat");
-
-            // Create mint quote
-            var mintQuoteTask = genericCreateMintQuote.Invoke(cashuHttpClient, new object[] { "bolt11", request }) as Task;
-            if (mintQuoteTask == null)
-            {
-                return null;
-            }
-
-            await mintQuoteTask;
-            var mintQuote = mintQuoteTask.GetType().GetProperty("Result")?.GetValue(mintQuoteTask);
-            if (mintQuote == null)
-            {
-                return null;
-            }
-
-            // Get invoice from quote
-            var requestProperty = mintQuote.GetType().GetProperty("Request");
-            var invoiceBolt11 = requestProperty?.GetValue(mintQuote)?.ToString();
-            if (string.IsNullOrEmpty(invoiceBolt11))
-            {
+                _logger.LogWarning("Failed to create mint quote");
                 return null;
             }
 
             // Pay invoice
-            var payMethod = lightningClient.GetType().GetMethod("Pay");
-            if (payMethod == null)
+            var payResult = await lightningClient.Pay(mintQuote.Request, CancellationToken.None);
+            if (payResult.Result != PayResult.Ok)
             {
+                _logger.LogWarning("Lightning payment failed: {Result}", payResult.Result);
                 return null;
             }
 
-            var cancellationTokenType = typeof(CancellationToken);
-            var defaultCancellationToken = cancellationTokenType.GetProperty("None", BindingFlags.Public | BindingFlags.Static)?.GetValue(null) ?? default(CancellationToken);
-            var payTask = payMethod.Invoke(lightningClient, new object[] { invoiceBolt11, defaultCancellationToken }) as Task;
-            if (payTask == null)
-            {
-                return null;
-            }
-
-            await payTask;
-            var payResult = payTask.GetType().GetProperty("Result")?.GetValue(payTask);
-            if (payResult == null)
-            {
-                _logger.LogWarning("Lightning payment failed");
-                return null;
-            }
-
-            // Check payment result
-            var resultProperty = payResult.GetType().GetProperty("Result");
-            var paymentResult = resultProperty?.GetValue(payResult);
-            if (paymentResult?.ToString() != "OK")
-            {
-                _logger.LogWarning("Lightning payment result: {Result}", paymentResult);
-                return null;
-            }
-
-            // Get quote ID and check status
-            var quoteProperty = mintQuote.GetType().GetProperty("Quote");
-            var quoteId = quoteProperty?.GetValue(mintQuote)?.ToString();
+            // Poll for quote completion
+            var quoteId = mintQuote.Quote;
             if (string.IsNullOrEmpty(quoteId))
             {
+                _logger.LogWarning("Mint quote ID is empty");
                 return null;
             }
 
-            // Check mint quote status - try CheckMintQuote first, fall back to CheckMeltQuote
-            var checkMintQuoteMethod = cashuHttpClient.GetType().GetMethod("CheckMintQuote");
-            if (checkMintQuoteMethod == null)
-            {
-                // Fall back to CheckMeltQuote if CheckMintQuote doesn't exist
-                checkMintQuoteMethod = cashuHttpClient.GetType().GetMethod("CheckMeltQuote");
-            }
-
-            if (checkMintQuoteMethod == null)
-            {
-                _logger.LogWarning("CheckMintQuote/CheckMeltQuote method not found");
-                return null;
-            }
-
-            var genericCheckQuote = checkMintQuoteMethod.MakeGenericMethod(mintQuoteResponseType);
-            
-            // Poll for quote completion
             for (int i = 0; i < 30; i++) // Poll up to 30 times (30 seconds)
             {
                 await Task.Delay(1000);
-                var checkTask = genericCheckQuote.Invoke(cashuHttpClient, new object[] { "bolt11", quoteId, default(CancellationToken) }) as Task;
-                if (checkTask == null)
-                {
-                    continue;
-                }
-
-                await checkTask;
-                var checkResult = checkTask.GetType().GetProperty("Result")?.GetValue(checkTask);
-                if (checkResult == null)
-                {
-                    continue;
-                }
-
+                var checkResult = await wallet.CheckMintQuote(quoteId, CancellationToken.None);
+                
+                // Check if quote is paid using reflection (PostMintQuoteBolt11Response structure may vary)
                 var paidProperty = checkResult.GetType().GetProperty("Paid");
                 var paid = paidProperty?.GetValue(checkResult) as bool?;
+                
                 if (paid == true)
                 {
                     // Get proofs from quote
                     var proofsProperty = checkResult.GetType().GetProperty("Proofs");
                     var proofs = proofsProperty?.GetValue(checkResult) as Array;
+                    
                     if (proofs != null && proofs.Length > 0)
                     {
                         var proofList = new List<object>();
@@ -1317,7 +1033,7 @@ public class CashuServiceAdapter : ICashuService
                             }
                         }
 
-                        // Store proofs in database
+                        // Store proofs in database (using reflection to optionally use Cashu plugin's database)
                         if (_cashuService != null && proofList.Count > 0)
                         {
                             var firstProof = proofList[0];
