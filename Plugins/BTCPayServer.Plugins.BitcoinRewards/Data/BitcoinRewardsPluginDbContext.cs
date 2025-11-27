@@ -1,11 +1,8 @@
-#nullable enable
 using System.Text.Json;
-using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Data.Models;
 using DotNut;
 using DotNut.JsonConverters;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using ISecret = DotNut.ISecret;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
@@ -13,9 +10,12 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 /// <summary>
 /// Plugin-specific DbContext for BitcoinRewards entities.
 /// This uses a separate schema to avoid conflicts with the main ApplicationDbContext.
+/// Matches the pattern used by Cashu plugin's CashuDbContext.
 /// </summary>
 public class BitcoinRewardsPluginDbContext : DbContext
 {
+    public static string DefaultPluginSchema = "BTCPayServer.Plugins.BitcoinRewards";
+    
     public BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPluginDbContext> options)
         : base(options)
     {
@@ -25,35 +25,12 @@ public class BitcoinRewardsPluginDbContext : DbContext
     public DbSet<StoredProof> Proofs { get; set; } = null!;
     public DbSet<Mint> Mints { get; set; } = null!;
 
-    protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Set default schema first (like Cashu plugin)
-        builder.HasDefaultSchema("BTCPayServer.Plugins.BitcoinRewards");
-        
-        // CRITICAL: Ignore PrivKey and related types BEFORE any entity configuration
-        // This must be done very early to prevent EF Core from discovering them as entities
-        // during model finalization
-        builder.Ignore<PrivKey>();
-        
-        // Also ignore ECPrivKey if it exists (used in DLEQProof.R)
-        try
-        {
-            var ecPrivKeyType = typeof(PrivKey).Assembly.GetType("NBitcoin.Secp256k1.ECPrivKey");
-            if (ecPrivKeyType != null)
-            {
-                builder.Ignore(ecPrivKeyType);
-            }
-        }
-        catch
-        {
-            // Ignore if type not found
-        }
-        
-        // Note: Not calling base.OnModelCreating(builder) - same as Cashu plugin
-        // This prevents EF Core from scanning and discovering types like PrivKey
-        
+        modelBuilder.HasDefaultSchema(DefaultPluginSchema);
+
         // Configure BitcoinRewardRecord entity
-        builder.Entity<BitcoinRewardRecord>(entity =>
+        modelBuilder.Entity<BitcoinRewardRecord>(entity =>
         {
             entity.ToTable("BitcoinRewardRecords");
             entity.HasKey(e => e.Id);
@@ -62,18 +39,17 @@ public class BitcoinRewardsPluginDbContext : DbContext
             entity.HasIndex(e => e.Status);
         });
 
-        // Configure StoredProof entity
-        builder.Entity<StoredProof>(entity =>
+        // Configure StoredProof entity - exactly like Cashu plugin
+        modelBuilder.Entity<StoredProof>(entity =>
         {
             entity.ToTable("Proofs");
-            entity.HasKey(e => e.ProofId);
-            entity.HasIndex(e => e.StoreId);
-            entity.HasIndex(e => e.MintUrl);
-            entity.HasIndex(e => new { e.StoreId, e.MintUrl });
-            entity.HasIndex(e => e.Id); // Keyset ID
-            entity.HasIndex(e => e.Amount);
+            entity.HasKey(sk => sk.ProofId);
+            entity.HasIndex(sk => sk.Id);
+            entity.HasIndex(sk => sk.StoreId);
+            entity.HasIndex(sk => sk.Amount);
+            entity.HasIndex(sk => sk.MintUrl);
+            entity.HasIndex(sk => new { sk.StoreId, sk.MintUrl });
 
-            // Configure value converters for DotNut types (same as Cashu plugin)
             entity.Property(p => p.C)
                 .HasConversion(
                     pk => pk.ToString(),
@@ -99,7 +75,7 @@ public class BitcoinRewardsPluginDbContext : DbContext
         });
 
         // Configure Mint entity
-        builder.Entity<Mint>(entity =>
+        modelBuilder.Entity<Mint>(entity =>
         {
             entity.ToTable("Mints");
             entity.HasKey(e => e.Id);
