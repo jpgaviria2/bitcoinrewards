@@ -1433,5 +1433,44 @@ public class CashuServiceAdapter : ICashuService
             return (false, $"Error receiving token: {ex.Message}", null);
         }
     }
+
+    public async Task<(bool Success, string? Token, string? ErrorMessage, ulong Amount)> ExportTokenAsync(string storeId, string mintUrl)
+    {
+        try
+        {
+            _logger.LogInformation("Exporting token for store {StoreId} on mint {MintUrl}", storeId, mintUrl);
+
+            // Get all proofs for this store/mint
+            var allProofs = await _proofStorageService.GetProofsAsync(storeId, mintUrl);
+            if (allProofs == null || allProofs.Count == 0)
+            {
+                return (false, null, "No proofs available to export", 0);
+            }
+
+            var totalAmount = allProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+            _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", allProofs.Count, totalAmount);
+
+            // Create token from all proofs
+            var proofObjects = allProofs.Cast<object>().ToList();
+            var token = await CreateTokenFromProofs(proofObjects, mintUrl, "sat");
+            
+            if (string.IsNullOrEmpty(token))
+            {
+                return (false, null, "Failed to create token from proofs", 0);
+            }
+
+            // Remove proofs from database after successful token creation
+            await _proofStorageService.RemoveAllProofsAsync(storeId, mintUrl);
+
+            _logger.LogInformation("Successfully exported token for {Amount} sat and removed proofs from database", totalAmount);
+
+            return (true, token, null, totalAmount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting token for store {StoreId}", storeId);
+            return (false, null, ex.Message, 0);
+        }
+    }
 }
 

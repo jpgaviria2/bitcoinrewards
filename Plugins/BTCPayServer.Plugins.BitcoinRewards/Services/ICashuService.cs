@@ -29,5 +29,10 @@ public interface ICashuService
     /// Receive a Cashu token (from QR code or paste) and store the proofs
     /// </summary>
     Task<(bool Success, string? ErrorMessage, ulong? Amount)> ReceiveTokenAsync(string token, string storeId);
+    
+    /// <summary>
+    /// Export all ecash proofs for a store/mint as a Cashu token
+    /// </summary>
+    Task<(bool Success, string? Token, string? ErrorMessage, ulong Amount)> ExportTokenAsync(string storeId, string mintUrl);
 }
 

@@ -264,5 +264,61 @@ public class WalletController : Controller
 
         return RedirectToAction(nameof(Index), new { storeId });
     }
+
+    [HttpPost("export")]
+    public async Task<IActionResult> ExportToken(string storeId)
+    {
+        var store = await _storeRepository.FindStore(storeId);
+        if (store == null)
+        {
+            return NotFound();
+        }
+
+        var config = await _walletConfigurationService.GetConfigurationAsync(storeId);
+        if (config == null)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Warning,
+                Message = "Please configure mint URL first"
+            });
+            return RedirectToAction(nameof(Configure), new { storeId });
+        }
+
+        if (config.Balance == 0)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Warning,
+                Message = "No balance available to export"
+            });
+            return RedirectToAction(nameof(Index), new { storeId });
+        }
+
+        // Export token
+        var result = await _cashuService.ExportTokenAsync(storeId, config.MintUrl);
+        if (result.Success && !string.IsNullOrEmpty(result.Token))
+        {
+            var viewModel = new ExportedTokenViewModel
+            {
+                Token = result.Token,
+                Amount = result.Amount,
+                FormatedAmount = $"{result.Amount} sat",
+                MintAddress = config.MintUrl,
+                Unit = config.Unit
+            };
+
+            return View("ExportedToken", viewModel);
+        }
+        else
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Severity = StatusMessageModel.StatusSeverity.Error,
+                Message = result.ErrorMessage ?? "Failed to export token. Check logs for details."
+            });
+            return RedirectToAction(nameof(Index), new { storeId });
+        }
+    }
 }
 

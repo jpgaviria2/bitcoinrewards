@@ -250,5 +250,32 @@ public class ProofStorageService
             throw;
         }
     }
+
+    /// <summary>
+    /// Remove all proofs for a store/mint from the database (used when exporting token)
+    /// </summary>
+    public async Task RemoveAllProofsAsync(string storeId, string mintUrl)
+    {
+        try
+        {
+            await using var db = _dbContextFactory.CreateContext();
+            var proofsToRemove = await db.Proofs
+                .Where(p => p.StoreId == storeId && p.MintUrl == mintUrl)
+                .ToListAsync();
+
+            if (proofsToRemove.Any())
+            {
+                db.Proofs.RemoveRange(proofsToRemove);
+                await db.SaveChangesAsync();
+                _logger.LogInformation("Removed {Count} proofs for store {StoreId} on mint {MintUrl}", 
+                    proofsToRemove.Count, storeId, mintUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing proofs for store {StoreId} on mint {MintUrl}", storeId, mintUrl);
+            throw;
+        }
+    }
 }
 

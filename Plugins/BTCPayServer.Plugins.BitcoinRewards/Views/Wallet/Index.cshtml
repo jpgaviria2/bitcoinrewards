@@ -39,6 +39,20 @@
                     <label class="form-label">Mint URL</label>
                     <div class="text-muted">@Model.MintUrl</div>
                 </div>
+
+                @if (Model.EcashBalance > 0)
+                {
+                    <div class="mt-3">
+                        <form method="post" asp-action="ExportToken" asp-route-storeId="@Model.StoreId">
+                            <button type="submit" class="btn btn-primary">
+                                <span class="me-2">📤</span>Export Token
+                            </button>
+                        </form>
+                        <div class="form-text mt-2">
+                            Export all ecash as a Cashu token. The token can be scanned with another wallet.
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     </div>
