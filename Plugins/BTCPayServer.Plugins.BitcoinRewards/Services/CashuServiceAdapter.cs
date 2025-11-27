@@ -362,7 +362,7 @@ public class CashuServiceAdapter : ICashuService
         }
     }
 
-    private async Task<long> GetLightningBalanceAsync(string storeId)
+    public async Task<long> GetLightningBalanceAsync(string storeId)
     {
         try
         {

@@ -19,5 +19,10 @@ public interface ICashuService
     /// Validate that an ecash token is still valid and unclaimed
     /// </summary>
     Task<bool> ValidateTokenAsync(string ecashToken);
+
+    /// <summary>
+    /// Get Lightning wallet balance for a store
+    /// </summary>
+    Task<long> GetLightningBalanceAsync(string storeId);
 }
 

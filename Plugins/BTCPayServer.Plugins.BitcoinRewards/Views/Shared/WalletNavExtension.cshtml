@@ -9,23 +9,6 @@
 @if (!string.IsNullOrEmpty(storeId))
 {
     <li class="nav-item">
-        <a asp-controller="UIBitcoinRewards" asp-action="EditSettings" asp-route-storeId="@storeId" class="nav-link" id="Nav-BitcoinRewards">
-            <svg role="img" class="icon icon-plugin" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                @* Star outline *@
-                <path d="M16 2L20 12L30 14L22 21L24 31L16 26L8 31L10 21L2 14L12 12L16 2Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                @* Top vertical dash *@
-                <line x1="16" y1="8" x2="16" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                @* Three horizontal lines *@
-                <line x1="12" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="12" y1="16" x2="20" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="12" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                @* Bottom vertical dash *@
-                <line x1="16" y1="22" x2="16" y2="24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <span>Bitcoin Rewards</span>
-        </a>
-    </li>
-    <li class="nav-item">
         <a asp-controller="Wallet" asp-action="Index" asp-route-storeId="@storeId" class="nav-link" id="Nav-BitcoinRewards-Wallet">
             <svg role="img" class="icon icon-plugin" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 @* Star outline *@

@@ -52,8 +52,8 @@ public class WalletController : Controller
             return RedirectToAction(nameof(Configure), new { storeId });
         }
 
-        // Get Lightning balance (if available) - TODO: Add public method to ICashuService
-        long lightningBalance = 0;
+        // Get Lightning balance (if available)
+        long lightningBalance = await _cashuService.GetLightningBalanceAsync(storeId);
 
         var viewModel = new WalletViewModel
         {

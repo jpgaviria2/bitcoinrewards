@@ -25,6 +25,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Using just the view name (no path) - BTCPay Server automatically searches Views/Shared/
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
         
+        // Register wallet navigation in the wallets section (similar to Cashu plugin)
+        services.AddUIExtension("store-wallets-nav", "WalletNavExtension");
+        
         // Register services - using TryAdd to avoid conflicts if already registered
         // Database operations will be handled lazily when needed
         services.TryAddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
