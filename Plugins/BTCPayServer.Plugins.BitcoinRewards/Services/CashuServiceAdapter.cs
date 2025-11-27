@@ -31,6 +31,7 @@ public class CashuServiceAdapter : ICashuService
     private readonly StoreRepository _storeRepository;
     private readonly ProofStorageService _proofStorageService;
     private readonly WalletConfigurationService _walletConfigurationService;
+    private readonly Data.BitcoinRewardsPluginDbContextFactory _dbContextFactory;
     private bool _cashuServiceAvailable;
     private object? _cashuService;
     private object? _cashuDbContextFactory;
@@ -44,13 +45,15 @@ public class CashuServiceAdapter : ICashuService
         ILogger<CashuServiceAdapter> logger,
         StoreRepository storeRepository,
         ProofStorageService proofStorageService,
-        WalletConfigurationService walletConfigurationService)
+        WalletConfigurationService walletConfigurationService,
+        Data.BitcoinRewardsPluginDbContextFactory dbContextFactory)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _storeRepository = storeRepository;
         _proofStorageService = proofStorageService;
         _walletConfigurationService = walletConfigurationService;
+        _dbContextFactory = dbContextFactory;
         TryDiscoverCashuService();
     }
 
@@ -1450,74 +1453,33 @@ public class CashuServiceAdapter : ICashuService
                 return (false, null, "Couldn't get keysets!", 0);
             }
 
-            // 2. Get all proofs and filter by keyset IDs (matching Cashu plugin line 244-249)
-            var allProofs = await _proofStorageService.GetProofsAsync(storeId, mintUrl);
-            if (allProofs == null || allProofs.Count == 0)
-            {
-                return (false, null, "No proofs available to export", 0);
-            }
+            // 2. Get StoredProof entities directly from database and filter by keyset IDs (matching Cashu plugin line 244-249)
+            // This matches the Cashu plugin's exact approach - query StoredProof entities, then convert to Proof
+            await using var db = _dbContextFactory.CreateContext();
+            var selectedStoredProofs = db.Proofs.Where(p =>
+                p.StoreId == storeId
+                && p.MintUrl == mintUrl
+                && keysets.Select(k => k.Id).Contains(p.Id)
+                // Note: We don't have FailedTransactions table, so skip that filter from Cashu plugin
+            ).ToList();
 
-            // Filter proofs by keyset IDs (we don't have FailedTransactions table, so skip that filter)
-            var selectedProofs = allProofs
-                .Where(p => keysets.Select(k => k.Id).Contains(p.Id))
-                .ToList();
-
-            if (selectedProofs.Count == 0)
+            if (selectedStoredProofs.Count == 0)
             {
                 _logger.LogWarning("No proofs match active keysets for store {StoreId}", storeId);
                 return (false, null, "No proofs available for active keysets", 0);
             }
 
-            // Validate proofs before creating token
-            var validProofs = selectedProofs
-                .Where(p => p != null && p.Secret != null && p.C != null && p.Amount > 0)
-                .ToList();
+            // 3. Convert StoredProof entities to DotNut Proof objects using ToDotNutProof() (matching Cashu plugin line 258)
+            var dotNutProofs = selectedStoredProofs.Select(p => p.ToDotNutProof()).ToList();
 
-            if (validProofs.Count == 0)
-            {
-                _logger.LogError("No valid proofs found after validation");
-                return (false, null, "No valid proofs available to export", 0);
-            }
+            var tokenAmount = selectedStoredProofs.Select(p => p.Amount).Sum();
+            _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", dotNutProofs.Count, tokenAmount);
 
-            if (validProofs.Count < selectedProofs.Count)
-            {
-                _logger.LogWarning("Filtered out {InvalidCount} invalid proofs, using {ValidCount} valid proofs", 
-                    selectedProofs.Count - validProofs.Count, validProofs.Count);
-            }
-
-            var tokenAmount = validProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
-            _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", validProofs.Count, tokenAmount);
-
-            // 3. Recreate Proof objects to ensure they're fresh DotNut Proof objects (matching Cashu plugin)
-            // This ensures all internal properties and state are properly initialized for encoding
-            var freshProofs = validProofs.Select(p => new Proof
-            {
-                Id = p.Id,
-                Amount = p.Amount,
-                Secret = p.Secret,
-                C = p.C,
-                DLEQ = p.DLEQ,
-                Witness = p.Witness
-            }).ToList();
-
-            _logger.LogDebug("Recreated {Count} fresh Proof objects for token encoding", freshProofs.Count);
-
-            // Validate fresh proofs have all required properties
-            var invalidProofs = freshProofs.Where(p => p.Id == null || p.Secret == null || p.C == null || p.Amount == 0).ToList();
-            if (invalidProofs.Count > 0)
-            {
-                _logger.LogWarning("Found {Count} invalid fresh proofs (missing required properties)", invalidProofs.Count);
-            }
-            else
-            {
-                _logger.LogDebug("All {Count} fresh proofs validated successfully (Id, Secret, C, Amount all set)", freshProofs.Count);
-            }
-
-            // 4. Create token directly from fresh proofs (NO swap - matching Cashu plugin line 251-263)
+            // 4. Create token directly from proofs (NO swap - matching Cashu plugin line 251-263)
             var tokenItem = new CashuToken.Token
             {
                 Mint = mintUrl,
-                Proofs = freshProofs
+                Proofs = dotNutProofs
             };
 
             // Validate token item before creating CashuToken
@@ -1589,8 +1551,10 @@ public class CashuServiceAdapter : ICashuService
                 return (false, null, "Failed to create token", 0);
             }
 
-            // 4. Remove proofs from database (matching Cashu plugin line 268-271)
-            await _proofStorageService.RemoveAllProofsAsync(storeId, mintUrl);
+            // 5. Remove proofs from database (matching Cashu plugin line 268-271)
+            // Remove the stored proof entities that were used in the token
+            db.Proofs.RemoveRange(selectedStoredProofs);
+            await db.SaveChangesAsync();
 
             _logger.LogInformation("Successfully exported token for {Amount} sat and removed proofs from database", tokenAmount);
 
