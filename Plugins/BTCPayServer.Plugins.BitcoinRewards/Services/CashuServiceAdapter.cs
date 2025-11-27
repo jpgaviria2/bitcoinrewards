@@ -617,6 +617,29 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
+            // Filter out spent proofs before swapping
+            _logger.LogInformation("Checking proof state for {Count} proofs before swap", storedProofs.Count);
+            var unspentProofs = await FilterUnspentProofsAsync(storedProofs.Cast<Proof>().ToList(), mintUrl);
+            
+            if (unspentProofs.Count == 0)
+            {
+                _logger.LogError("No unspent proofs available for swap after filtering");
+                return null;
+            }
+            
+            var unspentAmount = unspentProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+            if (unspentAmount < amount)
+            {
+                _logger.LogError("Insufficient unspent balance: {UnspentAmount} sat < {Needed} sat", unspentAmount, amount);
+                return null;
+            }
+            
+            _logger.LogInformation("After filtering: {UnspentCount} unspent proofs totaling {Amount} sat", 
+                unspentProofs.Count, unspentAmount);
+            
+            // Use unspent proofs for swap
+            storedProofs = unspentProofs.Cast<object>().ToList();
+
             // Create internal wallet (logger is optional)
             var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
             var wallet = new InternalCashuWallet(mintUrl, "sat", walletLogger);
