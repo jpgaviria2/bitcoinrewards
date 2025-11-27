@@ -33,6 +33,30 @@
       <ExcludeAssets>runtime;native;build;buildTransitive;contentFiles</ExcludeAssets>
     </ProjectReference>
   </ItemDefinitionGroup>
+
+  <!-- Build JavaScript bundle before building the project -->
+  <Target Name="BuildJavaScriptBundle" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <JsDir>$(MSBuildProjectDirectory)\Resources\js</JsDir>
+      <BundleJs>$(JsDir)\bundle.js</BundleJs>
+    </PropertyGroup>
+    
+    <!-- Check if node_modules exists, if not, run npm install -->
+    <Exec Command="npm install" 
+          WorkingDirectory="$(JsDir)" 
+          Condition="!Exists('$(JsDir)\node_modules')" 
+          ContinueOnError="false" />
+    
+    <!-- Build the bundle using webpack -->
+    <Exec Command="npx webpack" 
+          WorkingDirectory="$(JsDir)" 
+          Condition="Exists('$(JsDir)\node_modules')" 
+          ContinueOnError="false" />
+    
+    <!-- Warn if bundle.js doesn't exist after build attempt -->
+    <Warning Text="JavaScript bundle.js was not created. Make sure npm and webpack are installed." 
+             Condition="!Exists('$(BundleJs)')" />
+  </Target>
 	
   <ItemGroup>
 	<ProjectReference Include="..\..\submodules\BTCPayServer\BTCPayServer.csproj" />
