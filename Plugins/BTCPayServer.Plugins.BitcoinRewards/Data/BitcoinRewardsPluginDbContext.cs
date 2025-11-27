@@ -26,15 +26,33 @@ public class BitcoinRewardsPluginDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
-        base.OnModelCreating(builder);
+        // Set default schema first (like Cashu plugin)
+        builder.HasDefaultSchema("BTCPayServer.Plugins.BitcoinRewards");
         
-        // Ignore PrivKey type - it's not an entity, just used in value conversions
+        // Ignore PrivKey and related types to prevent EF Core from mapping them as entities
+        // This must be done early to prevent discovery during model building
         builder.Ignore<PrivKey>();
+        
+        // Also ignore ECPrivKey if it exists (used in DLEQProof.R)
+        try
+        {
+            var ecPrivKeyType = typeof(PrivKey).Assembly.GetType("NBitcoin.Secp256k1.ECPrivKey");
+            if (ecPrivKeyType != null)
+            {
+                builder.Ignore(ecPrivKeyType);
+            }
+        }
+        catch
+        {
+            // Ignore if type not found
+        }
+        
+        base.OnModelCreating(builder);
         
         // Configure BitcoinRewardRecord entity
         builder.Entity<BitcoinRewardRecord>(entity =>
         {
-            entity.ToTable("BitcoinRewardRecords", schema: "BTCPayServer.Plugins.BitcoinRewards");
+            entity.ToTable("BitcoinRewardRecords");
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.StoreId);
             entity.HasIndex(e => new { e.StoreId, e.TransactionId, e.Platform });
@@ -44,7 +62,7 @@ public class BitcoinRewardsPluginDbContext : DbContext
         // Configure StoredProof entity
         builder.Entity<StoredProof>(entity =>
         {
-            entity.ToTable("Proofs", schema: "BTCPayServer.Plugins.BitcoinRewards");
+            entity.ToTable("Proofs");
             entity.HasKey(e => e.ProofId);
             entity.HasIndex(e => e.StoreId);
             entity.HasIndex(e => e.MintUrl);
@@ -80,7 +98,7 @@ public class BitcoinRewardsPluginDbContext : DbContext
         // Configure Mint entity
         builder.Entity<Mint>(entity =>
         {
-            entity.ToTable("Mints", schema: "BTCPayServer.Plugins.BitcoinRewards");
+            entity.ToTable("Mints");
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.StoreId);
             entity.HasIndex(e => new { e.StoreId, e.IsActive });
