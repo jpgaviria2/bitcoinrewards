@@ -2,6 +2,7 @@ using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
+using BTCPayServer.Plugins.BitcoinRewards.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -29,6 +30,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
         services.TryAddScoped<Services.DatabaseCleanupService>();
+        
+        // Register migration runner to run migrations on startup
+        services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
         services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
         services.TryAddScoped<Services.BitcoinRewardsService>();
