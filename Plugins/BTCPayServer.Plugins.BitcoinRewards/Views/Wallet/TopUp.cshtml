@@ -76,18 +76,28 @@
 </div>
 
 @section PageFootContent {
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         (function() {
             const video = document.getElementById('qr-video');
             const canvas = document.getElementById('qr-canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const tokenInput = document.getElementById('token');
             const startButton = document.getElementById('start-scan');
             const stopButton = document.getElementById('stop-scan');
             const statusDiv = document.getElementById('qr-status');
             let stream = null;
             let scanning = false;
+            let barcodeDetector = null;
+
+            // Check if BarcodeDetector API is available
+            if ('BarcodeDetector' in window) {
+                try {
+                    barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+                    console.log('BarcodeDetector API available');
+                } catch (e) {
+                    console.warn('BarcodeDetector not supported:', e);
+                }
+            }
 
             startButton.addEventListener('click', async function() {
                 try {
@@ -95,14 +105,24 @@
                         video: { facingMode: 'environment' } 
                     });
                     video.srcObject = stream;
+                    await video.play();
                     video.style.display = 'block';
                     startButton.style.display = 'none';
                     stopButton.style.display = 'inline-block';
                     statusDiv.textContent = 'Point camera at QR code...';
+                    statusDiv.className = 'text-muted small mt-2';
                     scanning = true;
-                    scanQR();
+                    
+                    if (barcodeDetector) {
+                        scanQRWithBarcodeDetector();
+                    } else {
+                        statusDiv.textContent = 'QR scanning requires Chrome/Edge browser. Please paste token manually.';
+                        statusDiv.className = 'text-warning small mt-2';
+                        stopScanning();
+                    }
                 } catch (err) {
                     statusDiv.textContent = 'Error accessing camera: ' + err.message;
+                    statusDiv.className = 'text-danger small mt-2';
                     console.error('Camera error:', err);
                 }
             });
@@ -121,32 +141,38 @@
                 startButton.style.display = 'inline-block';
                 stopButton.style.display = 'none';
                 statusDiv.textContent = '';
+                statusDiv.className = 'text-muted small mt-2';
             }
 
-            function scanQR() {
-                if (!scanning) return;
+            async function scanQRWithBarcodeDetector() {
+                if (!scanning || !barcodeDetector) return;
 
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                    canvas.height = video.videoHeight;
-                    canvas.width = video.videoWidth;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-                    if (code) {
-                        tokenInput.value = code.data;
-                        statusDiv.textContent = '✓ QR code scanned successfully!';
-                        statusDiv.className = 'text-success small mt-2';
-                        stopScanning();
-                        setTimeout(() => {
-                            statusDiv.textContent = '';
-                            statusDiv.className = 'text-muted small mt-2';
-                        }, 3000);
-                        return;
+                try {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        const barcodes = await barcodeDetector.detect(video);
+                        
+                        if (barcodes && barcodes.length > 0) {
+                            const code = barcodes[0];
+                            if (code && code.rawValue) {
+                                tokenInput.value = code.rawValue;
+                                statusDiv.textContent = '✓ QR code scanned successfully!';
+                                statusDiv.className = 'text-success small mt-2';
+                                stopScanning();
+                                setTimeout(() => {
+                                    statusDiv.textContent = '';
+                                    statusDiv.className = 'text-muted small mt-2';
+                                }, 3000);
+                                return;
+                            }
+                        }
                     }
+                } catch (err) {
+                    console.error('Barcode detection error:', err);
                 }
 
-                requestAnimationFrame(scanQR);
+                if (scanning) {
+                    requestAnimationFrame(scanQRWithBarcodeDetector);
+                }
             }
 
             // Cleanup on page unload
