@@ -397,13 +397,20 @@ public class CashuServiceAdapter : ICashuService
                 return 0;
             }
 
-            var getNetworkMethod = networkProviderType.GetMethod("GetNetwork", new[] { typeof(string) });
-            if (getNetworkMethod == null)
+            // Get all GetNetwork methods and find the one that takes a single string parameter
+            var getNetworkMethods = networkProviderType.GetMethods()
+                .Where(m => m.Name == "GetNetwork" && m.GetParameters().Length == 1 && 
+                           m.GetParameters()[0].ParameterType == typeof(string))
+                .ToList();
+            
+            if (getNetworkMethods.Count == 0)
             {
                 _logger.LogWarning("GetNetwork method not found");
                 return 0;
             }
 
+            // Use the first matching method (should be the one that takes string)
+            var getNetworkMethod = getNetworkMethods[0];
             var network = getNetworkMethod.Invoke(networkProvider, new object[] { "BTC" });
             if (network == null)
             {
@@ -622,6 +629,49 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
+            // Check if proofs match the active keyset
+            var activeKeysetIdStr = activeKeyset.Id.ToString();
+            var matchingProofs = proofList.Where(p => p.Id.ToString() == activeKeysetIdStr).ToList();
+            
+            if (matchingProofs.Count == 0)
+            {
+                _logger.LogWarning("No proofs match the active keyset {KeysetId}. Proof keyset IDs: {ProofIds}", 
+                    activeKeysetIdStr, string.Join(", ", proofList.Select(p => p.Id.ToString()).Distinct()));
+                
+                // For small amounts, try creating token directly from proofs without swap
+                // This works if the proofs are already in the correct format
+                if (amount <= 1000) // Small amounts (1-1000 sat)
+                {
+                    _logger.LogInformation("Attempting to create token directly from proofs without swap (small amount)");
+                    var totalProofAmount = proofList.Aggregate(0UL, (sum, p) => sum + p.Amount);
+                    if (totalProofAmount >= amount)
+                    {
+                        // Select proofs that sum to the requested amount
+                        var selectedProofs = new List<Proof>();
+                        ulong selectedAmount = 0;
+                        foreach (var proof in proofList.OrderByDescending(p => p.Amount))
+                        {
+                            if (selectedAmount >= amount) break;
+                            selectedProofs.Add(proof);
+                            selectedAmount += proof.Amount;
+                        }
+                        
+                        if (selectedAmount >= amount)
+                        {
+                            _logger.LogInformation("Creating token directly from {Count} proofs totaling {Amount} sat", 
+                                selectedProofs.Count, selectedAmount);
+                            var resultProofList = selectedProofs.Cast<object>().ToList();
+                            return await CreateTokenFromProofs(resultProofList, mintUrl, "sat");
+                        }
+                    }
+                }
+                
+                return null;
+            }
+
+            // Use matching proofs for swap
+            proofList = matchingProofs;
+
             // Split amount to proof amounts
             var outputAmounts = InternalCashuWallet.SplitToProofsAmounts(amount, keys);
 
@@ -629,7 +679,22 @@ public class CashuServiceAdapter : ICashuService
             var swapResult = await wallet.Swap(proofList, outputAmounts, keysetId, keys);
             if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
             {
-                _logger.LogWarning("Swap failed: {Error}", swapResult.Error?.Message ?? "Unknown error");
+                var errorMsg = swapResult.Error?.Message ?? "Unknown error";
+                _logger.LogWarning("Swap failed: {Error}. Attempting direct token creation as fallback", errorMsg);
+                
+                // Fallback: Try creating token directly from proofs if swap fails
+                // This works for small amounts where swap might not be necessary
+                if (amount <= 1000)
+                {
+                    var totalProofAmount = proofList.Aggregate(0UL, (sum, p) => sum + p.Amount);
+                    if (totalProofAmount >= amount)
+                    {
+                        _logger.LogInformation("Creating token directly from proofs as fallback (swap failed)");
+                        var resultProofList = proofList.Cast<object>().ToList();
+                        return await CreateTokenFromProofs(resultProofList, mintUrl, "sat");
+                    }
+                }
+                
                 return null;
             }
 
@@ -778,11 +843,19 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
             var networkProvider = _serviceProvider.GetService(networkProviderType);
-            var getNetworkMethod = networkProviderType.GetMethod("GetNetwork", new[] { typeof(string) });
-            if (getNetworkMethod == null || networkProvider == null)
+            // Get all GetNetwork methods and find the one that takes a single string parameter
+            var getNetworkMethods = networkProviderType.GetMethods()
+                .Where(m => m.Name == "GetNetwork" && m.GetParameters().Length == 1 && 
+                           m.GetParameters()[0].ParameterType == typeof(string))
+                .ToList();
+            
+            if (getNetworkMethods.Count == 0 || networkProvider == null)
             {
                 return null;
             }
+
+            // Use the first matching method
+            var getNetworkMethod = getNetworkMethods[0];
             var network = getNetworkMethod.Invoke(networkProvider, new object[] { "BTC" });
             if (network == null)
             {
@@ -1003,11 +1076,14 @@ public class CashuServiceAdapter : ICashuService
                 }
                 else
                 {
-                    _logger.LogWarning("Swap operation failed, falling back to Lightning minting");
+                    _logger.LogError("Swap operation failed despite having sufficient ecash balance ({Balance} sat >= {Needed} sat). Cannot create token.", 
+                        ecashBalance, amountSatoshis);
+                    // Don't fall back to Lightning if we have sufficient ecash - the issue is with swap/token creation
+                    return null;
                 }
             }
 
-            // 3b. Check Lightning balance
+            // 3b. Check Lightning balance (only if we don't have sufficient ecash)
             var lightningBalance = await GetLightningBalanceAsync(storeId);
             var neededAmount = amountSatoshis - ecashBalance;
             _logger.LogInformation("Lightning balance for store {StoreId}: {Balance} sat (needed: {Needed} sat)", 
