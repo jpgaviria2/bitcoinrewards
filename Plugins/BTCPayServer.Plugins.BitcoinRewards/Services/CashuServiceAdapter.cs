@@ -1488,12 +1488,36 @@ public class CashuServiceAdapter : ICashuService
             var tokenAmount = validProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
             _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", validProofs.Count, tokenAmount);
 
-            // 3. Create token directly from proofs (NO swap - matching Cashu plugin line 251-263)
-            // Match Cashu plugin exactly - ensure all properties are set
+            // 3. Recreate Proof objects to ensure they're fresh DotNut Proof objects (matching Cashu plugin)
+            // This ensures all internal properties and state are properly initialized for encoding
+            var freshProofs = validProofs.Select(p => new Proof
+            {
+                Id = p.Id,
+                Amount = p.Amount,
+                Secret = p.Secret,
+                C = p.C,
+                DLEQ = p.DLEQ,
+                Witness = p.Witness
+            }).ToList();
+
+            _logger.LogDebug("Recreated {Count} fresh Proof objects for token encoding", freshProofs.Count);
+
+            // Validate fresh proofs have all required properties
+            var invalidProofs = freshProofs.Where(p => p.Id == null || p.Secret == null || p.C == null || p.Amount == 0).ToList();
+            if (invalidProofs.Count > 0)
+            {
+                _logger.LogWarning("Found {Count} invalid fresh proofs (missing required properties)", invalidProofs.Count);
+            }
+            else
+            {
+                _logger.LogDebug("All {Count} fresh proofs validated successfully (Id, Secret, C, Amount all set)", freshProofs.Count);
+            }
+
+            // 4. Create token directly from fresh proofs (NO swap - matching Cashu plugin line 251-263)
             var tokenItem = new CashuToken.Token
             {
                 Mint = mintUrl,
-                Proofs = validProofs
+                Proofs = freshProofs
             };
 
             // Validate token item before creating CashuToken
