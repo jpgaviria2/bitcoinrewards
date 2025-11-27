@@ -47,7 +47,8 @@ public class BitcoinRewardsPluginDbContext : DbContext
             // Ignore if type not found
         }
         
-        base.OnModelCreating(builder);
+        // Note: Not calling base.OnModelCreating(builder) - same as Cashu plugin
+        // This prevents EF Core from scanning and discovering types like PrivKey
         
         // Configure BitcoinRewardRecord entity
         builder.Entity<BitcoinRewardRecord>(entity =>
