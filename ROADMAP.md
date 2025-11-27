@@ -2,6 +2,28 @@
 
 ## Future Enhancements
 
+### CDK Integration (Future)
+
+**Status:** Planned - Not Implemented  
+**Priority:** Low  
+**Timeline:** After core functionality is stable
+
+#### Overview
+Implement AWS CDK (Cloud Development Kit) deployment configuration for the Bitcoin Rewards plugin. This will enable automated infrastructure provisioning and deployment for production environments.
+
+#### Scope
+- CDK stack definitions for plugin deployment
+- Infrastructure as Code (IaC) templates
+- Automated deployment pipelines
+- Environment-specific configurations
+
+#### Notes
+- This is a deployment/infrastructure enhancement
+- Core plugin functionality should be stable before implementing CDK
+- Will enable easier production deployments and scaling
+
+---
+
 ### NUT-13 Seed Phrase Support (Future)
 
 **Status:** Planned - Not Implemented  

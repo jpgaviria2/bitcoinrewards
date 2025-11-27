@@ -11,8 +11,8 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Create schema
-            migrationBuilder.Sql(@"CREATE SCHEMA IF NOT EXISTS ""BTCPayServer.Plugins.BitcoinRewards"";");
+            migrationBuilder.EnsureSchema(
+                name: "BTCPayServer.Plugins.BitcoinRewards");
 
             // Create table
             migrationBuilder.CreateTable(

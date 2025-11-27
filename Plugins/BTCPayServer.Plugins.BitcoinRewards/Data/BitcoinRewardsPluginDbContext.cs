@@ -7,19 +7,10 @@ using ISecret = DotNut.ISecret;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 
-/// <summary>
-/// Plugin-specific DbContext for BitcoinRewards entities.
-/// This uses a separate schema to avoid conflicts with the main ApplicationDbContext.
-/// Matches the pattern used by Cashu plugin's CashuDbContext.
-/// </summary>
-public class BitcoinRewardsPluginDbContext : DbContext
+public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPluginDbContext> options, bool designTime = false)
+    : DbContext(options)
 {
     public static string DefaultPluginSchema = "BTCPayServer.Plugins.BitcoinRewards";
-    
-    public BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPluginDbContext> options, bool designTime = false)
-        : base(options)
-    {
-    }
 
     public DbSet<BitcoinRewardRecord> BitcoinRewardRecords { get; set; } = null!;
     public DbSet<StoredProof> Proofs { get; set; } = null!;

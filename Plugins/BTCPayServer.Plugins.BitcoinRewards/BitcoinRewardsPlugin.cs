@@ -22,51 +22,38 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        // Register navigation menu item - view is in Views/Shared/BitcoinRewardsNavExtension.cshtml
-        // Using just the view name (no path) - BTCPay Server automatically searches Views/Shared/
+        // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
-        
-        // Register wallet navigation in the wallets section (similar to Cashu plugin)
         services.AddUIExtension("store-wallets-nav", "WalletNavExtension");
-        
-        // Register services - using TryAdd to avoid conflicts if already registered
-        // Database operations will be handled lazily when needed
-        services.TryAddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
-        
-        // Register DbContext with AddDbContext - matches Cashu plugin pattern
-        // This is critical for EF Core to properly manage model discovery
+
+        // Database Services - matches Cashu plugin pattern exactly
+        services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
         services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
         {
             var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
             factory.ConfigureBuilder(o);
         });
-        
-        services.TryAddScoped<Services.BitcoinRewardsRepository>();
-        services.TryAddScoped<Services.DatabaseCleanupService>();
-        
-        // Register migration runner to run migrations on startup
         services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
         
-        // Register wallet services
+        // Other services
+        services.TryAddScoped<Services.BitcoinRewardsRepository>();
+        services.TryAddScoped<Services.DatabaseCleanupService>();
         services.TryAddScoped<Services.ProofStorageService>();
         services.TryAddScoped<Services.WalletConfigurationService>();
-        
-        // Register Cashu service adapter (depends on wallet services)
         services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
         services.TryAddScoped<Services.BitcoinRewardsService>();
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
-        // Register Cashu payout processor components
-        // Register our factory so it appears in BTCPay Server's Payout Processors page
-        // If BTCNutServer's Cashu plugin also registers a factory, both will appear
-        // Users configure which one to use in Store Settings → Payout Processors
+        // Payout Processor Registration
         services.AddSingleton<CashuAutomatedPayoutSenderFactory>();
         services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
             provider.GetRequiredService<CashuAutomatedPayoutSenderFactory>());
         
         services.TryAddSingleton(provider =>
             (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayoutHandler)));
+            
+        base.Execute(services);
     }
 }
