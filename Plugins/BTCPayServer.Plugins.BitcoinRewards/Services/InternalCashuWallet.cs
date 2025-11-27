@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Lightning;
@@ -190,16 +191,13 @@ public class InternalCashuWallet
 
         foreach (var amount in amounts)
         {
-            // Create secret
-            var secretBytes = new byte[32];
-            System.Security.Cryptography.RandomNumberGenerator.Fill(secretBytes);
+            // Create secret - using cryptographically secure random number generator (Cashu SDK standard)
+            var secretBytes = RandomNumberGenerator.GetBytes(32);
             var secret = new StringSecret(Convert.ToHexString(secretBytes));
             secrets.Add(secret);
 
-            // Create blinding factor
-            var rBytes = new byte[32];
-            System.Security.Cryptography.RandomNumberGenerator.Fill(rBytes);
-            var r = new PrivKey(Convert.ToHexString(rBytes));
+            // Create blinding factor - using cryptographically secure random number generator (Cashu SDK standard)
+            var r = new PrivKey(Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
             blindingFactors.Add(r);
 
             // Create blinded message
@@ -279,6 +277,39 @@ public class InternalCashuWallet
         }
 
         return outputAmounts;
+    }
+
+    /// <summary>
+    /// Check token state (NUT-05) - verify if proofs are spent, pending, or unspent
+    /// </summary>
+    public async Task<StateResponseItem.TokenState> CheckTokenState(List<Proof> proofs)
+    {
+        var yBytes = proofs.Select(p => p.Secret.ToCurve().ToBytes());
+        var ysStrings = yBytes.Select(y => Convert.ToHexString(y).ToLower()).ToArray();
+
+        var request = new PostCheckStateRequest
+        {
+            Ys = ysStrings
+        };
+        var response = await _cashuHttpClient.CheckState(request);
+
+        if (response.States.Any(r => r.State == StateResponseItem.TokenState.SPENT))
+            return StateResponseItem.TokenState.SPENT;
+
+        if (response.States.Any(r => r.State == StateResponseItem.TokenState.PENDING))
+            return StateResponseItem.TokenState.PENDING;
+
+        return StateResponseItem.TokenState.UNSPENT;
+    }
+
+    /// <summary>
+    /// Restore proofs from inputs (NUT-11) - recover proofs from blinded messages after a failed operation
+    /// </summary>
+    public async Task<PostRestoreResponse> RestoreProofsFromInputs(BlindedMessage[] blindedMessages, CancellationToken cts = default)
+    {
+        var payload = new PostRestoreRequest { Outputs = blindedMessages };
+        var response = await _cashuHttpClient.Restore(payload, cts);
+        return response;
     }
 }
 
