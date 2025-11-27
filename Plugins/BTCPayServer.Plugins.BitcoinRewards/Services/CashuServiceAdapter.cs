@@ -958,12 +958,20 @@ public class CashuServiceAdapter : ICashuService
                 return Task.FromResult<string?>(null);
             }
 
-            // Create Token object
-            var tokenItemType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(t => t.Name == "Token" && t.Namespace?.Contains("Cashu") == true);
+            // Create Token object - CashuToken.Token is a nested type
+            var tokenItemType = cashuTokenType.GetNestedType("Token");
             if (tokenItemType == null)
             {
+                // Fallback: try to find it by name
+                tokenItemType = AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany(a => a.GetTypes())
+                    .FirstOrDefault(t => t.Name == "Token" && 
+                                        (t.DeclaringType == cashuTokenType || 
+                                         t.Namespace?.Contains("Cashu") == true));
+            }
+            if (tokenItemType == null)
+            {
+                _logger.LogWarning("CashuToken.Token nested type not found");
                 return Task.FromResult<string?>(null);
             }
 
@@ -975,24 +983,74 @@ public class CashuServiceAdapter : ICashuService
 
             var mintProperty = tokenItemType.GetProperty("Mint");
             var proofsProperty = tokenItemType.GetProperty("Proofs");
-            mintProperty?.SetValue(tokenItem, mintUrl);
-            
-            // Convert proofs to list
-            var proofType = proofs[0].GetType();
-            var listType = typeof(List<>).MakeGenericType(proofType);
-            var proofList = Activator.CreateInstance(listType);
-            var addMethod = listType.GetMethod("Add");
-            foreach (var proof in proofs)
+            if (mintProperty == null || proofsProperty == null)
             {
-                addMethod?.Invoke(proofList, new[] { proof });
+                _logger.LogWarning("Mint or Proofs property not found on Token type");
+                return Task.FromResult<string?>(null);
             }
-            proofsProperty?.SetValue(tokenItem, proofList);
+            
+            mintProperty.SetValue(tokenItem, mintUrl);
+            
+            // Convert proofs to list - proofs should be List<Proof> type
+            var proofsPropertyType = proofsProperty.PropertyType;
+            if (proofsPropertyType.IsGenericType && proofsPropertyType.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var proofType = proofsPropertyType.GetGenericArguments()[0];
+                var listType = typeof(List<>).MakeGenericType(proofType);
+                var proofList = Activator.CreateInstance(listType);
+                var addMethod = listType.GetMethod("Add");
+                
+                foreach (var proof in proofs)
+                {
+                    // Ensure proof is of the correct type
+                    object proofToAdd = proof;
+                    if (proof.GetType() != proofType)
+                    {
+                        // Try to convert if needed
+                        if (proof is Proof dotNutProof)
+                        {
+                            proofToAdd = dotNutProof;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Proof type mismatch: expected {Expected}, got {Actual}", 
+                                proofType.Name, proof.GetType().Name);
+                            continue;
+                        }
+                    }
+                    addMethod?.Invoke(proofList, new[] { proofToAdd });
+                }
+                proofsProperty.SetValue(tokenItem, proofList);
+            }
+            else
+            {
+                _logger.LogWarning("Proofs property is not a List type: {Type}", proofsPropertyType.FullName);
+                return Task.FromResult<string?>(null);
+            }
 
-            // Set tokens array
-            var arrayType = tokenItemType.MakeArrayType();
-            var tokensArray = Array.CreateInstance(tokenItemType, 1);
-            tokensArray.SetValue(tokenItem, 0);
-            tokensProperty.SetValue(token, tokensArray);
+            // Set tokens - should be a List<CashuToken.Token> or array
+            var tokensPropertyType = tokensProperty.PropertyType;
+            if (tokensPropertyType.IsGenericType && tokensPropertyType.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                // It's a List<Token>
+                var listType = typeof(List<>).MakeGenericType(tokenItemType);
+                var tokensList = Activator.CreateInstance(listType);
+                var listAddMethod = listType.GetMethod("Add");
+                listAddMethod?.Invoke(tokensList, new[] { tokenItem });
+                tokensProperty.SetValue(token, tokensList);
+            }
+            else if (tokensPropertyType.IsArray)
+            {
+                // It's an array
+                var tokensArray = Array.CreateInstance(tokenItemType, 1);
+                tokensArray.SetValue(tokenItem, 0);
+                tokensProperty.SetValue(token, tokensArray);
+            }
+            else
+            {
+                _logger.LogWarning("Tokens property type not recognized: {Type}", tokensPropertyType.FullName);
+                return Task.FromResult<string?>(null);
+            }
 
             // Set Unit and Memo
             var unitProperty = cashuTokenType.GetProperty("Unit");
@@ -1022,11 +1080,18 @@ public class CashuServiceAdapter : ICashuService
             }
 
             var encodedToken = encodeMethod.Invoke(token, null);
-            return Task.FromResult<string?>(encodedToken?.ToString());
+            if (encodedToken == null)
+            {
+                _logger.LogWarning("Encode method returned null");
+                return Task.FromResult<string?>(null);
+            }
+            var tokenString = encodedToken.ToString();
+            _logger.LogDebug("Successfully created and encoded token (length: {Length})", tokenString?.Length ?? 0);
+            return Task.FromResult<string?>(tokenString);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating token from proofs");
+            _logger.LogError(ex, "Error creating token from proofs: {Error}", ex.Message);
             return Task.FromResult<string?>(null);
         }
     }
