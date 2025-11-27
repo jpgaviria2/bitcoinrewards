@@ -33,6 +33,12 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         
         // Register migration runner to run migrations on startup
         services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
+        
+        // Register wallet services
+        services.TryAddScoped<Services.ProofStorageService>();
+        services.TryAddScoped<Services.WalletConfigurationService>();
+        
+        // Register Cashu service adapter (depends on wallet services)
         services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
         services.TryAddScoped<Services.BitcoinRewardsService>();

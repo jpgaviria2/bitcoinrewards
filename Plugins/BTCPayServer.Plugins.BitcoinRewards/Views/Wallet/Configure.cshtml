@@ -1,0 +1,35 @@
+@using BTCPayServer.Abstractions.Extensions
+@model BTCPayServer.Plugins.BitcoinRewards.ViewModels.WalletConfigurationViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Configure Wallet", "Configure Cashu Wallet");
+    Layout = "_Layout";
+}
+
+<partial name="_StatusMessage" />
+
+<div class="row">
+    <div class="col-lg-12">
+        <h2 class="mb-3">Configure Cashu Wallet</h2>
+
+        <form method="post" asp-action="Configure" asp-route-storeId="@Model.StoreId">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="form-group">
+                <label asp-for="MintUrl" class="form-label"></label>
+                <input asp-for="MintUrl" class="form-control" placeholder="https://mint.example.com" />
+                <span asp-validation-for="MintUrl" class="text-danger"></span>
+                <div class="form-text">Enter the URL of your Cashu mint server</div>
+            </div>
+
+            <div class="form-group mt-3">
+                <button type="submit" class="btn btn-primary">Save Configuration</button>
+                <a asp-action="Index" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section PageFootContent {
+    <partial name="_ValidationScriptsPartial" />
+}
+

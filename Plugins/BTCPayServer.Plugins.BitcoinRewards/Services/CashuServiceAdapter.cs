@@ -29,6 +29,8 @@ public class CashuServiceAdapter : ICashuService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CashuServiceAdapter> _logger;
     private readonly StoreRepository _storeRepository;
+    private readonly ProofStorageService _proofStorageService;
+    private readonly WalletConfigurationService _walletConfigurationService;
     private bool _cashuServiceAvailable;
     private object? _cashuService;
     private object? _cashuDbContextFactory;
@@ -40,11 +42,15 @@ public class CashuServiceAdapter : ICashuService
     public CashuServiceAdapter(
         IServiceProvider serviceProvider,
         ILogger<CashuServiceAdapter> logger,
-        StoreRepository storeRepository)
+        StoreRepository storeRepository,
+        ProofStorageService proofStorageService,
+        WalletConfigurationService walletConfigurationService)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _storeRepository = storeRepository;
+        _proofStorageService = proofStorageService;
+        _walletConfigurationService = walletConfigurationService;
         TryDiscoverCashuService();
     }
 
@@ -166,6 +172,14 @@ public class CashuServiceAdapter : ICashuService
     {
         try
         {
+            // Method 1: Try to get from our own wallet configuration (primary source)
+            var mintUrl = await _walletConfigurationService.GetMintUrlAsync(storeId);
+            if (!string.IsNullOrEmpty(mintUrl))
+            {
+                _logger.LogInformation("Found mint URL from Bitcoin Rewards wallet configuration for store {StoreId}: {MintUrl}", storeId, mintUrl);
+                return mintUrl;
+            }
+
             var store = await _storeRepository.FindStore(storeId);
             if (store == null)
             {
@@ -173,7 +187,7 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
-            // Method 1: Try to get from Cashu payment method config
+            // Method 2: Try to get from Cashu payment method config (fallback)
             if (_paymentMethodHandlers != null)
             {
                 // Get CashuPmid from CashuPlugin (it's internal, so use NonPublic)
@@ -202,9 +216,9 @@ public class CashuServiceAdapter : ICashuService
                                         var trustedMints = trustedMintsProperty.GetValue(config) as List<string>;
                                         if (trustedMints != null && trustedMints.Count > 0)
                                         {
-                                            var mintUrl = trustedMints.First();
-                                            _logger.LogInformation("Found mint URL from payment method config for store {StoreId}: {MintUrl}", storeId, mintUrl);
-                                            return mintUrl;
+                                            var foundMintUrl = trustedMints.First();
+                                            _logger.LogInformation("Found mint URL from payment method config for store {StoreId}: {MintUrl}", storeId, foundMintUrl);
+                                            return foundMintUrl;
                                         }
                                     }
                                 }
@@ -214,7 +228,7 @@ public class CashuServiceAdapter : ICashuService
                 }
             }
 
-            // Method 2: Try to get from database (mints that have proofs for this store)
+            // Method 3: Try to get from Cashu plugin database (fallback)
             if (_cashuDbContextFactory != null)
             {
                 try
@@ -291,11 +305,11 @@ public class CashuServiceAdapter : ICashuService
                                                             foreach (var mint in mintsList)
                                                             {
                                                                 var urlProperty = mint.GetType().GetProperty("Url");
-                                                                var mintUrl = urlProperty?.GetValue(mint)?.ToString();
-                                                                if (!string.IsNullOrEmpty(mintUrl))
+                                                                var foundMintUrl = urlProperty?.GetValue(mint)?.ToString();
+                                                                if (!string.IsNullOrEmpty(foundMintUrl))
                                                                 {
-                                                                    _logger.LogInformation("Found mint URL from database for store {StoreId}: {MintUrl}", storeId, mintUrl);
-                                                                    return mintUrl;
+                                                                    _logger.LogInformation("Found mint URL from database for store {StoreId}: {MintUrl}", storeId, foundMintUrl);
+                                                                    return foundMintUrl;
                                                                 }
                                                             }
                                                         }
@@ -333,192 +347,16 @@ public class CashuServiceAdapter : ICashuService
     }
 
     private async Task<long> GetEcashBalanceAsync(string storeId, string mintUrl)
-                {
-                    try
-                    {
-            if (_cashuDbContextFactory == null)
-            {
-                _logger.LogWarning("CashuDbContextFactory not available");
-                return 0;
-            }
-
-            // Create database context
-            var createContextMethod = _cashuDbContextFactory.GetType().GetMethod("CreateContext");
-            if (createContextMethod == null)
-            {
-                _logger.LogWarning("CreateContext method not found on CashuDbContextFactory");
-                return 0;
-            }
-
-            var dbContext = createContextMethod.Invoke(_cashuDbContextFactory, null);
-            if (dbContext == null)
-            {
-                _logger.LogWarning("Failed to create CashuDbContext");
-                return 0;
-            }
-
-            try
-            {
-                // Get Proofs DbSet
-                var proofsProperty = dbContext.GetType().GetProperty("Proofs");
-                if (proofsProperty == null)
-                {
-                    _logger.LogWarning("Proofs property not found on CashuDbContext");
-                    return 0;
-                }
-
-                var proofsDbSet = proofsProperty.GetValue(dbContext);
-                if (proofsDbSet == null)
-                {
-                    return 0;
-                }
-
-                // Get active keysets for the mint
-                var cashuUtilsType = _cashuAssembly?.GetType("BTCPayServer.Plugins.Cashu.CashuAbstractions.CashuUtils");
-                if (cashuUtilsType == null)
-                {
-                    _logger.LogWarning("CashuUtils type not found");
-                    return 0;
-                }
-
-                var getCashuHttpClientMethod = cashuUtilsType.GetMethod("GetCashuHttpClient", 
-                    BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
-                if (getCashuHttpClientMethod == null)
-                {
-                    _logger.LogWarning("GetCashuHttpClient method not found");
-                    return 0;
-                }
-
-                var cashuHttpClient = getCashuHttpClientMethod.Invoke(null, new object[] { mintUrl });
-                if (cashuHttpClient == null)
-                {
-                    _logger.LogWarning("Failed to create CashuHttpClient");
-                    return 0;
-                }
-
-                var getKeysetsMethod = cashuHttpClient.GetType().GetMethod("GetKeysets");
-                if (getKeysetsMethod == null)
-                {
-                    _logger.LogWarning("GetKeysets method not found");
-                    return 0;
-                }
-
-                var keysetsTask = getKeysetsMethod.Invoke(cashuHttpClient, null) as Task;
-                if (keysetsTask == null)
-                {
-                    _logger.LogWarning("GetKeysets did not return a Task");
-                    return 0;
-                }
-
-                await keysetsTask;
-                var keysetsResult = keysetsTask.GetType().GetProperty("Result")?.GetValue(keysetsTask);
-                if (keysetsResult == null)
-                {
-                    _logger.LogWarning("GetKeysets result is null");
-                    return 0;
-                }
-
-                // Get Keysets property from result
-                var keysetsProperty = keysetsResult.GetType().GetProperty("Keysets");
-                if (keysetsProperty == null)
-                {
-                    _logger.LogWarning("Keysets property not found");
-                    return 0;
-                }
-
-                var keysets = keysetsProperty.GetValue(keysetsResult) as System.Collections.IEnumerable;
-                if (keysets == null)
-                {
-                    return 0;
-                }
-
-                // Get keyset IDs
-                var keysetIds = new List<string>();
-                foreach (var keyset in keysets)
-                {
-                    var idProperty = keyset.GetType().GetProperty("Id");
-                    if (idProperty != null)
-                    {
-                        var id = idProperty.GetValue(keyset);
-                        if (id != null)
-                        {
-                            keysetIds.Add(id.ToString() ?? string.Empty);
-                        }
-                    }
-                }
-
-                // Query proofs from database
-                var whereMethod = typeof(EntityFrameworkQueryableExtensions)
-                    .GetMethods()
-                    .FirstOrDefault(m => m.Name == "Where" && m.GetParameters().Length == 2);
-                
-                // Use reflection to build query: Proofs.Where(p => keysetIds.Contains(p.Id.ToString()) && p.StoreId == storeId && !FailedTransactions.Any(ft => ft.UsedProofs.Contains(p)))
-                // For simplicity, we'll query all proofs for the store and filter in memory
-                var toListAsyncMethod = typeof(EntityFrameworkQueryableExtensions)
-                    .GetMethods()
-                    .FirstOrDefault(m => m.Name == "ToListAsync" && m.GetParameters().Length == 1);
-
-                if (toListAsyncMethod == null)
-                {
-                    _logger.LogWarning("ToListAsync method not found");
-                    return 0;
-                }
-
-                var toListAsyncGeneric = toListAsyncMethod.MakeGenericMethod(
-                    proofsDbSet.GetType().GetGenericArguments()[0]);
-                
-                var proofsTask = toListAsyncGeneric.Invoke(null, new[] { proofsDbSet }) as Task;
-                if (proofsTask == null)
-                {
-                    _logger.LogWarning("ToListAsync did not return a Task");
-                    return 0;
-                }
-
-                await proofsTask;
-                var proofsList = proofsTask.GetType().GetProperty("Result")?.GetValue(proofsTask) as System.Collections.IEnumerable;
-                if (proofsList == null)
-                {
-                    return 0;
-                }
-
-                // Filter and sum proofs
-                ulong totalBalance = 0;
-                foreach (var proof in proofsList)
-                {
-                    var storeIdProperty = proof.GetType().GetProperty("StoreId");
-                    var idProperty = proof.GetType().GetProperty("Id");
-                    var amountProperty = proof.GetType().GetProperty("Amount");
-
-                    if (storeIdProperty?.GetValue(proof)?.ToString() == storeId &&
-                        idProperty?.GetValue(proof) != null)
-                    {
-                        var proofId = idProperty.GetValue(proof)?.ToString();
-                        if (keysetIds.Contains(proofId ?? string.Empty))
-                        {
-                            var amount = amountProperty?.GetValue(proof);
-                            if (amount != null && ulong.TryParse(amount.ToString(), out var amountValue))
-                            {
-                                totalBalance += amountValue;
-                            }
-                        }
-                    }
-                }
-
-                _logger.LogInformation("Ecash balance for store {StoreId} on mint {MintUrl}: {Balance} sat", 
-                    storeId, mintUrl, totalBalance);
-                return (long)totalBalance;
-            }
-            finally
-            {
-                // Dispose context if it implements IDisposable
-                if (dbContext is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
+    {
+        try
+        {
+            // Use our own proof storage service (primary source)
+            var balance = await _proofStorageService.GetBalanceAsync(storeId, mintUrl);
+            _logger.LogDebug("Ecash balance for store {StoreId} on mint {MintUrl}: {Balance} sat", storeId, mintUrl, balance);
+            return (long)balance;
+        }
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error getting ecash balance for store {StoreId}", storeId);
             return 0;
         }
@@ -734,147 +572,11 @@ public class CashuServiceAdapter : ICashuService
     {
         try
         {
-            if (_cashuDbContextFactory == null || _cashuWalletType == null)
-            {
-                return null;
-            }
-
-            // Create wallet to get keysets
-            var walletConstructor = _cashuWalletType.GetConstructor(new[] { typeof(string), typeof(string), _cashuDbContextFactory.GetType() });
-            if (walletConstructor == null)
-            {
-                _logger.LogWarning("CashuWallet constructor not found");
-                return null;
-            }
-
-            var wallet = walletConstructor.Invoke(new object[] { mintUrl, "sat", _cashuDbContextFactory });
-            if (wallet == null)
-            {
-                return null;
-            }
-
-            // Get keysets
-            var getKeysetsMethod = _cashuWalletType.GetMethod("GetKeysets");
-            if (getKeysetsMethod == null)
-            {
-                return null;
-            }
-
-            var keysetsTask = getKeysetsMethod.Invoke(wallet, null) as Task;
-            if (keysetsTask == null)
-            {
-                return null;
-            }
-
-            await keysetsTask;
-            var keysets = keysetsTask.GetType().GetProperty("Result")?.GetValue(keysetsTask) as System.Collections.IEnumerable;
-            if (keysets == null)
-            {
-                return null;
-            }
-
-            var keysetIds = new List<string>();
-            foreach (var keyset in keysets)
-            {
-                var idProperty = keyset.GetType().GetProperty("Id");
-                if (idProperty?.GetValue(keyset) != null)
-                {
-                    keysetIds.Add(idProperty.GetValue(keyset)?.ToString() ?? string.Empty);
-                }
-            }
-
-            // Get proofs from database
-            var createContextMethod = _cashuDbContextFactory.GetType().GetMethod("CreateContext");
-            if (createContextMethod == null)
-            {
-                return null;
-            }
-
-            var dbContext = createContextMethod.Invoke(_cashuDbContextFactory, null);
-            if (dbContext == null)
-            {
-                return null;
-            }
-
-            try
-            {
-                var proofsProperty = dbContext.GetType().GetProperty("Proofs");
-                if (proofsProperty == null)
-                {
-                    return null;
-                }
-
-                var proofsDbSet = proofsProperty.GetValue(dbContext);
-                if (proofsDbSet == null)
-                {
-                    return null;
-                }
-
-                var toListAsyncMethod = typeof(EntityFrameworkQueryableExtensions)
-                    .GetMethods()
-                    .FirstOrDefault(m => m.Name == "ToListAsync" && m.GetParameters().Length == 1);
-                if (toListAsyncMethod == null)
-                {
-                    return null;
-                }
-
-                var toListAsyncGeneric = toListAsyncMethod.MakeGenericMethod(
-                    proofsDbSet.GetType().GetGenericArguments()[0]);
-                var proofsTask = toListAsyncGeneric.Invoke(null, new[] { proofsDbSet }) as Task;
-                if (proofsTask == null)
-                {
-                    return null;
-                }
-
-                await proofsTask;
-                var proofsList = proofsTask.GetType().GetProperty("Result")?.GetValue(proofsTask) as System.Collections.IEnumerable;
-                if (proofsList == null)
-                {
-                    return new List<object>();
-                }
-
-                // Filter proofs by store, mint, and amount
-                var selectedProofs = new List<object>();
-                ulong totalAmount = 0;
-
-                foreach (var proof in proofsList)
-                {
-                    var storeIdProperty = proof.GetType().GetProperty("StoreId");
-                    var idProperty = proof.GetType().GetProperty("Id");
-                    var amountProperty = proof.GetType().GetProperty("Amount");
-
-                    if (storeIdProperty?.GetValue(proof)?.ToString() == storeId &&
-                        idProperty?.GetValue(proof) != null)
-                    {
-                        var proofId = idProperty.GetValue(proof)?.ToString();
-                        if (keysetIds.Contains(proofId ?? string.Empty))
-                        {
-                            var amount = amountProperty?.GetValue(proof);
-                            if (amount != null && ulong.TryParse(amount.ToString(), out var amountValue))
-                            {
-                                if (totalAmount < maxAmount)
-                                {
-                                    selectedProofs.Add(proof);
-                                    totalAmount += amountValue;
-                                    if (totalAmount >= maxAmount)
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return selectedProofs;
-            }
-            finally
-            {
-                if (dbContext is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
+            // Use our own proof storage service (primary source)
+            var proofs = await _proofStorageService.GetProofsAsync(storeId, mintUrl, maxAmount);
+            
+            // Convert Proof objects to List<object> for compatibility with existing code
+            return proofs.Cast<object>().ToList();
         }
         catch (Exception ex)
         {
@@ -911,20 +613,8 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
-            // Convert stored proofs to DotNut Proof objects
-            var proofList = new List<Proof>();
-            foreach (var storedProof in storedProofs)
-            {
-                var toDotNutProofMethod = storedProof.GetType().GetMethod("ToDotNutProof");
-                if (toDotNutProofMethod != null)
-                {
-                    var dotNutProof = toDotNutProofMethod.Invoke(storedProof, null) as Proof;
-                    if (dotNutProof != null)
-                    {
-                        proofList.Add(dotNutProof);
-                    }
-                }
-            }
+            // Convert stored proofs to DotNut Proof objects (they're already Proof objects from ProofStorageService)
+            var proofList = storedProofs.Cast<Proof>().ToList();
 
             if (proofList.Count == 0)
             {
@@ -1024,29 +714,25 @@ public class CashuServiceAdapter : ICashuService
                     
                     if (proofs != null && proofs.Length > 0)
                     {
+                        // Convert proofs to list of objects for return
                         var proofList = new List<object>();
+                        var proofsToStore = new List<Proof>();
                         foreach (var proof in proofs)
                         {
                             if (proof != null)
                             {
                                 proofList.Add(proof);
+                                if (proof is Proof proofObj)
+                                {
+                                    proofsToStore.Add(proofObj);
+                                }
                             }
                         }
 
-                        // Store proofs in database (using reflection to optionally use Cashu plugin's database)
-                        if (_cashuService != null && proofList.Count > 0)
+                        // Store proofs in database using our proof storage service
+                        if (proofsToStore.Count > 0)
                         {
-                            var firstProof = proofList[0];
-                            var addProofsMethod = _cashuService.GetType().GetMethod("AddProofsToDb",
-                                new[] { typeof(IEnumerable<>).MakeGenericType(firstProof.GetType()), typeof(string), typeof(string) });
-                            if (addProofsMethod != null)
-                            {
-                                var addTask = addProofsMethod.Invoke(_cashuService, new object[] { proofs, storeId, mintUrl }) as Task;
-                                if (addTask != null)
-                                {
-                                    await addTask;
-                                }
-                            }
+                            await _proofStorageService.AddProofsAsync(proofsToStore, storeId, mintUrl);
                         }
 
                         _logger.LogInformation("Successfully minted {Count} proofs from Lightning", proofList.Count);

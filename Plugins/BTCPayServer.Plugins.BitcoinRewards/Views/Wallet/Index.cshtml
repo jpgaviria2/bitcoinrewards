@@ -1,0 +1,46 @@
+@using BTCPayServer.Abstractions.Extensions
+@model BTCPayServer.Plugins.BitcoinRewards.ViewModels.WalletViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Wallet", "Bitcoin Rewards Wallet");
+    Layout = "_Layout";
+}
+
+<partial name="_StatusMessage" />
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0">Cashu Wallet</h2>
+            <div>
+                <a asp-action="Configure" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Configure</a>
+                <a asp-action="TopUp" asp-route-storeId="@Model.StoreId" class="btn btn-primary">Top Up</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Balance</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Ecash Balance</label>
+                            <div class="h3">@Model.EcashBalance @Model.Unit</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Lightning Balance</label>
+                            <div class="h3">@Model.LightningBalance sat</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Mint URL</label>
+                    <div class="text-muted">@Model.MintUrl</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
