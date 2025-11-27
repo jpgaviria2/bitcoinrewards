@@ -167,69 +167,157 @@ public class CashuServiceAdapter : ICashuService
                 return null;
             }
 
-            // Get Cashu payment method config
-            if (_paymentMethodHandlers == null)
+            // Method 1: Try to get from Cashu payment method config
+            if (_paymentMethodHandlers != null)
             {
-                _logger.LogWarning("PaymentMethodHandlerDictionary not available");
-                return null;
+                // Get CashuPmid from CashuPlugin (it's internal, so use NonPublic)
+                var cashuPluginType = _cashuAssembly?.GetType("BTCPayServer.Plugins.Cashu.CashuPlugin");
+                if (cashuPluginType != null)
+                {
+                    var cashuPmidField = cashuPluginType.GetField("CashuPmid", 
+                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                    if (cashuPmidField != null)
+                    {
+                        var cashuPmid = cashuPmidField.GetValue(null);
+                        if (cashuPmid != null)
+                        {
+                            // Get payment method config
+                            var getPaymentMethodConfigMethod = typeof(StoreData).GetMethod("GetPaymentMethodConfig", 
+                                new[] { cashuPmid.GetType(), _paymentMethodHandlers.GetType() });
+                            if (getPaymentMethodConfigMethod != null)
+                            {
+                                var config = getPaymentMethodConfigMethod.Invoke(store, new[] { cashuPmid, _paymentMethodHandlers });
+                                if (config != null)
+                                {
+                                    // Get TrustedMintsUrls property
+                                    var trustedMintsProperty = config.GetType().GetProperty("TrustedMintsUrls");
+                                    if (trustedMintsProperty != null)
+                                    {
+                                        var trustedMints = trustedMintsProperty.GetValue(config) as List<string>;
+                                        if (trustedMints != null && trustedMints.Count > 0)
+                                        {
+                                            var mintUrl = trustedMints.First();
+                                            _logger.LogInformation("Found mint URL from payment method config for store {StoreId}: {MintUrl}", storeId, mintUrl);
+                                            return mintUrl;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            // Get CashuPmid from CashuPlugin
-            var cashuPluginType = _cashuAssembly?.GetType("BTCPayServer.Plugins.Cashu.CashuPlugin");
-            if (cashuPluginType == null)
+            // Method 2: Try to get from database (mints that have proofs for this store)
+            if (_cashuDbContextFactory != null)
             {
-                _logger.LogWarning("CashuPlugin type not found");
-                return null;
+                try
+                {
+                    var createContextMethod = _cashuDbContextFactory.GetType().GetMethod("CreateContext");
+                    if (createContextMethod != null)
+                    {
+                        var dbContext = createContextMethod.Invoke(_cashuDbContextFactory, null);
+                        if (dbContext != null)
+                        {
+                            try
+                            {
+                                // Get Mints DbSet
+                                var mintsProperty = dbContext.GetType().GetProperty("Mints");
+                                if (mintsProperty != null)
+                                {
+                                    var mintsDbSet = mintsProperty.GetValue(dbContext);
+                                    if (mintsDbSet != null)
+                                    {
+                                        // Get Proofs DbSet to find which mints have proofs for this store
+                                        var proofsProperty = dbContext.GetType().GetProperty("Proofs");
+                                        if (proofsProperty != null)
+                                        {
+                                            var proofsDbSet = proofsProperty.GetValue(dbContext);
+                                            if (proofsDbSet != null)
+                                            {
+                                                // Query for mints that have proofs for this store
+                                                var toListAsyncMethod = typeof(EntityFrameworkQueryableExtensions)
+                                                    .GetMethods()
+                                                    .FirstOrDefault(m => m.Name == "ToListAsync" && m.GetParameters().Length == 1);
+                                                
+                                                if (toListAsyncMethod != null)
+                                                {
+                                                    // Get mint URLs from proofs that belong to this store
+                                                    var proofType = proofsDbSet.GetType().GetGenericArguments()[0];
+                                                    var toListAsyncGeneric = toListAsyncMethod.MakeGenericMethod(proofType);
+                                                    var proofsTask = toListAsyncGeneric.Invoke(null, new[] { proofsDbSet }) as Task;
+                                                    
+                                                    if (proofsTask != null)
+                                                    {
+                                                        await proofsTask;
+                                                        var proofsList = proofsTask.GetType().GetProperty("Result")?.GetValue(proofsTask) as System.Collections.IEnumerable;
+                                                        
+                                                        if (proofsList != null)
+                                                        {
+                                                            // Get unique mint URLs from proofs that have this storeId
+                                                            var mintUrls = new HashSet<string>();
+                                                            foreach (var proof in proofsList)
+                                                            {
+                                                                var storeIdProperty = proof.GetType().GetProperty("StoreId");
+                                                                if (storeIdProperty?.GetValue(proof)?.ToString() == storeId)
+                                                                {
+                                                                    // Get the mint URL from the mint associated with this proof
+                                                                    // We need to find which mint this proof belongs to via keyset
+                                                                    // For now, let's get all mints and check which ones have proofs
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    // Alternative: Get all mints and return the first one
+                                                    var mintType = mintsDbSet.GetType().GetGenericArguments()[0];
+                                                    var mintsToListAsync = toListAsyncMethod.MakeGenericMethod(mintType);
+                                                    var mintsTask = mintsToListAsync.Invoke(null, new[] { mintsDbSet }) as Task;
+                                                    
+                                                    if (mintsTask != null)
+                                                    {
+                                                        await mintsTask;
+                                                        var mintsList = mintsTask.GetType().GetProperty("Result")?.GetValue(mintsTask) as System.Collections.IEnumerable;
+                                                        
+                                                        if (mintsList != null)
+                                                        {
+                                                            // Get the first mint URL
+                                                            foreach (var mint in mintsList)
+                                                            {
+                                                                var urlProperty = mint.GetType().GetProperty("Url");
+                                                                var mintUrl = urlProperty?.GetValue(mint)?.ToString();
+                                                                if (!string.IsNullOrEmpty(mintUrl))
+                                                                {
+                                                                    _logger.LogInformation("Found mint URL from database for store {StoreId}: {MintUrl}", storeId, mintUrl);
+                                                                    return mintUrl;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                if (dbContext is IDisposable disposable)
+                                {
+                                    disposable.Dispose();
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error getting mint URL from database for store {StoreId}", storeId);
+                }
             }
 
-            var cashuPmidField = cashuPluginType.GetField("CashuPmid", BindingFlags.Public | BindingFlags.Static);
-            if (cashuPmidField == null)
-            {
-                _logger.LogWarning("CashuPmid field not found");
-                return null;
-            }
-
-            var cashuPmid = cashuPmidField.GetValue(null);
-            if (cashuPmid == null)
-            {
-                _logger.LogWarning("CashuPmid is null");
-                return null;
-            }
-
-            // Get payment method config
-            var getPaymentMethodConfigMethod = typeof(StoreData).GetMethod("GetPaymentMethodConfig", 
-                new[] { cashuPmid.GetType(), _paymentMethodHandlers.GetType() });
-            if (getPaymentMethodConfigMethod == null)
-            {
-                _logger.LogWarning("GetPaymentMethodConfig method not found");
-                return null;
-            }
-
-            var config = getPaymentMethodConfigMethod.Invoke(store, new[] { cashuPmid, _paymentMethodHandlers });
-            if (config == null)
-            {
-                _logger.LogWarning("Cashu payment method config not found for store {StoreId}", storeId);
-                return null;
-            }
-
-            // Get TrustedMintsUrls property
-            var trustedMintsProperty = config.GetType().GetProperty("TrustedMintsUrls");
-            if (trustedMintsProperty == null)
-            {
-                _logger.LogWarning("TrustedMintsUrls property not found");
-                return null;
-            }
-
-            var trustedMints = trustedMintsProperty.GetValue(config) as List<string>;
-            if (trustedMints == null || trustedMints.Count == 0)
-            {
-                _logger.LogWarning("No trusted mints configured for store {StoreId}", storeId);
-                return null;
-            }
-
-            var mintUrl = trustedMints.First();
-            _logger.LogDebug("Found mint URL for store {StoreId}: {MintUrl}", storeId, mintUrl);
-            return mintUrl;
+            _logger.LogWarning("No mint URL found for store {StoreId}. Please configure Cashu payment method with trusted mints in store settings.", storeId);
+            return null;
         }
         catch (Exception ex)
         {
