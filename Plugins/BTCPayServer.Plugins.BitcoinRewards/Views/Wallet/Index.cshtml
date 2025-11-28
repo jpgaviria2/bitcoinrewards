@@ -1,58 +1,71 @@
 @using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards
+@using Microsoft.AspNetCore.Mvc.TagHelpers
 @model BTCPayServer.Plugins.BitcoinRewards.ViewModels.WalletViewModel
 @{
-    ViewData.SetActivePage("BitcoinRewards", "Wallet", "Bitcoin Rewards Wallet");
-    Layout = "_Layout";
+    ViewData.SetActivePage(BitcoinRewardsPlugin.PluginNavKey, "Wallet", "Wallet");
 }
 
-<partial name="_StatusMessage" />
+<h2 class="mb-2 mb-lg-3">@ViewData["Title"]</h2>
+<div>
+    <partial name="_StatusMessage" />
 
-<div class="row">
-    <div class="col-lg-12">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="mb-0">Cashu Wallet</h2>
-            <div>
-                <a asp-action="Configure" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Configure</a>
-                <a asp-action="TopUp" asp-route-storeId="@Model.StoreId" class="btn btn-primary">Top Up</a>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Balance</h5>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label">Ecash Balance</label>
-                            <div class="h3">@Model.EcashBalance @Model.Unit</div>
+    <div class="d-flex flex-column">
+        <div class="row">
+            <div class="col-xl-8">
+                <div class="d-flex flex-wrap gap-3 mb-4 w-100">
+                    <div class="bg-tile p-3 rounded w-100">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">Total Balance</h5>
+                            <a asp-action="TopUp" asp-route-storeId="@Model.StoreId" class="btn btn-primary btn-sm">Top Up</a>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label">Lightning Balance</label>
-                            <div class="h3">@Model.LightningBalance sat</div>
+                        <div class="d-flex align-items-baseline gap-2">
+                            <span class="h3">@Model.EcashBalance</span>
+                            <span class="text-secondary">@Model.Unit</span>
                         </div>
+                        @if (Model.LightningBalance > 0)
+                        {
+                            <div class="mt-2 text-muted small">
+                                Lightning: @Model.LightningBalance sat
+                            </div>
+                        }
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Mint URL</label>
-                    <div class="text-muted">@Model.MintUrl</div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                        <tr>
+                            <th>Mint</th>
+                            <th class="text-end">Amount</th>
+                            <th>Unit</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <vc:icon symbol="wallet"/>
+                                    <span class="text-truncate">@Model.MintUrl</span>
+                                </div>
+                            </td>
+                            <td class="text-end">@Model.EcashBalance</td>
+                            <td>@Model.Unit</td>
+                            <td>
+                                @if (Model.EcashBalance > 0)
+                                {
+                                    <form method="post" asp-action="ExportToken" asp-route-storeId="@Model.StoreId">
+                                        <button type="submit" class="btn btn-link p-0">
+                                            Export Token
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
-
-                @if (Model.EcashBalance > 0)
-                {
-                    <div class="mt-3">
-                        <form method="post" asp-action="ExportToken" asp-route-storeId="@Model.StoreId">
-                            <button type="submit" class="btn btn-primary">
-                                <span class="me-2">📤</span>Export Token
-                            </button>
-                        </form>
-                        <div class="form-text mt-2">
-                            Export all ecash as a Cashu token. The token can be scanned with another wallet.
-                        </div>
-                    </div>
-                }
             </div>
         </div>
     </div>
