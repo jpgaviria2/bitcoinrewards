@@ -171,6 +171,77 @@ public class CashuServiceAdapter : ICashuService
         }
     }
 
+    /// <summary>
+    /// Creates a CashuWallet instance using reflection (matching Cashu plugin).
+    /// Falls back to InternalCashuWallet if CashuWallet is not available.
+    /// </summary>
+    private object? CreateCashuWallet(string mintUrl, string unit = "sat", ILightningClient? lightningClient = null)
+    {
+        // Try to use CashuWallet from Cashu plugin if available
+        if (_cashuWalletType != null && _cashuDbContextFactory != null)
+        {
+            try
+            {
+                // CashuWallet has two constructors:
+                // 1. CashuWallet(string mint, string unit = "sat", CashuDbContextFactory? cashuDbContextFactory = null)
+                // 2. CashuWallet(ILightningClient lightningClient, string mint, string unit = "sat", CashuDbContextFactory? cashuDbContextFactory = null)
+                
+                if (lightningClient != null)
+                {
+                    var constructor = _cashuWalletType.GetConstructor(new[] 
+                    { 
+                        typeof(ILightningClient), 
+                        typeof(string), 
+                        typeof(string), 
+                        _cashuDbContextFactory.GetType() 
+                    });
+                    if (constructor != null)
+                    {
+                        return constructor.Invoke(new object[] { lightningClient, mintUrl, unit, _cashuDbContextFactory });
+                    }
+                }
+                else
+                {
+                    var constructor = _cashuWalletType.GetConstructor(new[] 
+                    { 
+                        typeof(string), 
+                        typeof(string), 
+                        _cashuDbContextFactory.GetType() 
+                    });
+                    if (constructor != null)
+                    {
+                        return constructor.Invoke(new object[] { mintUrl, unit, _cashuDbContextFactory });
+                    }
+                    
+                    // Try with nullable parameter
+                    var constructorNullable = _cashuWalletType.GetConstructor(new[] 
+                    { 
+                        typeof(string), 
+                        typeof(string), 
+                        typeof(object) 
+                    });
+                    if (constructorNullable != null)
+                    {
+                        return constructorNullable.Invoke(new object[] { mintUrl, unit, _cashuDbContextFactory });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create CashuWallet via reflection, falling back to InternalCashuWallet");
+            }
+        }
+        
+        // Fallback to InternalCashuWallet
+        _logger.LogDebug("Using InternalCashuWallet as fallback");
+        var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
+        if (lightningClient != null)
+        {
+            return new InternalCashuWallet(lightningClient, mintUrl, unit, walletLogger);
+        }
+        return new InternalCashuWallet(mintUrl, unit, walletLogger);
+    }
+
     private async Task<string?> GetMintUrlForStore(string storeId)
     {
         try
@@ -1378,38 +1449,108 @@ public class CashuServiceAdapter : ICashuService
             // Calculate total amount
             var totalAmount = allProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
 
-            // Swap proofs to get fresh proofs before storing (prevents double-spend issues)
-            // This is critical: we must swap received proofs to get new secrets
-            _logger.LogInformation("Swapping {Count} received proofs to get fresh proofs before storing", allProofs.Count);
+            // Use CashuWallet.Receive() to swap proofs (matching Cashu plugin pattern)
+            // Receive() handles fee calculation and swap logic internally
+            _logger.LogInformation("Receiving {Count} proofs using CashuWallet.Receive()", allProofs.Count);
             
-            var walletLogger = _serviceProvider.GetService(typeof(ILogger<InternalCashuWallet>)) as ILogger<InternalCashuWallet>;
-            var wallet = new InternalCashuWallet(mintUrl, unit ?? "sat", walletLogger);
+            // Try to use CashuWallet from Cashu plugin if available, otherwise use InternalCashuWallet
+            object? wallet = CreateCashuWallet(mintUrl, unit ?? "sat");
             
-            // Get active keyset and keys
-            var activeKeyset = await wallet.GetActiveKeyset();
-            var keysetId = new KeysetId(activeKeyset.Id.ToString());
-            var keys = await wallet.GetKeys(keysetId);
-            if (keys == null)
+            if (wallet == null)
             {
-                _logger.LogError("Could not get keys for keyset when receiving token");
-                return (false, "Could not get keys from mint", null);
+                _logger.LogError("Failed to create wallet for receiving token");
+                return (false, "Failed to create wallet", null);
             }
 
-            // Swap to get fresh proofs with same amounts
-            var amounts = allProofs.Select(p => p.Amount).ToList();
-            var swapResult = await wallet.Swap(allProofs, amounts, keysetId, keys);
+            // Use Receive() method if available (CashuWallet), otherwise fall back to Swap (InternalCashuWallet)
+            List<Proof> freshProofs;
+            var walletType = wallet.GetType();
+            var receiveMethod = walletType.GetMethod("Receive", new[] { typeof(List<Proof>), typeof(ulong) });
             
-            if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
+            if (receiveMethod != null)
             {
-                var errorMsg = swapResult.Error?.Message ?? "Unknown error";
-                _logger.LogError("Failed to swap received proofs: {Error}", errorMsg);
-                return (false, $"Failed to swap proofs: {errorMsg}", null);
+                // Use CashuWallet.Receive() - it handles swap internally with fee calculation
+                _logger.LogDebug("Using CashuWallet.Receive() method");
+                var receiveTask = receiveMethod.Invoke(wallet, new object[] { allProofs, 0UL }) as Task<object>;
+                if (receiveTask != null)
+                {
+                    await receiveTask;
+                    var receiveResult = receiveTask.GetType().GetProperty("Result")?.GetValue(receiveTask);
+                    if (receiveResult != null)
+                    {
+                        var successProperty = receiveResult.GetType().GetProperty("Success");
+                        var resultProofsProperty = receiveResult.GetType().GetProperty("ResultProofs");
+                        var errorProperty = receiveResult.GetType().GetProperty("Error");
+                        
+                        if (successProperty != null && resultProofsProperty != null)
+                        {
+                            var success = (bool)(successProperty.GetValue(receiveResult) ?? false);
+                            var resultProofs = resultProofsProperty.GetValue(receiveResult) as Proof[];
+                            
+                            if (!success || resultProofs == null || resultProofs.Length == 0)
+                            {
+                                var error = errorProperty?.GetValue(receiveResult);
+                                var errorMsg = error?.GetType().GetProperty("Message")?.GetValue(error)?.ToString() ?? "Unknown error";
+                                _logger.LogError("Failed to receive proofs: {Error}", errorMsg);
+                                return (false, $"Failed to receive proofs: {errorMsg}", null);
+                            }
+                            
+                            freshProofs = resultProofs.ToList();
+                            _logger.LogInformation("Successfully received {Count} fresh proofs using CashuWallet.Receive()", freshProofs.Count);
+                        }
+                        else
+                        {
+                            _logger.LogError("Receive result structure unexpected");
+                            return (false, "Failed to parse receive result", null);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError("Receive task returned null result");
+                        return (false, "Receive operation failed", null);
+                    }
+                }
+                else
+                {
+                    _logger.LogError("Receive method did not return a Task");
+                    return (false, "Receive method signature unexpected", null);
+                }
             }
+            else
+            {
+                // Fallback to InternalCashuWallet.Swap() pattern
+                _logger.LogDebug("Using InternalCashuWallet.Swap() as fallback");
+                if (wallet is InternalCashuWallet internalWallet)
+                {
+                    var activeKeyset = await internalWallet.GetActiveKeyset();
+                    var keysetId = new KeysetId(activeKeyset.Id.ToString());
+                    var keys = await internalWallet.GetKeys(keysetId);
+                    if (keys == null)
+                    {
+                        _logger.LogError("Could not get keys for keyset when receiving token");
+                        return (false, "Could not get keys from mint", null);
+                    }
 
-            // Use the fresh swapped proofs
-            var freshProofs = swapResult.ResultProofs.ToList();
-            _logger.LogInformation("Successfully swapped {Count} proofs, received {FreshCount} fresh proofs", 
-                allProofs.Count, freshProofs.Count);
+                    var amounts = allProofs.Select(p => p.Amount).ToList();
+                    var swapResult = await internalWallet.Swap(allProofs, amounts, keysetId, keys);
+                    
+                    if (!swapResult.Success || swapResult.ResultProofs == null || swapResult.ResultProofs.Length == 0)
+                    {
+                        var errorMsg = swapResult.Error?.Message ?? "Unknown error";
+                        _logger.LogError("Failed to swap received proofs: {Error}", errorMsg);
+                        return (false, $"Failed to swap proofs: {errorMsg}", null);
+                    }
+
+                    freshProofs = swapResult.ResultProofs.ToList();
+                    _logger.LogInformation("Successfully swapped {Count} proofs, received {FreshCount} fresh proofs", 
+                        allProofs.Count, freshProofs.Count);
+                }
+                else
+                {
+                    _logger.LogError("Wallet type not recognized for fallback");
+                    return (false, "Wallet type not supported", null);
+                }
+            }
 
             // Store fresh proofs using ProofStorageService
             await _proofStorageService.AddProofsAsync(freshProofs, storeId, mintUrl);
@@ -1460,7 +1601,8 @@ public class CashuServiceAdapter : ICashuService
                 p.StoreId == storeId
                 && p.MintUrl == mintUrl
                 && keysets.Select(k => k.Id).Contains(p.Id)
-                // Note: We don't have FailedTransactions table, so skip that filter from Cashu plugin
+                // Exclude proofs in FailedTransactions (matching Cashu plugin line 248)
+                && !db.FailedTransactions.Any(ft => ft.UsedProofs.Contains(p))
             ).ToList();
 
             if (selectedStoredProofs.Count == 0)
@@ -1551,10 +1693,41 @@ public class CashuServiceAdapter : ICashuService
                 return (false, null, "Failed to create token", 0);
             }
 
-            // 5. Remove proofs from database (matching Cashu plugin line 268-271)
-            // Remove the stored proof entities that were used in the token
-            db.Proofs.RemoveRange(selectedStoredProofs);
-            await db.SaveChangesAsync();
+            // 5. Remove proofs and store ExportedToken in a transaction (matching Cashu plugin line 268-291)
+            var proofsToRemove = await db.Proofs
+                .Where(p => p.StoreId == storeId 
+                    && p.MintUrl == mintUrl
+                    && keysets.Select(k => k.Id).Contains(p.Id))
+                .ToListAsync();
+            
+            var exportedTokenEntity = new Data.Models.ExportedToken
+            {
+                SerializedToken = serializedToken,
+                Amount = tokenAmount,
+                Unit = "sat",
+                Mint = mintUrl,
+                StoreId = storeId,
+                IsUsed = false,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync();
+                try
+                {
+                    db.Proofs.RemoveRange(proofsToRemove);
+                    db.ExportedTokens.Add(exportedTokenEntity);
+                    await db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
 
             _logger.LogInformation("Successfully exported token for {Amount} sat and removed proofs from database", tokenAmount);
 

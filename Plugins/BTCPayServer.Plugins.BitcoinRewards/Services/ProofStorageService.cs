@@ -59,27 +59,48 @@ public class ProofStorageService
     }
 
     /// <summary>
-    /// Add proofs to the database (plugin's own database, with optional fallback to Cashu plugin)
+    /// Add proofs to the database (matching CashuPaymentService.AddProofsToDb pattern)
     /// </summary>
     public async Task AddProofsAsync(IEnumerable<Proof> proofs, string storeId, string mintUrl)
     {
-        try
+        if (proofs == null)
         {
-            var proofList = proofs.ToList();
-            if (!proofList.Any())
+            return;
+        }
+        
+        var enumerable = proofs as Proof[] ?? proofs.ToArray();
+        
+        if (enumerable.Length == 0)
+        {
+            return;
+        }
+        
+        await using var dbContext = _dbContextFactory.CreateContext();
+        
+        // Create Mint if it doesn't exist (matching Cashu plugin line 550)
+        // Note: Our Mint model has StoreId, so we check by both StoreId and Url
+        if (!dbContext.Mints.Any(m => m.StoreId == storeId && m.Url == mintUrl))
+        {
+            dbContext.Mints.Add(new Data.Models.Mint
             {
-                _logger.LogWarning("No proofs to add");
-                return;
-            }
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                Url = mintUrl,
+                Unit = "sat",
+                IsActive = true,
+                Enabled = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
-            // Store in our own database
-            await using var db = _dbContextFactory.CreateContext();
-            var storedProofs = StoredProof.FromBatch(proofList, storeId, mintUrl).ToList();
-            await db.Proofs.AddRangeAsync(storedProofs);
-            await db.SaveChangesAsync();
+        // Use StoredProof.FromBatch() pattern (matching Cashu plugin line 552)
+        var dbProofs = StoredProof.FromBatch(enumerable, storeId, mintUrl);
+        dbContext.Proofs.AddRange(dbProofs);
 
-            _logger.LogInformation("Stored {Count} proofs in Bitcoin Rewards database for store {StoreId}", 
-                storedProofs.Count, storeId);
+        await dbContext.SaveChangesAsync();
+        
+        _logger.LogInformation("Stored {Count} proofs in Bitcoin Rewards database for store {StoreId}", 
+            enumerable.Length, storeId);
 
             // Optionally also store in Cashu plugin database if available
             if (_cashuService != null)
