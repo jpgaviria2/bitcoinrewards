@@ -2,14 +2,12 @@ using System.Threading.Tasks;
 using BTCPayServer.Data;
 using BTCPayServer.Plugins.BitcoinRewards;
 using BTCPayServer.Plugins.Cashu.Data.enums;
-using BTCPayServer.Payments;
 using BTCPayServer.Services.Stores;
 using Newtonsoft.Json.Linq;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers;
 
-public class WalletStatusProvider(StoreRepository storeRepository,
-    PaymentMethodHandlerDictionary handlers)
+public class WalletStatusProvider(StoreRepository storeRepository)
 {
     public async Task<bool> WalletEnabled(string storeId)
     {
