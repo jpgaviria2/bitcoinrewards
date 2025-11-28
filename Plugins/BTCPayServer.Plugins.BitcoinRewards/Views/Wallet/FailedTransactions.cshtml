@@ -12,31 +12,26 @@
 <div class="table-responsive">
     <table class="table table-hover">
         <thead class="table-light">
-        <tr>
-            <th>InvoiceId</th>
-            <th>Mint Url</th>
-            <th>Unit</th>
-            <th>Proof Amount</th>
-            <th>Operation</th>
-            <th></th>
-        </tr>
+        <td>InvoiceId</td>
+        <td>Mint Url</td>
+        <td>Unit</td>
+        <td>Proof Amount</td>
+        <td>Operation</td>
+        <td> </td>
         </thead>
-        <tbody>
         @foreach(var item in Model)
         {
-            <form method="POST" asp-action="PostFailedTransaction" asp-route-storeId="@ViewContext.RouteData.Values["storeId"]">
-                <input type="hidden" name="failedTransactionId" value="@item.Id">
+            <form method="POST">
+                <input type="hidden" name="FailedTransactionID" value="@item.Id">
                 <tr>
                     <td>@item.Id</td>
                     <td>@item.MintUrl</td>
                     <td>@item.Unit</td>
                     <td>@item.UsedProofs.Count</td>
                     <td>@(item.OperationType==OperationType.Swap?"Swap":"Melt")</td>
-                    <td><button type="submit" class="btn btn-link p-0">Poll</button></td>
+                    <td><button type="submit" class="btn btn-link p-0">Poll</button><td>
                 </tr>
             </form>
         }
-        </tbody>
     </table>
 </div>
-

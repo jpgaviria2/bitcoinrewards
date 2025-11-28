@@ -3,6 +3,8 @@ using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
+using BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers;
+using BTCPayServer.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,6 +18,8 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     public override string Description => "Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.";
     
     public const string PluginNavKey = nameof(BitcoinRewardsPlugin) + "Nav";
+    
+    internal static PaymentMethodId WalletPmid = new PaymentMethodId("BITCOINREWARDS-WALLET");
 
     public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
     {
@@ -36,6 +40,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
             factory.ConfigureBuilder(o);
         });
         services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
+        
+        // Wallet Services
+        services.AddSingleton<WalletStatusProvider>();
         
         // Other services
         services.TryAddScoped<Services.BitcoinRewardsRepository>();

@@ -1,26 +1,22 @@
 @using BTCPayServer.Abstractions.Contracts
-@using BTCPayServer.Abstractions.Extensions
-@using Microsoft.AspNetCore.Mvc.TagHelpers
-@using BTCPayServer.Plugins.BitcoinRewards.Services
-@inject IScopeProvider ScopeProvider
-@inject WalletConfigurationService WalletConfigurationService
-@using Microsoft.AspNetCore.Identity
 @using BTCPayServer.Data
-@inject SignInManager<ApplicationUser> SignInManager
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@inject SignInManager<ApplicationUser> SignInManager;
+@inject IScopeProvider ScopeProvider
+@inject BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers.WalletStatusProvider WalletStatusProvider
 @{
     var storeId = ScopeProvider.GetCurrentStoreId();
 }
-
 @if (SignInManager.IsSignedIn(User) && !string.IsNullOrEmpty(storeId))
 {
-    var config = await WalletConfigurationService.GetConfigurationAsync(storeId);
-    var isEnabled = config != null && config.Enabled;
+    var isEnabled = await WalletStatusProvider.WalletEnabled(storeId);
     var isActive = Context.Request.Path.Value?.Contains("/bitcoin-rewards") == true;
     
     <li class="nav-item">
         <a class="nav-link @(isActive ? "active" : "")"
            asp-route-storeId="@storeId"
-           asp-action="Configure"
+           asp-action="StoreConfig"
            asp-controller="Wallet">
             <span class="me-2 btcpay-status btcpay-status--@(isEnabled ? "enabled" : "pending")"></span>
             <span>Bitcoin Rewards</span>
@@ -36,6 +32,6 @@
                 <span class="me-2">Wallet</span>
             </a>
         </li>
+        
     }
 }
-
