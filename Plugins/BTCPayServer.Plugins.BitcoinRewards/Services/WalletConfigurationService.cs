@@ -125,7 +125,7 @@ public class WalletConfigurationService
     /// <summary>
     /// Set mint URL for a store
     /// </summary>
-    public async Task<SetMintUrlResult> SetMintUrlAsync(string storeId, string mintUrl, string unit = "sat", bool enabled = true)
+    public async Task<SetMintUrlResult> SetMintUrlAsync(string storeId, string mintUrl, string unit = "sat", bool enabled = false)
     {
         try
         {
@@ -249,6 +249,50 @@ public class WalletConfigurationService
             return null;
         }
     }
+
+    /// <summary>
+    /// Update only the Enabled flag for a store's wallet
+    /// </summary>
+    public async Task<SetMintUrlResult> UpdateEnabledAsync(string storeId, bool enabled)
+    {
+        try
+        {
+            await using var db = _dbContextFactory.CreateContext();
+            
+            var mint = await db.Mints
+                .Where(m => m.StoreId == storeId && m.IsActive)
+                .OrderByDescending(m => m.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (mint != null)
+            {
+                mint.Enabled = enabled;
+                mint.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+                _logger.LogInformation("Updated wallet enabled flag for store {StoreId}: {Enabled}", storeId, enabled);
+                return new SetMintUrlResult { Success = true };
+            }
+            else
+            {
+                // No mint configured yet - nothing to update
+                _logger.LogWarning("No mint configuration found for store {StoreId} to update enabled flag", storeId);
+                return new SetMintUrlResult
+                {
+                    Success = false,
+                    ErrorMessage = "No mint configuration found. Please configure mint URL first."
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating enabled flag for store {StoreId}", storeId);
+            return new SetMintUrlResult
+            {
+                Success = false,
+                ErrorMessage = $"Failed to update wallet configuration: {ex.Message}"
+            };
+        }
+    }
 }
 
 /// <summary>
@@ -260,7 +304,7 @@ public class WalletConfiguration
     public string MintUrl { get; set; } = string.Empty;
     public string Unit { get; set; } = "sat";
     public ulong Balance { get; set; }
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; } = false;
     public DateTime CreatedAt { get; set; }
 }
 

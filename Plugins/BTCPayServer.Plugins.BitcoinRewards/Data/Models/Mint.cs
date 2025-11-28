@@ -15,7 +15,7 @@ public class Mint
     public string Url { get; set; } = string.Empty;
     public string Unit { get; set; } = "sat";
     public bool IsActive { get; set; } = true;
-    public bool Enabled { get; set; } = true; // Wallet enabled/disabled toggle
+    public bool Enabled { get; set; } = false; // Wallet enabled/disabled toggle (default: disabled)
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     

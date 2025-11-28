@@ -59,7 +59,7 @@ public class WalletController : Controller
         {
             StoreId = storeId,
             MintUrl = config?.MintUrl ?? string.Empty,
-            Enabled = config?.Enabled ?? true
+            Enabled = config?.Enabled ?? false
         };
 
         return View(viewModel);
@@ -79,13 +79,59 @@ public class WalletController : Controller
             return View(viewModel);
         }
 
-        if (string.IsNullOrWhiteSpace(viewModel.MintUrl))
+        // Get existing configuration to preserve MintUrl when disabling
+        var existingConfig = await _walletConfigurationService.GetConfigurationAsync(storeId);
+        
+        // If wallet is enabled, MintUrl is required
+        if (viewModel.Enabled && string.IsNullOrWhiteSpace(viewModel.MintUrl))
         {
-            ModelState.AddModelError(nameof(viewModel.MintUrl), "Mint URL is required");
+            ModelState.AddModelError(nameof(viewModel.MintUrl), "Mint URL is required when wallet is enabled");
             return View(viewModel);
         }
 
-        var result = await _walletConfigurationService.SetMintUrlAsync(storeId, viewModel.MintUrl.Trim(), "sat", viewModel.Enabled);
+        // If wallet is being disabled but we have an existing MintUrl, preserve it
+        // If wallet is enabled, use the provided MintUrl
+        string mintUrlToSave;
+        if (viewModel.Enabled)
+        {
+            mintUrlToSave = viewModel.MintUrl?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(mintUrlToSave))
+            {
+                ModelState.AddModelError(nameof(viewModel.MintUrl), "Mint URL is required when wallet is enabled");
+                return View(viewModel);
+            }
+        }
+        else
+        {
+            // Wallet is disabled - preserve existing MintUrl if available
+            mintUrlToSave = existingConfig?.MintUrl ?? viewModel.MintUrl?.Trim() ?? string.Empty;
+            // Allow saving disabled state even without MintUrl (user might disable before configuring)
+            if (string.IsNullOrWhiteSpace(mintUrlToSave))
+            {
+                // Only update the Enabled flag without requiring MintUrl
+                var updateResult = await _walletConfigurationService.UpdateEnabledAsync(storeId, viewModel.Enabled);
+                if (updateResult.Success)
+                {
+                    TempData.SetStatusMessageModel(new StatusMessageModel
+                    {
+                        Severity = StatusMessageModel.StatusSeverity.Success,
+                        Message = "Wallet configuration updated successfully"
+                    });
+                    return RedirectToAction(nameof(Configure), new { storeId });
+                }
+                else
+                {
+                    TempData.SetStatusMessageModel(new StatusMessageModel
+                    {
+                        Severity = StatusMessageModel.StatusSeverity.Error,
+                        Message = updateResult.ErrorMessage ?? "Failed to update wallet configuration"
+                    });
+                    return View(viewModel);
+                }
+            }
+        }
+
+        var result = await _walletConfigurationService.SetMintUrlAsync(storeId, mintUrlToSave, "sat", viewModel.Enabled);
         if (result.Success)
         {
             TempData.SetStatusMessageModel(new StatusMessageModel
