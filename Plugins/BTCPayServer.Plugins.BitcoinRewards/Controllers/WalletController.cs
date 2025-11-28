@@ -352,5 +352,32 @@ public class WalletController : Controller
             return RedirectToAction(nameof(Wallet), new { storeId });
         }
     }
+
+    /// <summary>
+    /// View exported token by ID (matching Cashu plugin)
+    /// </summary>
+    [HttpGet("/Token")]
+    public async Task<IActionResult> ExportedToken(Guid tokenId)
+    {
+        await using var db = _dbContextFactory.CreateContext();
+        
+        var exportedToken = db.ExportedTokens.SingleOrDefault(e => e.Id == tokenId);
+        if (exportedToken == null)
+        {
+            return BadRequest("Can't find token with provided GUID");
+        }
+
+        // Note: We could check token state here like Cashu plugin does, but for now just display
+        var model = new ExportedTokenViewModel
+        {
+            Amount = exportedToken.Amount,
+            Unit = exportedToken.Unit,
+            MintAddress = exportedToken.Mint,
+            Token = exportedToken.SerializedToken,
+            FormatedAmount = $"{exportedToken.Amount} {exportedToken.Unit}"
+        };
+        
+        return View(model);
+    }
 }
 
