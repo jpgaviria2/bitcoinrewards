@@ -15,8 +15,7 @@
 {
     var config = await WalletConfigurationService.GetConfigurationAsync(storeId);
     var isEnabled = config != null && config.Enabled;
-    var isActive = Context.Request.Path.Value?.Contains("/bitcoin-rewards/wallet") == true || 
-                   Context.Request.Path.Value?.Contains("/bitcoin-rewards") == true;
+    var isActive = Context.Request.Path.Value?.Contains("/bitcoin-rewards") == true;
     
     <li class="nav-item">
         <a class="nav-link @(isActive ? "active" : "")"
@@ -32,7 +31,7 @@
         <li class="nav-item nav-item-sub">
             <a class="nav-link"
                asp-route-storeId="@storeId"
-               asp-action="Index"
+               asp-action="Wallet"
                asp-controller="Wallet">
                 <span class="me-2">Wallet</span>
             </a>
