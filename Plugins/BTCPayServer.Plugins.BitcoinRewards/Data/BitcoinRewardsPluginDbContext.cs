@@ -71,6 +71,15 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
                     d => d == null ? null : JsonSerializer.Serialize(d, (JsonSerializerOptions)null!),
                     d => d == null ? null : JsonSerializer.Deserialize<DLEQProof>(d, (JsonSerializerOptions)null!)
                 );
+            
+            // Configure relationship with FailedTransaction (matching Cashu plugin)
+            // Note: This is a one-to-many relationship where FailedTransaction has many UsedProofs
+            // We configure it as optional foreign key on StoredProof
+            entity.HasOne<Models.FailedTransaction>()
+                .WithMany(ft => ft.UsedProofs)
+                .HasForeignKey("FailedTransactionInvoiceId", "FailedTransactionMintUrl")
+                .HasPrincipalKey(ft => new { ft.InvoiceId, ft.MintUrl })
+                .IsRequired(false);
         });
 
         // Configure Mint entity
@@ -108,8 +117,10 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
         // Configure FailedTransaction entity (matching Cashu plugin)
         modelBuilder.Entity<FailedTransaction>(entity =>
         {
-            entity.HasKey(t => t.Id);
+            // Use composite primary key (InvoiceId, MintUrl) like Cashu plugin
+            entity.HasKey(t => new { t.InvoiceId, t.MintUrl });
             entity.HasIndex(t => t.InvoiceId);
+            entity.HasIndex(t => t.Id); // Also index Id for lookups
             entity.OwnsOne(t => t.MeltDetails);
             entity.OwnsOne(t => t.OutputData, fo =>
             {

@@ -67,8 +67,47 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_FailedTransactions", x => x.Id);
+                    table.PrimaryKey("PK_FailedTransactions", x => new { x.InvoiceId, x.MintUrl });
                 });
+            
+            // Add unique index on Id for lookups
+            migrationBuilder.CreateIndex(
+                name: "IX_FailedTransactions_Id",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "FailedTransactions",
+                column: "Id",
+                unique: true);
+            
+            // Add foreign key columns to Proofs table for FailedTransaction relationship
+            migrationBuilder.AddColumn<string>(
+                name: "FailedTransactionInvoiceId",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs",
+                type: "text",
+                nullable: true);
+            
+            migrationBuilder.AddColumn<string>(
+                name: "FailedTransactionMintUrl",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs",
+                type: "text",
+                nullable: true);
+            
+            migrationBuilder.CreateIndex(
+                name: "IX_Proofs_FailedTransactionInvoiceId_FailedTransactionMintUrl",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs",
+                columns: new[] { "FailedTransactionInvoiceId", "FailedTransactionMintUrl" });
+            
+            migrationBuilder.AddForeignKey(
+                name: "FK_Proofs_FailedTransactions_FailedTransactionInvoiceId_FailedTransactionMintUrl",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs",
+                columns: new[] { "FailedTransactionInvoiceId", "FailedTransactionMintUrl" },
+                principalSchema: "BTCPayServer.Plugins.BitcoinRewards",
+                principalTable: "FailedTransactions",
+                principalColumns: new[] { "InvoiceId", "MintUrl" },
+                onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.CreateIndex(
                 name: "IX_FailedTransactions_InvoiceId",
@@ -112,6 +151,26 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Proofs_FailedTransactions_FailedTransactionInvoiceId_FailedTransactionMintUrl",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs");
+            
+            migrationBuilder.DropIndex(
+                name: "IX_Proofs_FailedTransactionInvoiceId_FailedTransactionMintUrl",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs");
+            
+            migrationBuilder.DropColumn(
+                name: "FailedTransactionInvoiceId",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs");
+            
+            migrationBuilder.DropColumn(
+                name: "FailedTransactionMintUrl",
+                schema: "BTCPayServer.Plugins.BitcoinRewards",
+                table: "Proofs");
+
             migrationBuilder.DropTable(
                 name: "ExportedTokens",
                 schema: "BTCPayServer.Plugins.BitcoinRewards");

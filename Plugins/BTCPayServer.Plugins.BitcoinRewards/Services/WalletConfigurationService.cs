@@ -227,9 +227,10 @@ public class WalletConfigurationService
                 return null;
             }
 
-            // Get balance
+            // Get balance - exclude proofs in FailedTransactions (matching Cashu plugin)
             var balanceDecimal = await db.Proofs
-                .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
+                .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url
+                    && !db.FailedTransactions.Any(ft => ft.UsedProofs.Contains(p)))
                 .SumAsync(p => (decimal?)p.Amount) ?? 0;
 
             return new WalletConfiguration
