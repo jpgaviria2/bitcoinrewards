@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using DotNut;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -232,7 +233,7 @@ public class WalletController : Controller
                 {
                  group.Key.Mint,
                  group.Key.Unit,
-                 Amount = group.Select(x => x.Amount).Sum()
+                 Amount = group.Aggregate(0UL, (sum, x) => sum + x.Amount)
                 }
             )
             .OrderByDescending(x => x.Amount)
@@ -431,7 +432,7 @@ public class WalletController : Controller
         {
             var cashuHttpClient = CashuAbstractions.CashuUtils.GetCashuHttpClient(mintUrl);
             var keysetsResponse = await cashuHttpClient.GetKeysets();
-            keysets = keysetsResponse.Keysets;
+            keysets = keysetsResponse.Keysets.ToList();
             if (keysets == null || keysets.Count == 0)
             {
                 throw new Exception("No keysets were found.");
