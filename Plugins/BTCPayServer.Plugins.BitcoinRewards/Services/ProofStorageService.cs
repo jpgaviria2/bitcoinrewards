@@ -102,33 +102,27 @@ public class ProofStorageService
         _logger.LogInformation("Stored {Count} proofs in Bitcoin Rewards database for store {StoreId}", 
             enumerable.Length, storeId);
 
-            // Optionally also store in Cashu plugin database if available
-            if (_cashuService != null)
+        // Optionally also store in Cashu plugin database if available
+        if (_cashuService != null)
+        {
+            try
             {
-                try
+                var addProofsMethod = _cashuService.GetType().GetMethod("AddProofsToDb",
+                    new[] { typeof(IEnumerable<>).MakeGenericType(typeof(Proof)), typeof(string), typeof(string) });
+                if (addProofsMethod != null)
                 {
-                    var addProofsMethod = _cashuService.GetType().GetMethod("AddProofsToDb",
-                        new[] { typeof(IEnumerable<>).MakeGenericType(typeof(Proof)), typeof(string), typeof(string) });
-                    if (addProofsMethod != null)
+                    var task = addProofsMethod.Invoke(_cashuService, new object[] { enumerable, storeId, mintUrl }) as Task;
+                    if (task != null)
                     {
-                        var task = addProofsMethod.Invoke(_cashuService, new object[] { proofList, storeId, mintUrl }) as Task;
-                        if (task != null)
-                        {
-                            await task;
-                            _logger.LogDebug("Also stored proofs in Cashu plugin database (fallback)");
-                        }
+                        await task;
+                        _logger.LogDebug("Also stored proofs in Cashu plugin database (fallback)");
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Could not store proofs in Cashu plugin database (fallback failed)");
-                }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error adding proofs to database for store {StoreId}", storeId);
-            throw;
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not store proofs in Cashu plugin database (fallback failed)");
+            }
         }
     }
 
