@@ -1,3 +1,4 @@
+using System;
 using DotNut;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.CashuAbstractions;

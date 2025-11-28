@@ -1614,7 +1614,7 @@ public class CashuServiceAdapter : ICashuService
             // 3. Convert StoredProof entities to DotNut Proof objects using ToDotNutProof() (matching Cashu plugin line 258)
             var dotNutProofs = selectedStoredProofs.Select(p => p.ToDotNutProof()).ToList();
 
-            var tokenAmount = selectedStoredProofs.Select(p => p.Amount).Sum();
+            var tokenAmount = selectedStoredProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
             _logger.LogInformation("Exporting {Count} proofs totaling {Amount} sat", dotNutProofs.Count, tokenAmount);
 
             // 4. Create token directly from proofs (NO swap - matching Cashu plugin line 251-263)
