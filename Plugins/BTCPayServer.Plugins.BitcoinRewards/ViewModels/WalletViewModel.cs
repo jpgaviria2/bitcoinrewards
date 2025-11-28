@@ -19,6 +19,6 @@ public class WalletViewModel
     public IEnumerable<(decimal Amount, string Unit)> GroupedBalances => AvailableBalances
         .GroupBy(b => b.Unit)
         .OrderByDescending(g => g.Key)
-        .Select(gr => ((decimal)gr.Sum(x => x.Amount), gr.Key));
+        .Select(gr => ((decimal)gr.Sum(x => (decimal)x.Amount), gr.Key));
 }
 
