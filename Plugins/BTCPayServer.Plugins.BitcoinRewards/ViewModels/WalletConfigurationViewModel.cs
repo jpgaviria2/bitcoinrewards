@@ -13,6 +13,6 @@ public class WalletConfigurationViewModel
     public string MintUrl { get; set; } = string.Empty;
 
     [Display(Name = "Enable Wallet")]
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; } = false;
 }
 
