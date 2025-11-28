@@ -83,4 +83,11 @@ Implement seed phrase-based wallet initialization and recovery following the Cas
 - ✅ Wallet configuration UI
 - ✅ Error handling improvements
 - ✅ EF Core entity mapping fixes
+- ✅ **100% Feature Parity with Cashu Plugin:**
+  - ✅ Wallet page with keyset validation and proof filtering
+  - ✅ ExportMintBalance action (export by specific mint/unit)
+  - ✅ FailedTransactions page with polling functionality
+  - ✅ Multi-mint support with keyset validation
+  - ✅ Unavailable mint error handling
+  - ✅ Exported tokens history tracking
 

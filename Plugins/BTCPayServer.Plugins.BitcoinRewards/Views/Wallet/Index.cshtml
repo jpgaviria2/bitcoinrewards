@@ -51,7 +51,7 @@
                                 <td>
                                     @if (item.Amount > 0)
                                     {
-                                        <form method="post" asp-action="ExportToken" asp-route-storeId="@Model.StoreId">
+                                        <form method="post" asp-action="ExportMintBalance" asp-route-storeId="@Model.StoreId">
                                             <input type="hidden" name="mintUrl" value="@item.Mint"/>
                                             <input type="hidden" name="unit" value="@item.Unit"/>
                                             <button type="submit" class="btn btn-link p-0">

@@ -33,6 +33,7 @@
                     <span asp-validation-for="MintUrl" class="text-danger"></span>
                     <small>Enter the URL of your Cashu mint server</small>
                 </div>
+                <a class="btn btn-outline-info" asp-action="FailedTransactions" asp-route-storeId="@Model.StoreId">Show interrupted transactions</a>
             }
             else
             {
