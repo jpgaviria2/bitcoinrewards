@@ -54,7 +54,8 @@ public class CashuServiceAdapter : ICashuService
         _proofStorageService = proofStorageService;
         _walletConfigurationService = walletConfigurationService;
         _dbContextFactory = dbContextFactory;
-        TryDiscoverCashuService();
+        // Don't call TryDiscoverCashuService() in constructor - do it lazily on first use
+        // This prevents ReflectionTypeLoadException during plugin loading
     }
 
     private void TryDiscoverCashuService()
