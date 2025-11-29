@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using BTCPayServer.Plugins.BitcoinRewards.Data.Models;
-using BTCPayServer.Plugins.Cashu.CashuAbstractions;
+using BTCPayServer.Plugins.BitcoinRewards.CashuAbstractions;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 

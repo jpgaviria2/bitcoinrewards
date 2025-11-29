@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using DotNut;
 using DotNut.Api;
@@ -33,6 +34,41 @@ public static class CashuUtils
         public BlindedMessage[] BlindedMessages { get; set; } = Array.Empty<BlindedMessage>();
         public DotNut.ISecret[] Secrets { get; set; } = Array.Empty<DotNut.ISecret>();
         public PrivKey[] BlindingFactors { get; set; } = Array.Empty<PrivKey>();
+    }
+
+    /// <summary>
+    /// Format amount for display (matching Cashu plugin).
+    /// </summary>
+    public static (decimal Amount, string Unit) FormatAmount(decimal amount, string unit = "sat")
+    {
+        unit = string.IsNullOrWhiteSpace(unit) ? "SAT" : unit.ToUpperInvariant();
+
+        var bitcoinUnits = new Dictionary<string, int>
+        {
+            { "BTC", 8 },
+            { "SAT", 0 },
+            { "MSAT", 3 }
+        };
+
+        if (!bitcoinUnits.TryGetValue(unit, out var decimals))
+        {
+            // Unknown unit, return as-is
+            return (amount, unit);
+        }
+
+        // Convert to appropriate decimal places
+        var divisor = (decimal)Math.Pow(10, decimals);
+        var formattedAmount = amount / divisor;
+
+        return (formattedAmount, unit);
+    }
+
+    /// <summary>
+    /// Format amount for display (ulong overload, matching Cashu plugin).
+    /// </summary>
+    public static (decimal Amount, string Unit) FormatAmount(ulong amount, string unit = "sat")
+    {
+        return FormatAmount((decimal)amount, unit);
     }
 }
 

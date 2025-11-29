@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using BTCPayServer.Plugins.Cashu.Data.enums;
+using BTCPayServer.Plugins.BitcoinRewards.Data.enums;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers;
 

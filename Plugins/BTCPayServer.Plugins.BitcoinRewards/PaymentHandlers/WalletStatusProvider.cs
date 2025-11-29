@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
 using BTCPayServer.Data;
 using BTCPayServer.Plugins.BitcoinRewards;
-using BTCPayServer.Plugins.Cashu.Data.enums;
+using BTCPayServer.Plugins.BitcoinRewards.Data.enums;
 using BTCPayServer.Services.Stores;
 using Newtonsoft.Json.Linq;
 

@@ -1,4 +1,4 @@
-using BTCPayServer.Plugins.Cashu.CashuAbstractions;
+using BTCPayServer.Plugins.BitcoinRewards.CashuAbstractions;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 

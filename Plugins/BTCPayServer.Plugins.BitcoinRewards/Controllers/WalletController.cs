@@ -12,8 +12,9 @@ using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Data.Models;
 using BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers;
 using BTCPayServer.Plugins.BitcoinRewards.ViewModels;
-using BTCPayServer.Plugins.Cashu.CashuAbstractions;
-using BTCPayServer.Plugins.Cashu.Data.enums;
+using BTCPayServer.Plugins.BitcoinRewards.CashuAbstractions;
+using BTCPayServer.Plugins.BitcoinRewards.Data.enums;
+using BTCPayServer.Plugins.BitcoinRewards.Services;
 using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
@@ -234,7 +235,7 @@ public class WalletController : Controller
         List<GetKeysetsResponse.KeysetItemResponse> keysets;
         try
         {
-            var cashuWallet = new CashuWallet(mintUrl, unit);
+            var cashuWallet = new InternalCashuWallet(mintUrl, unit);
             keysets = await cashuWallet.GetKeysets();
             if (keysets == null || keysets.Count == 0)
             {
@@ -268,7 +269,7 @@ public class WalletController : Controller
             Unit = unit
         };
         
-        var tokenAmount = selectedProofs.Select(p => p.Amount).Sum();
+        var tokenAmount = selectedProofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
         var serializedToken = createdToken.Encode();
     
         var proofsToRemove = await db.Proofs
@@ -327,7 +328,7 @@ public class WalletController : Controller
         { 
             try
             {
-                var wallet = new CashuWallet(exportedToken.Mint, exportedToken.Unit);
+                var wallet = new InternalCashuWallet(exportedToken.Mint, exportedToken.Unit);
                 var proofs = CashuTokenHelper.Decode(exportedToken.SerializedToken, out _)
                     .Tokens.SelectMany(t => t.Proofs)
                     .Distinct()
