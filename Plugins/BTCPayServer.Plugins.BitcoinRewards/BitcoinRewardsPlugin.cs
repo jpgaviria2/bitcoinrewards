@@ -1,4 +1,3 @@
-using System;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Payouts;
@@ -6,7 +5,6 @@ using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers;
 using BTCPayServer.Payments;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -30,42 +28,13 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        // UI extensions
-        services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
-        services.AddUIExtension("store-wallets-nav", "WalletNavExtension");
-
-        // Database Services - matches Cashu plugin pattern exactly
-        try
-        {
-            services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
-            services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
-            {
-                var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
-                factory.ConfigureBuilder(o);
-            });
-            services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
-        }
-        catch (Exception ex)
-        {
-            // If database services can't be registered, log warning but don't crash
-            System.Console.WriteLine($"Warning: Could not register database services. Database functionality will be disabled. Error: {ex.Message}");
-        }
+        // Payment Method Handler Registration (matches Cashu plugin order)
+        services.AddSingleton(provider => 
+            (IPaymentMethodHandler)ActivatorUtilities.CreateInstance(provider, typeof(PaymentHandlers.WalletPaymentMethodHandler)));
+        services.AddDefaultPrettyName(WalletPmid, "Bitcoin Rewards Wallet");
         
-        // Payment Method Handler Registration (wrapped in try-catch to prevent crashes)
-        try
-        {
-            services.AddSingleton(provider => 
-                (IPaymentMethodHandler)ActivatorUtilities.CreateInstance(provider, typeof(PaymentHandlers.WalletPaymentMethodHandler)));
-            services.AddDefaultPrettyName(WalletPmid, "Bitcoin Rewards Wallet");
-            
-            // Wallet Services
-            services.AddSingleton<PaymentHandlers.WalletStatusProvider>();
-        }
-        catch (Exception ex)
-        {
-            // If payment handler types can't be loaded, log warning but don't crash
-            System.Console.WriteLine($"Warning: Could not register Payment Method Handler. Wallet functionality will be disabled. Error: {ex.Message}");
-        }
+        // Wallet Services (matches Cashu plugin pattern)
+        services.AddSingleton<PaymentHandlers.WalletStatusProvider>();
         
         // Other services
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
@@ -78,22 +47,27 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
-        // Payout Processor Registration (using try-catch to prevent crashes if Cashu types can't be loaded)
-        try
+        // Payout Handler Registration (matches Cashu plugin pattern)
+        services.AddSingleton(provider =>
+            (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayouts.CashuPayoutHandler)));
+        
+        // Payout Processor Registration (matches Cashu plugin pattern)
+        services.AddSingleton<CashuPayouts.CashuAutomatedPayoutSenderFactory>();
+        services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
+            provider.GetRequiredService<CashuPayouts.CashuAutomatedPayoutSenderFactory>());
+        
+        // UI extensions (matches Cashu plugin order - after services)
+        services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
+        services.AddUIExtension("store-wallets-nav", "WalletNavExtension");
+
+        // Database Services (matches Cashu plugin pattern exactly)
+        services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
+        services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
         {
-            services.AddSingleton<CashuPayouts.CashuAutomatedPayoutSenderFactory>();
-            services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
-                provider.GetRequiredService<CashuPayouts.CashuAutomatedPayoutSenderFactory>());
-            
-            services.TryAddSingleton(provider =>
-                (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayouts.CashuPayoutHandler)));
-        }
-        catch (Exception ex)
-        {
-            // If Cashu payout types can't be loaded (e.g., missing DotNut.dll), log warning but don't crash
-            // The plugin will still work for wallet functionality
-            System.Console.WriteLine($"Warning: Could not register Cashu Payout Processor. Payout functionality will be disabled. Error: {ex.Message}");
-        }
+            var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
+            factory.ConfigureBuilder(o);
+        });
+        services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
             
         base.Execute(services);
     }
