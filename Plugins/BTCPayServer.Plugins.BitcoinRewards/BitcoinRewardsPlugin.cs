@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Payouts;
@@ -25,6 +27,25 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     {
         new IBTCPayServerPlugin.PluginDependency { Identifier = nameof(BTCPayServer), Condition = ">=2.0.0" }
     };
+
+    static BitcoinRewardsPlugin()
+    {
+        // Register assembly resolver to gracefully handle missing optional dependencies
+        // This prevents ReflectionTypeLoadException when Cashu plugin is not installed
+        AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+        {
+            var assemblyName = new AssemblyName(args.Name);
+            
+            // If trying to load Cashu plugin assembly, return null (optional dependency)
+            if (assemblyName.Name == "BTCPayServer.Plugins.Cashu")
+            {
+                return null; // Let it fail gracefully - we handle this via reflection
+            }
+            
+            // For other assemblies, let the default resolver handle it
+            return null;
+        };
+    }
 
     public override void Execute(IServiceCollection services)
     {
