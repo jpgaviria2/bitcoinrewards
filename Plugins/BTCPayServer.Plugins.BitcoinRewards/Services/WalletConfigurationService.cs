@@ -228,10 +228,24 @@ public class WalletConfigurationService
             }
 
             // Get balance - exclude proofs in FailedTransactions (matching Cashu plugin)
-            var balanceDecimal = await db.Proofs
-                .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url
-                    && !db.FailedTransactions.Any(ft => ft.UsedProofs.Contains(p)))
-                .SumAsync(p => (decimal?)p.Amount) ?? 0;
+            // Check if FailedTransactions table exists first to avoid errors during migration
+            var balanceDecimal = 0m;
+            try
+            {
+                // Try to query with FailedTransactions exclusion
+                balanceDecimal = await db.Proofs
+                    .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url
+                        && !db.FailedTransactions.Any(ft => ft.UsedProofs.Contains(p)))
+                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
+            }
+            catch (Exception ex) when (ex.Message.Contains("does not exist") || ex.Message.Contains("relation"))
+            {
+                // If FailedTransactions table doesn't exist yet (during migration), just sum all proofs
+                _logger.LogDebug(ex, "FailedTransactions table not found, calculating balance without exclusion");
+                balanceDecimal = await db.Proofs
+                    .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
+                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
+            }
 
             return new WalletConfiguration
             {
