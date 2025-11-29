@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Reflection;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
@@ -29,7 +30,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         new IBTCPayServerPlugin.PluginDependency { Identifier = nameof(BTCPayServer), Condition = ">=2.0.0" }
     };
 
-    static BitcoinRewardsPlugin()
+    // Module initializer runs before any type loading, ensuring assembly resolver is registered early
+    [ModuleInitializer]
+    internal static void InitializeAssemblyResolver()
     {
         // Register assembly resolver to gracefully handle missing optional dependencies
         // This prevents ReflectionTypeLoadException when Cashu plugin is not installed
