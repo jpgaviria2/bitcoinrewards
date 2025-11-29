@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
@@ -40,6 +41,22 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
             if (assemblyName.Name == "BTCPayServer.Plugins.Cashu")
             {
                 return null; // Let it fail gracefully - we handle this via reflection
+            }
+            
+            // Try to resolve DotNut from the plugin directory
+            if (assemblyName.Name == "DotNut")
+            {
+                // Get the plugin directory (where this assembly is located)
+                var pluginAssembly = typeof(BitcoinRewardsPlugin).Assembly;
+                var pluginLocation = Path.GetDirectoryName(pluginAssembly.Location);
+                if (pluginLocation != null)
+                {
+                    var dotNutPath = Path.Combine(pluginLocation, "DotNut.dll");
+                    if (File.Exists(dotNutPath))
+                    {
+                        return Assembly.LoadFrom(dotNutPath);
+                    }
+                }
             }
             
             // For other assemblies, let the default resolver handle it
