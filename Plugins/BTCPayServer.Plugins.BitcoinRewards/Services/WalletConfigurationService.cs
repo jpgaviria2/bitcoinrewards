@@ -7,6 +7,7 @@ using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -228,7 +229,7 @@ public class WalletConfigurationService
             }
 
             // Get balance - exclude proofs in FailedTransactions (matching Cashu plugin)
-            // Check if FailedTransactions table exists first to avoid errors during migration
+            // but be fully tolerant of missing tables during first‑run / migrations.
             var balanceDecimal = 0m;
             try
             {
@@ -238,10 +239,23 @@ public class WalletConfigurationService
                         && !db.FailedTransactions.Any(ft => ft.UsedProofs.Contains(p)))
                     .SumAsync(p => (decimal?)p.Amount) ?? 0;
             }
-            catch (Exception ex) when (ex.Message.Contains("does not exist") || ex.Message.Contains("relation"))
+            catch (PostgresException pgEx) when (pgEx.SqlState == "42P01")
             {
-                // If FailedTransactions table doesn't exist yet (during migration), just sum all proofs
-                _logger.LogDebug(ex, "FailedTransactions table not found, calculating balance without exclusion");
+                // Relation does not exist (table missing) - happens on fresh install before migrations complete
+                _logger.LogDebug(pgEx,
+                    "FailedTransactions table not found when calculating balance, falling back to all proofs for store {StoreId}",
+                    storeId);
+                balanceDecimal = await db.Proofs
+                    .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
+                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
+            }
+            catch (Exception ex) when (ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
+                                       ex.Message.Contains("relation", StringComparison.OrdinalIgnoreCase))
+            {
+                // Fallback for any provider/locale that doesn't use PostgresException
+                _logger.LogDebug(ex,
+                    "FailedTransactions table not found when calculating balance (generic catch), falling back to all proofs for store {StoreId}",
+                    storeId);
                 balanceDecimal = await db.Proofs
                     .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
                     .SumAsync(p => (decimal?)p.Amount) ?? 0;
