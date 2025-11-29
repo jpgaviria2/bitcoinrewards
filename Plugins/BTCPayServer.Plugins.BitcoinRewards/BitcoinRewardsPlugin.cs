@@ -1,7 +1,4 @@
 using System;
-using System.IO;
-using System.Runtime.CompilerServices;
-using System.Reflection;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Payouts;
@@ -30,42 +27,6 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         new IBTCPayServerPlugin.PluginDependency { Identifier = nameof(BTCPayServer), Condition = ">=2.0.0" }
     };
 
-    // Module initializer runs before any type loading, ensuring assembly resolver is registered early
-    [ModuleInitializer]
-    internal static void InitializeAssemblyResolver()
-    {
-        // Register assembly resolver to gracefully handle missing optional dependencies
-        // This prevents ReflectionTypeLoadException when Cashu plugin is not installed
-        AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
-        {
-            var assemblyName = new AssemblyName(args.Name);
-            
-            // If trying to load Cashu plugin assembly, return null (optional dependency)
-            if (assemblyName.Name == "BTCPayServer.Plugins.Cashu")
-            {
-                return null; // Let it fail gracefully - we handle this via reflection
-            }
-            
-            // Try to resolve DotNut from the plugin directory
-            if (assemblyName.Name == "DotNut")
-            {
-                // Get the plugin directory (where this assembly is located)
-                var pluginAssembly = typeof(BitcoinRewardsPlugin).Assembly;
-                var pluginLocation = Path.GetDirectoryName(pluginAssembly.Location);
-                if (pluginLocation != null)
-                {
-                    var dotNutPath = Path.Combine(pluginLocation, "DotNut.dll");
-                    if (File.Exists(dotNutPath))
-                    {
-                        return Assembly.LoadFrom(dotNutPath);
-                    }
-                }
-            }
-            
-            // For other assemblies, let the default resolver handle it
-            return null;
-        };
-    }
 
     public override void Execute(IServiceCollection services)
     {
@@ -74,16 +35,37 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.AddUIExtension("store-wallets-nav", "WalletNavExtension");
 
         // Database Services - matches Cashu plugin pattern exactly
-        services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
-        services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
+        try
         {
-            var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
-            factory.ConfigureBuilder(o);
-        });
-        services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
+            services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
+            services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
+            {
+                var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
+                factory.ConfigureBuilder(o);
+            });
+            services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
+        }
+        catch (Exception ex)
+        {
+            // If database services can't be registered, log warning but don't crash
+            System.Console.WriteLine($"Warning: Could not register database services. Database functionality will be disabled. Error: {ex.Message}");
+        }
         
-        // Wallet Services
-        services.AddSingleton<WalletStatusProvider>();
+        // Payment Method Handler Registration (wrapped in try-catch to prevent crashes)
+        try
+        {
+            services.AddSingleton(provider => 
+                (IPaymentMethodHandler)ActivatorUtilities.CreateInstance(provider, typeof(PaymentHandlers.WalletPaymentMethodHandler)));
+            services.AddDefaultPrettyName(WalletPmid, "Bitcoin Rewards Wallet");
+            
+            // Wallet Services
+            services.AddSingleton<PaymentHandlers.WalletStatusProvider>();
+        }
+        catch (Exception ex)
+        {
+            // If payment handler types can't be loaded, log warning but don't crash
+            System.Console.WriteLine($"Warning: Could not register Payment Method Handler. Wallet functionality will be disabled. Error: {ex.Message}");
+        }
         
         // Other services
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
@@ -96,14 +78,24 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
-        // Payout Processor Registration
-        services.AddSingleton<CashuAutomatedPayoutSenderFactory>();
-        services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
-            provider.GetRequiredService<CashuAutomatedPayoutSenderFactory>());
-        
-        services.TryAddSingleton(provider =>
-            (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayoutHandler)));
+        // Payout Processor Registration (using try-catch to prevent crashes if Cashu types can't be loaded)
+        try
+        {
+            services.AddSingleton<CashuPayouts.CashuAutomatedPayoutSenderFactory>();
+            services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
+                provider.GetRequiredService<CashuPayouts.CashuAutomatedPayoutSenderFactory>());
+            
+            services.TryAddSingleton(provider =>
+                (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayouts.CashuPayoutHandler)));
+        }
+        catch (Exception ex)
+        {
+            // If Cashu payout types can't be loaded (e.g., missing DotNut.dll), log warning but don't crash
+            // The plugin will still work for wallet functionality
+            System.Console.WriteLine($"Warning: Could not register Cashu Payout Processor. Payout functionality will be disabled. Error: {ex.Message}");
+        }
             
         base.Execute(services);
     }
 }
+

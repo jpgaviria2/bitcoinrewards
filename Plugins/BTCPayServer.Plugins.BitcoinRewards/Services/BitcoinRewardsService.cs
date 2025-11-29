@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
@@ -139,6 +140,62 @@ public class BitcoinRewardsService
                 Status = RewardStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
+
+            // Check wallet balance and auto-top-up if needed
+            var proofStorageService = _httpContextAccessor?.HttpContext?.RequestServices
+                ?.GetService<ProofStorageService>();
+            
+            if (proofStorageService != null && _httpContextAccessor?.HttpContext != null)
+            {
+                // Get mint URL from wallet config
+                var walletConfigService = _httpContextAccessor.HttpContext.RequestServices
+                    .GetService<WalletConfigurationService>();
+                
+                if (walletConfigService != null)
+                {
+                    var mintUrl = await walletConfigService.GetMintUrlAsync(storeId);
+                    if (!string.IsNullOrEmpty(mintUrl))
+                    {
+                        var currentBalance = await proofStorageService.GetBalanceAsync(storeId, mintUrl);
+                        
+                        if (currentBalance < (ulong)rewardSatoshis)
+                        {
+                            _logger.LogInformation("Insufficient balance ({CurrentBalance} sat) for reward ({RequiredSat} sat). Attempting auto top-up from Lightning.", 
+                                currentBalance, rewardSatoshis);
+                            
+                            // Attempt auto top-up from Lightning
+                            var topUpAmount = (ulong)rewardSatoshis - currentBalance + 10000; // Add 10k sat buffer
+                            
+                            // Use CashuServiceAdapter's internal minting capability
+                            var cashuAdapter = _cashuService as CashuServiceAdapter;
+                            if (cashuAdapter != null)
+                            {
+                                // Try to mint from Lightning using reflection to access private method
+                                var mintMethod = typeof(CashuServiceAdapter).GetMethod("MintFromLightningAsync",
+                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                                
+                                if (mintMethod != null)
+                                {
+                                    var mintTask = mintMethod.Invoke(cashuAdapter, new object[] { (long)topUpAmount, storeId, mintUrl }) as Task<List<object>>;
+                                    if (mintTask != null)
+                                    {
+                                        await mintTask;
+                                        var mintedProofs = mintTask.Result;
+                                        if (mintedProofs != null && mintedProofs.Count > 0)
+                                        {
+                                            _logger.LogInformation("Auto top-up successful: minted {Count} proofs", mintedProofs.Count);
+                                        }
+                                        else
+                                        {
+                                            _logger.LogWarning("Auto top-up failed or returned no proofs");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // Generate ecash token
             var ecashToken = await _cashuService.MintTokenAsync(rewardSatoshis, storeId);

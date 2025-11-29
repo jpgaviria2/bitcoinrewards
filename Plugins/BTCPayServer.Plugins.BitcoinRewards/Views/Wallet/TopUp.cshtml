@@ -1,0 +1,65 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model BTCPayServer.Plugins.BitcoinRewards.ViewModels.TopUpViewModel
+
+@{
+    ViewData.SetActivePage(BitcoinRewardsPlugin.PluginNavKey, "Top Up Wallet", "TopUp");
+}
+
+<h2 class="mb-2 mb-lg-3">@ViewData["Title"]</h2>
+<partial name="_StatusMessage" />
+
+<div class="row">
+    <div class="col-xl-8">
+        <div class="bg-tile p-3 rounded mb-4">
+            <h5 class="mb-2">Current Balance</h5>
+            <div class="d-flex align-items-baseline gap-2">
+                <span class="h3">@Model.CurrentBalance</span>
+                <span class="text-secondary">sat</span>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.MintUrl))
+            {
+                <small class="text-muted">Mint: @Model.MintUrl</small>
+            }
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Top Up from Lightning</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Mint ecash from your Lightning wallet balance.</p>
+                <form method="post" action="@Url.Action("TopUpFromLightning")">
+                    <input type="hidden" name="mintUrl" value="@Model.MintUrl" />
+                    <div class="form-group mb-3">
+                        <label for="amountSatoshis">Amount (satoshis)</label>
+                        <input type="number" id="amountSatoshis" name="amountSatoshis" class="form-control" 
+                               min="1" required placeholder="Enter amount in satoshis" />
+                        <small class="form-text text-muted">Minimum: 1 sat</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Mint from Lightning</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Top Up from Cashu Token</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Import ecash from a Cashu token.</p>
+                <form method="post" action="@Url.Action("TopUpFromToken")">
+                    <div class="form-group mb-3">
+                        <label for="token">Cashu Token</label>
+                        <textarea id="token" name="token" class="form-control" rows="5" 
+                                  required placeholder="Paste Cashu token here (cashuAeyJ...)"></textarea>
+                        <small class="form-text text-muted">Paste a valid Cashu token string</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Import Token</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+

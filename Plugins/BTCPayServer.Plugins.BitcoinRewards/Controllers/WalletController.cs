@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
@@ -20,6 +21,7 @@ using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using DotNut;
 using DotNut.ApiModels;
 using Newtonsoft.Json.Linq;
@@ -59,13 +61,17 @@ public class WalletController : Controller
     [HttpGet]
     public async Task<IActionResult> StoreConfig()
     {
-        // Get config directly from JToken since we don't have a registered payment handler
-        var configToken = StoreData.GetPaymentMethodConfig(BitcoinRewardsPlugin.WalletPmid);
+        // Get config using registered payment handler
         WalletPaymentMethodConfig? walletPaymentMethodConfig = null;
         
-        if (configToken != null)
+        if (_handlers.TryGetValue(BitcoinRewardsPlugin.WalletPmid, out var handler) && 
+            handler is PaymentHandlers.WalletPaymentMethodHandler walletHandler)
         {
-            walletPaymentMethodConfig = configToken.ToObject<WalletPaymentMethodConfig>();
+            var configToken = StoreData.GetPaymentMethodConfig(BitcoinRewardsPlugin.WalletPmid);
+            if (configToken != null)
+            {
+                walletPaymentMethodConfig = walletHandler.ParsePaymentMethodConfig(configToken) as WalletPaymentMethodConfig;
+            }
         }
 
         WalletStoreViewModel model = new WalletStoreViewModel();
@@ -131,9 +137,8 @@ public class WalletController : Controller
 
         blob.SetExcluded(paymentMethodId, !viewModel.Enabled);
 
-        // Use JToken overload since we don't have a registered payment handler
-        var configJson = Newtonsoft.Json.Linq.JToken.FromObject(paymentMethodConfig);
-        StoreData.SetPaymentMethodConfig(paymentMethodId, configJson);
+        // Use registered payment handler to set config (matching Cashu plugin exactly)
+        StoreData.SetPaymentMethodConfig(_handlers[paymentMethodId], paymentMethodConfig);
         store.SetStoreBlob(blob);
         await _storeRepository.UpdateStore(store);
         if (viewModel.PaymentAcceptanceModel == CashuPaymentModel.MeltImmediately && !lightningEnabled)
@@ -157,9 +162,17 @@ public class WalletController : Controller
     {
         await using var db = _dbContextFactory.CreateContext();
 
-        // Get config directly from JToken since we don't have a registered payment handler
-        var configToken = StoreData.GetPaymentMethodConfig(BitcoinRewardsPlugin.WalletPmid);
-        var walletPaymentMethodConfig = configToken?.ToObject<WalletPaymentMethodConfig>();
+        // Get config using registered payment handler
+        WalletPaymentMethodConfig? walletPaymentMethodConfig = null;
+        if (_handlers.TryGetValue(BitcoinRewardsPlugin.WalletPmid, out var handler) && 
+            handler is PaymentHandlers.WalletPaymentMethodHandler walletHandler)
+        {
+            var configToken = StoreData.GetPaymentMethodConfig(BitcoinRewardsPlugin.WalletPmid);
+            if (configToken != null)
+            {
+                walletPaymentMethodConfig = walletHandler.ParsePaymentMethodConfig(configToken) as WalletPaymentMethodConfig;
+            }
+        }
         
         var mints = walletPaymentMethodConfig?.TrustedMintsUrls ?? new List<string>();
         var proofsWithUnits = new List<(string Mint, string Unit, ulong Amount)>();
@@ -207,7 +220,19 @@ public class WalletController : Controller
             .Select(x => (x.Mint, x.Unit, x.Amount))
             .ToList();
         
-        var exportedTokens = db.ExportedTokens.Where(et=>et.StoreId == StoreData.Id).ToList();
+        // Query ExportedTokens with error handling in case table doesn't exist yet (during migration)
+        var exportedTokens = new List<ExportedToken>();
+        try
+        {
+            exportedTokens = await db.ExportedTokens.Where(et => et.StoreId == StoreData.Id).ToListAsync();
+        }
+        catch (Exception ex) when (ex.Message.Contains("does not exist") || 
+                                   ex.Message.Contains("relation") || 
+                                   ex.Message.Contains("ExportedTokens"))
+        {
+            // If ExportedTokens table doesn't exist yet (during migration), return empty list
+            // This allows the page to load even if migrations haven't completed
+        }
         if (unavailableMints.Any())
         {
             TempData[WellKnownTempData.ErrorMessage] = $"Couldn't load {unavailableMints.Count} mints: {String.Join(", ", unavailableMints)}";
@@ -373,5 +398,261 @@ public class WalletController : Controller
             .ToList();
             
         return View(failedTransactions);
+    }
+
+    /// <summary>
+    /// GET action for wallet top-up page
+    /// </summary>
+    [HttpGet("TopUp")]
+    public async Task<IActionResult> TopUp()
+    {
+        await using var db = _dbContextFactory.CreateContext();
+        
+        // Get wallet config
+        WalletPaymentMethodConfig? walletPaymentMethodConfig = null;
+        if (_handlers.TryGetValue(BitcoinRewardsPlugin.WalletPmid, out var handler) && 
+            handler is PaymentHandlers.WalletPaymentMethodHandler walletHandler)
+        {
+            var configToken = StoreData.GetPaymentMethodConfig(BitcoinRewardsPlugin.WalletPmid);
+            if (configToken != null)
+            {
+                walletPaymentMethodConfig = walletHandler.ParsePaymentMethodConfig(configToken) as WalletPaymentMethodConfig;
+            }
+        }
+
+        // Get current balance from proofs
+        var mints = walletPaymentMethodConfig?.TrustedMintsUrls ?? new List<string>();
+        ulong totalBalance = 0;
+        string? firstMintUrl = mints.FirstOrDefault();
+        
+        if (!string.IsNullOrEmpty(firstMintUrl))
+        {
+            var proofs = await db.Proofs
+                .Where(p => p.StoreId == StoreData.Id && p.MintUrl == firstMintUrl)
+                .ToListAsync();
+            totalBalance = proofs.Aggregate(0UL, (sum, p) => sum + p.Amount);
+        }
+
+        var model = new TopUpViewModel
+        {
+            StoreId = StoreData.Id,
+            MintUrl = firstMintUrl ?? "",
+            CurrentBalance = totalBalance
+        };
+
+        return View(model);
+    }
+
+    /// <summary>
+    /// POST action for top-up from Lightning
+    /// </summary>
+    [HttpPost("TopUpFromLightning")]
+    public async Task<IActionResult> TopUpFromLightning([FromForm] ulong amountSatoshis, [FromForm] string mintUrl)
+    {
+        if (amountSatoshis == 0)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = "Amount must be greater than 0";
+            return RedirectToAction("TopUp");
+        }
+
+        if (string.IsNullOrWhiteSpace(mintUrl))
+        {
+            TempData[WellKnownTempData.ErrorMessage] = "Mint URL is required";
+            return RedirectToAction("TopUp");
+        }
+
+        try
+        {
+            // Get CashuServiceAdapter to use MintFromLightningAsync
+            var cashuService = HttpContext.RequestServices.GetRequiredService<Services.ICashuService>();
+            
+            // MintFromLightningAsync is internal, so we'll use reflection or create a public method
+            // For now, let's use the CashuServiceAdapter's internal method via reflection
+            var adapterType = typeof(Services.CashuServiceAdapter);
+            var mintMethod = adapterType.GetMethod("MintFromLightningAsync", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            
+            if (mintMethod == null)
+            {
+                // Fallback: use InternalCashuWallet directly
+                var lightningClientObj = await GetLightningClientForStore(StoreData.Id);
+                if (lightningClientObj == null || !(lightningClientObj is BTCPayServer.Lightning.ILightningClient lightningClient))
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = "Lightning client not available. Please configure Lightning for this store.";
+                    return RedirectToAction("TopUp");
+                }
+
+                var walletLogger = HttpContext.RequestServices.GetService<Microsoft.Extensions.Logging.ILogger<Services.InternalCashuWallet>>();
+                var wallet = new Services.InternalCashuWallet(lightningClient, mintUrl, "sat", walletLogger);
+
+                // Create mint quote
+                var mintQuote = await wallet.CreateMintQuote(amountSatoshis, "sat");
+                if (mintQuote == null || string.IsNullOrEmpty(mintQuote.Request))
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = "Failed to create mint quote";
+                    return RedirectToAction("TopUp");
+                }
+
+                // Pay invoice
+                var payResult = await lightningClient.Pay(mintQuote.Request, CancellationToken.None);
+                if (payResult.Result != BTCPayServer.Lightning.PayResult.Ok)
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = $"Lightning payment failed: {payResult.Result}";
+                    return RedirectToAction("TopUp");
+                }
+
+                // Poll for quote completion
+                var quoteId = mintQuote.Quote;
+                if (string.IsNullOrEmpty(quoteId))
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = "Mint quote ID is empty";
+                    return RedirectToAction("TopUp");
+                }
+
+                for (int i = 0; i < 30; i++)
+                {
+                    await Task.Delay(1000);
+                    var checkResult = await wallet.CheckMintQuote(quoteId, CancellationToken.None);
+                    
+                    var paidProperty = checkResult.GetType().GetProperty("Paid");
+                    var paid = paidProperty?.GetValue(checkResult) as bool?;
+                    
+                    if (paid == true)
+                    {
+                        var proofsProperty = checkResult.GetType().GetProperty("Proofs");
+                        var proofs = proofsProperty?.GetValue(checkResult) as Array;
+                        
+                        if (proofs != null && proofs.Length > 0)
+                        {
+                            var proofsToStore = new List<DotNut.Proof>();
+                            foreach (var proof in proofs)
+                            {
+                                if (proof is DotNut.Proof proofObj)
+                                {
+                                    proofsToStore.Add(proofObj);
+                                }
+                            }
+
+                            if (proofsToStore.Count > 0)
+                            {
+                                var proofStorageService = HttpContext.RequestServices.GetRequiredService<Services.ProofStorageService>();
+                                await proofStorageService.AddProofsAsync(proofsToStore, StoreData.Id, mintUrl);
+                                
+                                TempData[WellKnownTempData.SuccessMessage] = $"Successfully minted {proofsToStore.Count} proofs ({amountSatoshis} sat)";
+                                return RedirectToAction("Wallet");
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                TempData[WellKnownTempData.ErrorMessage] = "Mint quote not paid after polling";
+                return RedirectToAction("TopUp");
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = $"Error during Lightning top-up: {ex.Message}";
+            return RedirectToAction("TopUp");
+        }
+
+        return RedirectToAction("TopUp");
+    }
+
+    /// <summary>
+    /// POST action for top-up from Cashu token
+    /// </summary>
+    [HttpPost("TopUpFromToken")]
+    public async Task<IActionResult> TopUpFromToken([FromForm] string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            TempData[WellKnownTempData.ErrorMessage] = "Token cannot be empty";
+            return RedirectToAction("TopUp");
+        }
+
+        try
+        {
+            var cashuService = HttpContext.RequestServices.GetRequiredService<Services.ICashuService>();
+            var result = await cashuService.ReceiveTokenAsync(token, StoreData.Id);
+            
+            if (result.Success)
+            {
+                TempData[WellKnownTempData.SuccessMessage] = $"Successfully received token with {result.Amount} sat";
+                return RedirectToAction("Wallet");
+            }
+            else
+            {
+                TempData[WellKnownTempData.ErrorMessage] = result.ErrorMessage ?? "Failed to receive token";
+                return RedirectToAction("TopUp");
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = $"Error receiving token: {ex.Message}";
+            return RedirectToAction("TopUp");
+        }
+    }
+
+    private async Task<object?> GetLightningClientForStore(string storeId)
+    {
+        // Use reflection to get Lightning client (similar to CashuServiceAdapter)
+        try
+        {
+            var store = await _storeRepository.FindStore(storeId);
+            if (store == null) return null;
+
+            var lnPaymentType = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .FirstOrDefault(t => t.Name == "LightningPaymentType" && t.Namespace?.Contains("BTCPayServer.Payments") == true);
+
+            if (lnPaymentType == null) return null;
+
+            var getPaymentMethodIdMethod = lnPaymentType.GetMethod("GetPaymentMethodId", new[] { typeof(string) });
+            if (getPaymentMethodIdMethod == null) return null;
+
+            var lightningPmi = getPaymentMethodIdMethod.Invoke(null, new object[] { "BTC" });
+            if (lightningPmi == null) return null;
+
+            var getPaymentMethodConfigMethod = typeof(StoreData).GetMethod("GetPaymentMethodConfig", 
+                new[] { typeof(PaymentMethodId), typeof(PaymentMethodHandlerDictionary) });
+            if (getPaymentMethodConfigMethod == null) return null;
+
+            var lightningConfig = getPaymentMethodConfigMethod.Invoke(store, new[] { lightningPmi, _handlers });
+            if (lightningConfig == null) return null;
+
+            var lightningClientFactoryServiceType = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .FirstOrDefault(t => t.Name == "LightningClientFactoryService");
+            
+            var lightningClientFactoryService = lightningClientFactoryServiceType != null
+                ? HttpContext.RequestServices.GetService(lightningClientFactoryServiceType)
+                : null;
+
+            if (lightningClientFactoryService == null) return null;
+
+            var createLightningClientMethod = lightningConfig.GetType().GetMethod("CreateLightningClient");
+            if (createLightningClientMethod == null) return null;
+
+            var network = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .FirstOrDefault(t => t.Name == "BTCPayNetworkProvider")
+                ?.GetMethod("GetNetwork")?.Invoke(null, new object[] { "BTC" });
+
+            var lightningNetworkOptions = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .FirstOrDefault(t => t.Name == "LightningNetworkOptions");
+
+            var lightningNetworkOptionsInstance = lightningNetworkOptions != null
+                ? HttpContext.RequestServices.GetService(lightningNetworkOptions)
+                : null;
+
+            return createLightningClientMethod.Invoke(lightningConfig,
+                new[] { network, lightningNetworkOptionsInstance, lightningClientFactoryService });
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
