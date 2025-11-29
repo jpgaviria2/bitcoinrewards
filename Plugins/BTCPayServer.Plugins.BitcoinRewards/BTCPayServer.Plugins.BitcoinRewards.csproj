@@ -87,4 +87,12 @@
     <PackageReference Include="DotNut" Version="1.0.4" />
     <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />
   </ItemGroup>
+  
+  <!-- Reference Cashu plugin DLL for build (runtime dependency handled by BTCPay Server) -->
+  <ItemGroup Condition="Exists('/tmp/btcpayserver-dlls/BTCPayServer.Plugins.Cashu.dll')">
+    <Reference Include="BTCPayServer.Plugins.Cashu">
+      <HintPath>/tmp/btcpayserver-dlls/BTCPayServer.Plugins.Cashu.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 </Project>
