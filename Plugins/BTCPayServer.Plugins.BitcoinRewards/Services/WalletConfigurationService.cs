@@ -228,38 +228,11 @@ public class WalletConfigurationService
                 return null;
             }
 
-            // Get balance - exclude proofs in FailedTransactions (matching Cashu plugin)
-            // but be fully tolerant of missing tables during first‑run / migrations.
-            var balanceDecimal = 0m;
-            try
-            {
-                // Try to query with FailedTransactions exclusion
-                balanceDecimal = await db.Proofs
-                    .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url
-                        && !db.FailedTransactions.Any(ft => ft.UsedProofs.Contains(p)))
-                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
-            }
-            catch (PostgresException pgEx) when (pgEx.SqlState == "42P01")
-            {
-                // Relation does not exist (table missing) - happens on fresh install before migrations complete
-                _logger.LogDebug(pgEx,
-                    "FailedTransactions table not found when calculating balance, falling back to all proofs for store {StoreId}",
-                    storeId);
-                balanceDecimal = await db.Proofs
-                    .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
-                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
-            }
-            catch (Exception ex) when (ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
-                                       ex.Message.Contains("relation", StringComparison.OrdinalIgnoreCase))
-            {
-                // Fallback for any provider/locale that doesn't use PostgresException
-                _logger.LogDebug(ex,
-                    "FailedTransactions table not found when calculating balance (generic catch), falling back to all proofs for store {StoreId}",
-                    storeId);
-                balanceDecimal = await db.Proofs
-                    .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
-                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
-            }
+            // For startup safety, avoid referencing FailedTransactions here.
+            // Always sum all proofs; a background process can refine later.
+            var balanceDecimal = await db.Proofs
+                .Where(p => p.StoreId == storeId && p.MintUrl == mint.Url)
+                .SumAsync(p => (decimal?)p.Amount) ?? 0;
 
             return new WalletConfiguration
             {
