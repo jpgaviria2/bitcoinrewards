@@ -22,6 +22,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using DotNut;
 using DotNut.ApiModels;
 using Newtonsoft.Json.Linq;
@@ -226,12 +227,16 @@ public class WalletController : Controller
         {
             exportedTokens = await db.ExportedTokens.Where(et => et.StoreId == StoreData.Id).ToListAsync();
         }
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            // If ExportedTokens table doesn't exist yet (during migration), return empty list
+            // This allows the page to load even if migrations haven't completed
+        }
         catch (Exception ex) when (ex.Message.Contains("does not exist") || 
                                    ex.Message.Contains("relation") || 
                                    ex.Message.Contains("ExportedTokens"))
         {
-            // If ExportedTokens table doesn't exist yet (during migration), return empty list
-            // This allows the page to load even if migrations haven't completed
+            // Fallback for other exception types that might indicate missing table
         }
         if (unavailableMints.Any())
         {
