@@ -27,6 +27,14 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(DefaultPluginSchema);
+        
+        // Ignore DotNut types that are not entities (used only in conversions)
+        modelBuilder.Ignore<PrivKey>();
+        modelBuilder.Ignore<PubKey>();
+        modelBuilder.Ignore<KeysetId>();
+        modelBuilder.Ignore<ISecret>();
+        modelBuilder.Ignore<DLEQProof>();
+        modelBuilder.Ignore<BlindedMessage>();
 
         // Configure BitcoinRewardRecord entity
         modelBuilder.Entity<BitcoinRewardRecord>(entity =>
