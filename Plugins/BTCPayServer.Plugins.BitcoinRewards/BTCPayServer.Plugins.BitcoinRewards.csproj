@@ -76,7 +76,7 @@
 	
   <ItemGroup>
 	<ProjectReference Include="..\..\submodules\BTCPayServer\BTCPayServer.csproj" />
-	<ProjectReference Include="..\..\submodules\BTCPayServer\BTCPayServer.Common\BTCPayServer.Common.csproj" Private="true" />
+	<ProjectReference Include="..\..\submodules\BTCPayServer.Common\BTCPayServer.Common.csproj" Private="true" />
 	<EmbeddedResource Include="Resources\**" />
   </ItemGroup>
   
