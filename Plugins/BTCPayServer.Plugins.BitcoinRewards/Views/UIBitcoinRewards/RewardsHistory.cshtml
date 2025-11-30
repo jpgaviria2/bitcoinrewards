@@ -1,0 +1,131 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@using BTCPayServer.Plugins.BitcoinRewards.Data
+@using System.Linq
+@model BitcoinRewardHistoryViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Rewards History", "BitcoinRewards");
+    Layout = "_Layout";
+}
+
+<div class="row">
+    <div class="sticky-header">
+        <h2 class="my-1">@ViewData["Title"]</h2>
+        <div>
+            <a asp-action="EditSettings" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
+                Settings
+            </a>
+            <a asp-action="CreateTestReward" asp-route-storeId="@Model.StoreId" class="btn btn-primary">
+                Create Test Reward
+            </a>
+        </div>
+    </div>
+    <partial name="_StatusMessage"/>
+    <div class="col-xxl-constrain">
+        <form method="get" asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId">
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select name="status" id="status" class="form-select">
+                        <option value="">All</option>
+                        <option value="@RewardStatus.Pending" selected="@(Model.FilterStatus == RewardStatus.Pending)">Pending</option>
+                        <option value="@RewardStatus.Sent" selected="@(Model.FilterStatus == RewardStatus.Sent)">Sent</option>
+                        <option value="@RewardStatus.Redeemed" selected="@(Model.FilterStatus == RewardStatus.Redeemed)">Redeemed</option>
+                        <option value="@RewardStatus.Expired" selected="@(Model.FilterStatus == RewardStatus.Expired)">Expired</option>
+                        <option value="@RewardStatus.Reclaimed" selected="@(Model.FilterStatus == RewardStatus.Reclaimed)">Reclaimed</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="platform" class="form-label">Platform</label>
+                    <select name="platform" id="platform" class="form-select">
+                        <option value="">All</option>
+                        <option value="@RewardPlatform.Shopify" selected="@(Model.FilterPlatform == RewardPlatform.Shopify)">Shopify</option>
+                        <option value="@RewardPlatform.Square" selected="@(Model.FilterPlatform == RewardPlatform.Square)">Square</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="dateFrom" class="form-label">From Date</label>
+                    <input type="date" name="dateFrom" id="dateFrom" class="form-control" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-2">
+                    <label for="dateTo" class="form-label">To Date</label>
+                    <input type="date" name="dateTo" id="dateTo" class="form-control" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary">Filter</button>
+                </div>
+            </div>
+        </form>
+
+        @if (Model.Rewards.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Platform</th>
+                            <th>Transaction ID</th>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Reward (Sats)</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reward in Model.Rewards)
+                        {
+                            <tr>
+                                <td>@reward.CreatedAt.ToString("g")</td>
+                                <td>@reward.Platform</td>
+                                <td><code>@reward.TransactionId</code></td>
+                                <td>@(reward.OrderId ?? "-")</td>
+                                <td>@(reward.CustomerEmail ?? reward.CustomerPhone ?? "-")</td>
+                                <td>@reward.TransactionAmount @reward.Currency</td>
+                                <td>@reward.RewardAmountSatoshis</td>
+                                <td>
+                                    <span class="badge bg-@(reward.Status switch {
+                                        RewardStatus.Sent => "success",
+                                        RewardStatus.Redeemed => "info",
+                                        RewardStatus.Expired => "warning",
+                                        RewardStatus.Reclaimed => "secondary",
+                                        _ => "primary"
+                                    })">@reward.Status</span>
+                                </td>
+                                <td>
+                                    @if (reward.CanReclaim)
+                                    {
+                                        <form method="post" asp-action="ReclaimToken" asp-route-storeId="@Model.StoreId" asp-route-rewardId="@reward.Id" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-warning">Reclaim</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        @for (int i = 1; i <= Model.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                                <a class="page-link" asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" asp-route-page="@i" asp-route-status="@Model.FilterStatus" asp-route-platform="@Model.FilterPlatform">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        }
+        else
+        {
+            <p class="text-muted">No rewards found.</p>
+        }
+    </div>
+</div>
+
