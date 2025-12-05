@@ -1,10 +1,6 @@
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
-using BTCPayServer.Payouts;
-using BTCPayServer.Plugins.BitcoinRewards.CashuPayouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
-using BTCPayServer.Plugins.BitcoinRewards.PaymentHandlers;
-using BTCPayServer.Payments;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -17,8 +13,6 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     public override string Description => "Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.";
     
     public const string PluginNavKey = nameof(BitcoinRewardsPlugin) + "Nav";
-    
-    internal static PaymentMethodId WalletPmid = new PaymentMethodId("BITCOINREWARDS-WALLET");
 
     public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
     {
@@ -28,37 +22,17 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        // Payment Method Handler Registration (matches Cashu plugin order)
-        services.AddSingleton(provider => 
-            (IPaymentMethodHandler)ActivatorUtilities.CreateInstance(provider, typeof(PaymentHandlers.WalletPaymentMethodHandler)));
-        services.AddDefaultPrettyName(WalletPmid, "Bitcoin Rewards Wallet");
-        
-        // Wallet Services (matches Cashu plugin pattern)
-        services.AddSingleton<PaymentHandlers.WalletStatusProvider>();
-        
         // Other services
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
         services.TryAddScoped<Services.DatabaseCleanupService>();
-        services.TryAddScoped<Services.ProofStorageService>();
-        services.TryAddScoped<Services.WalletConfigurationService>();
-        services.TryAddScoped<Services.ICashuService, Services.CashuServiceAdapter>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
         services.TryAddScoped<Services.BitcoinRewardsService>();
+        services.TryAddScoped<Services.RewardPullPaymentService>();
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.AddHttpClient<Clients.SquareApiClient>();
-
-        // Payout Handler Registration (matches Cashu plugin pattern)
-        services.AddSingleton(provider =>
-            (IPayoutHandler)ActivatorUtilities.CreateInstance(provider, typeof(CashuPayouts.CashuPayoutHandler)));
         
-        // Payout Processor Registration (matches Cashu plugin pattern)
-        services.AddSingleton<CashuPayouts.CashuAutomatedPayoutSenderFactory>();
-        services.AddSingleton<BTCPayServer.PayoutProcessors.IPayoutProcessorFactory>(provider => 
-            provider.GetRequiredService<CashuPayouts.CashuAutomatedPayoutSenderFactory>());
-        
-        // UI extensions (matches Cashu plugin order - after services)
+        // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
-        services.AddUIExtension("store-wallets-nav", "WalletNavExtension");
 
         // Database Services (matches Cashu plugin pattern exactly)
         services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();

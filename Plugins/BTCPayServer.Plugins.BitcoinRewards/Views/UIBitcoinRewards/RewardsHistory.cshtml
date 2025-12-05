@@ -70,8 +70,9 @@
                             <th>Customer</th>
                             <th>Amount</th>
                             <th>Reward (Sats)</th>
+                            <th>Claim</th>
+                            <th>Payout</th>
                             <th>Status</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -86,6 +87,26 @@
                                 <td>@reward.TransactionAmount @reward.Currency</td>
                                 <td>@reward.RewardAmountSatoshis</td>
                                 <td>
+                                    @if (reward.HasClaimLink)
+                                    {
+                                        <a class="btn btn-sm btn-outline-primary" href="@reward.ClaimLink" target="_blank">Open claim</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Unavailable</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(reward.PayoutMethod))
+                                    {
+                                        <span>@reward.PayoutMethod</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">n/a</span>
+                                    }
+                                </td>
+                                <td>
                                     <span class="badge bg-@(reward.Status switch {
                                         RewardStatus.Sent => "success",
                                         RewardStatus.Redeemed => "info",
@@ -93,14 +114,6 @@
                                         RewardStatus.Reclaimed => "secondary",
                                         _ => "primary"
                                     })">@reward.Status</span>
-                                </td>
-                                <td>
-                                    @if (reward.CanReclaim)
-                                    {
-                                        <form method="post" asp-action="ReclaimToken" asp-route-storeId="@Model.StoreId" asp-route-rewardId="@reward.Id" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-warning">Reclaim</button>
-                                        </form>
-                                    }
                                 </td>
                             </tr>
                         }

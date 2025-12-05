@@ -7,8 +7,6 @@ using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Models;
 using BTCPayServer.Services.Rates;
 using BTCPayServer.Services.Stores;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
@@ -17,27 +15,24 @@ public class BitcoinRewardsService
 {
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _repository;
-    private readonly ICashuService _cashuService;
     private readonly IEmailNotificationService _emailService;
     private readonly CurrencyNameTable _currencyNameTable;
-    private readonly IHttpContextAccessor? _httpContextAccessor;
+    private readonly RewardPullPaymentService _pullPaymentService;
     private readonly ILogger<BitcoinRewardsService> _logger;
 
     public BitcoinRewardsService(
         StoreRepository storeRepository,
         BitcoinRewardsRepository repository,
-        ICashuService cashuService,
         IEmailNotificationService emailService,
         CurrencyNameTable currencyNameTable,
         ILogger<BitcoinRewardsService> logger,
-        IHttpContextAccessor? httpContextAccessor = null)
+        RewardPullPaymentService pullPaymentService)
     {
         _storeRepository = storeRepository;
         _repository = repository;
-        _cashuService = cashuService;
         _emailService = emailService;
         _currencyNameTable = currencyNameTable;
-        _httpContextAccessor = httpContextAccessor;
+        _pullPaymentService = pullPaymentService;
         _logger = logger;
     }
 
@@ -141,112 +136,64 @@ public class BitcoinRewardsService
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Check wallet balance and auto-top-up if needed
-            var proofStorageService = _httpContextAccessor?.HttpContext?.RequestServices
-                ?.GetService<ProofStorageService>();
-            
-            if (proofStorageService != null && _httpContextAccessor?.HttpContext != null)
+            // Attempt to create a native pull payment first
+            var pullPaymentResult = await _pullPaymentService.CreatePullPaymentAsync(
+                storeId,
+                rewardSatoshis,
+                settings.SelectedPayoutProcessorId,
+                transaction.OrderId ?? transaction.TransactionId,
+                CancellationToken.None);
+
+            if (pullPaymentResult.Success && !string.IsNullOrEmpty(pullPaymentResult.PullPaymentId))
             {
-                // Get mint URL from wallet config
-                var walletConfigService = _httpContextAccessor.HttpContext.RequestServices
-                    .GetService<WalletConfigurationService>();
-                
-                if (walletConfigService != null)
+                reward.PullPaymentId = pullPaymentResult.PullPaymentId;
+                reward.PayoutProcessor = pullPaymentResult.PayoutProcessor;
+                reward.PayoutMethod = pullPaymentResult.PayoutMethod;
+                reward.ClaimLink = pullPaymentResult.ClaimLink;
+                reward.Status = RewardStatus.Sent;
+                reward.SentAt = DateTime.UtcNow;
+
+                var deliveryTarget = settings.DeliveryMethod == DeliveryMethod.Email
+                    ? transaction.CustomerEmail
+                    : transaction.CustomerPhone;
+
+                await _repository.AddRewardAsync(reward);
+
+                if (!string.IsNullOrEmpty(deliveryTarget))
                 {
-                    var mintUrl = await walletConfigService.GetMintUrlAsync(storeId);
-                    if (!string.IsNullOrEmpty(mintUrl))
+                    var rewardAmountBtc = rewardSatoshis / 100_000_000m;
+                    var sent = await _emailService.SendRewardNotificationAsync(
+                        deliveryTarget,
+                        settings.DeliveryMethod,
+                        rewardAmountBtc,
+                        rewardSatoshis,
+                        pullPaymentResult.ClaimLink,
+                        null,
+                        transaction.OrderId ?? transaction.TransactionId);
+
+                    if (!sent)
                     {
-                        var currentBalance = await proofStorageService.GetBalanceAsync(storeId, mintUrl);
-                        
-                        if (currentBalance < (ulong)rewardSatoshis)
-                        {
-                            _logger.LogInformation("Insufficient balance ({CurrentBalance} sat) for reward ({RequiredSat} sat). Attempting auto top-up from Lightning.", 
-                                currentBalance, rewardSatoshis);
-                            
-                            // Attempt auto top-up from Lightning
-                            var topUpAmount = (ulong)rewardSatoshis - currentBalance + 10000; // Add 10k sat buffer
-                            
-                            // Use CashuServiceAdapter's internal minting capability
-                            var cashuAdapter = _cashuService as CashuServiceAdapter;
-                            if (cashuAdapter != null)
-                            {
-                                // Try to mint from Lightning using reflection to access private method
-                                var mintMethod = typeof(CashuServiceAdapter).GetMethod("MintFromLightningAsync",
-                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                                
-                                if (mintMethod != null)
-                                {
-                                    var mintTask = mintMethod.Invoke(cashuAdapter, new object[] { (long)topUpAmount, storeId, mintUrl }) as Task<List<object>>;
-                                    if (mintTask != null)
-                                    {
-                                        await mintTask;
-                                        var mintedProofs = mintTask.Result;
-                                        if (mintedProofs != null && mintedProofs.Count > 0)
-                                        {
-                                            _logger.LogInformation("Auto top-up successful: minted {Count} proofs", mintedProofs.Count);
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning("Auto top-up failed or returned no proofs");
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        reward.Status = RewardStatus.Pending;
+                        reward.ErrorMessage = "Failed to send notification";
+                        await _repository.UpdateRewardAsync(reward);
                     }
                 }
-            }
 
-            // Generate ecash token
-            var ecashToken = await _cashuService.MintTokenAsync(rewardSatoshis, storeId);
-            if (string.IsNullOrEmpty(ecashToken))
+                _logger.LogInformation("Reward pull payment created for store {StoreId} with pull payment {PullPaymentId}", storeId, pullPaymentResult.PullPaymentId);
+                return true;
+            }
+            else if (!pullPaymentResult.Success && !string.IsNullOrEmpty(pullPaymentResult.Error))
             {
-                reward.Status = RewardStatus.Pending;
-                reward.ErrorMessage = "Failed to generate ecash token";
-                await _repository.AddRewardAsync(reward);
-                _logger.LogError("Failed to mint ecash token for reward {RewardId}", reward.Id);
-                return false;
+                reward.ErrorMessage = pullPaymentResult.Error;
+                _logger.LogWarning("Pull payment creation failed for store {StoreId}: {Error}", storeId, pullPaymentResult.Error);
             }
 
-            reward.EcashToken = ecashToken;
-
-            // Send notification
-            var deliveryMethod = settings.DeliveryMethod == DeliveryMethod.Email 
-                ? transaction.CustomerEmail 
-                : transaction.CustomerPhone;
-            
-            if (!string.IsNullOrEmpty(deliveryMethod))
-            {
-                var sent = await _emailService.SendRewardNotificationAsync(
-                    deliveryMethod,
-                    settings.DeliveryMethod,
-                    rewardAmount,
-                    rewardSatoshis,
-                    ecashToken,
-                    transaction.OrderId ?? transaction.TransactionId);
-
-                if (sent)
-                {
-                    reward.Status = RewardStatus.Sent;
-                    reward.SentAt = DateTime.UtcNow;
-                }
-                else
-                {
-                    reward.Status = RewardStatus.Pending;
-                    reward.ErrorMessage = "Failed to send notification";
-                }
-            }
-            else
-            {
-                reward.Status = RewardStatus.Sent; // No contact info, but token generated
-                reward.ErrorMessage = "No customer email/phone provided";
-            }
-
+            // Pull payment failed: persist record with pending status and error for visibility
+            reward.Status = RewardStatus.Pending;
             await _repository.AddRewardAsync(reward);
-            _logger.LogInformation("Reward processed successfully for transaction {TransactionId} in store {StoreId}", 
+            _logger.LogWarning("Reward stored as pending due to pull payment failure for transaction {TransactionId} in store {StoreId}", 
                 transaction.TransactionId, storeId);
-            
-            return true;
+            return false;
         }
         catch (Exception ex)
         {

@@ -81,8 +81,34 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="DotNut" Version="1.0.4" />
     <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />
+  </ItemGroup>
+
+  <!-- Exclude legacy Cashu-specific code and UI from build -->
+  <ItemGroup>
+    <Compile Remove="CashuAbstractions\**" />
+    <Compile Remove="CashuPayouts\**" />
+    <Compile Remove="PaymentHandlers\**" />
+    <Compile Remove="Controllers\WalletController.cs" />
+    <Compile Remove="Controllers\UICashuAutomatedPayoutProcessorsController.cs" />
+    <Compile Remove="Services\CashuServiceAdapter.cs" />
+    <Compile Remove="Services\InternalCashuWallet.cs" />
+    <Compile Remove="Services\ProofStorageService.cs" />
+    <Compile Remove="Services\WalletConfigurationService.cs" />
+    <Compile Remove="Services\ICashuService.cs" />
+    <Compile Remove="ViewModels\WalletViewModel.cs" />
+    <Compile Remove="ViewModels\ExportedTokenViewModel.cs" />
+    <Compile Remove="Data\Models\StoredProof.cs" />
+    <Compile Remove="Data\Models\Mint.cs" />
+    <Compile Remove="Data\Models\MintKeys.cs" />
+    <Compile Remove="Data\Models\FailedTransaction.cs" />
+    <Compile Remove="Data\Models\ExportedToken.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="Views\Wallet\**" />
+    <Content Remove="Views\UICashuAutomatedPayoutProcessors\**" />
+    <Content Remove="Views\Shared\WalletNavExtension.cshtml" />
   </ItemGroup>
 
 </Project>

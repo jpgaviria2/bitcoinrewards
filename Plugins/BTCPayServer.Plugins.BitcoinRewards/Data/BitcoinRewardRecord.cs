@@ -62,6 +62,21 @@ public class BitcoinRewardRecord
     
     [MaxLength(10000)]
     public string? EcashToken { get; set; }
+
+    [MaxLength(100)]
+    public string? PullPaymentId { get; set; }
+
+    [MaxLength(100)]
+    public string? PayoutId { get; set; }
+
+    [MaxLength(255)]
+    public string? PayoutProcessor { get; set; }
+
+    [MaxLength(100)]
+    public string? PayoutMethod { get; set; }
+
+    [MaxLength(2000)]
+    public string? ClaimLink { get; set; }
     
     [Required]
     public RewardStatus Status { get; set; } = RewardStatus.Pending;
@@ -74,6 +89,10 @@ public class BitcoinRewardRecord
     public DateTime? RedeemedAt { get; set; }
     
     public DateTime? ExpiresAt { get; set; }
+
+    public DateTime? ClaimedAt { get; set; }
+
+    public DateTime? PaidAt { get; set; }
     
     [MaxLength(500)]
     public string? ErrorMessage { get; set; }

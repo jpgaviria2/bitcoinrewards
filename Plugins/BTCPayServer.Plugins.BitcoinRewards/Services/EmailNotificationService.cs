@@ -30,7 +30,8 @@ public class EmailNotificationService : IEmailNotificationService
         DeliveryMethod deliveryMethod,
         decimal rewardAmountBtc,
         long rewardAmountSatoshis,
-        string ecashToken,
+        string? pullPaymentLink,
+        string? ecashToken,
         string orderId)
     {
         if (deliveryMethod != DeliveryMethod.Email)
@@ -103,19 +104,9 @@ Order: {orderId}
 Reward Amount: {rewardAmountBtc} BTC ({rewardAmountSatoshis} satoshis)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YOUR CASHU ECASH TOKEN:
+CLAIM YOUR REWARD:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-{ecashToken}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-HOW TO REDEEM:
-1. Copy the token above
-2. Open any Cashu-compatible wallet (e.g., Cashu wallet, Minibits)
-3. Paste or scan the token to redeem your reward
-
-Your token contains {rewardAmountSatoshis} satoshis and can be used for payments or converted to Bitcoin.
+" + BuildClaimSection(pullPaymentLink, ecashToken, rewardAmountSatoshis) + @"
 
 Thank you for your purchase!";
 
@@ -164,5 +155,41 @@ Thank you for your purchase!";
             _logger.LogError(ex, "Failed to send reward email to {Recipient} for order {OrderId}", recipient, orderId);
             return false;
         }
+    }
+
+    private string BuildClaimSection(string? pullPaymentLink, string? ecashToken, long rewardAmountSatoshis)
+    {
+        if (!string.IsNullOrEmpty(pullPaymentLink))
+        {
+            var section = $@"1. Click the link below to claim your reward:
+{pullPaymentLink}
+
+2. Choose your preferred payout method (on-chain BTC, Lightning, LNURL, ARK, or Cashu depending on the store configuration).
+3. Submit the payout details to receive {rewardAmountSatoshis} sats.";
+
+            if (!string.IsNullOrEmpty(ecashToken))
+            {
+                section += $@"
+
+Alternative (Cashu token):
+{ecashToken}";
+            }
+
+            return section;
+        }
+
+        if (!string.IsNullOrEmpty(ecashToken))
+        {
+            return $@"YOUR CASHU ECASH TOKEN:
+
+{ecashToken}
+
+HOW TO REDEEM:
+1. Copy the token above
+2. Open any Cashu-compatible wallet (e.g., Cashu wallet, Minibits)
+3. Paste or scan the token to redeem your reward";
+        }
+
+        return "A reward was issued but no claim link is available yet. Please contact the store for assistance.";
     }
 }

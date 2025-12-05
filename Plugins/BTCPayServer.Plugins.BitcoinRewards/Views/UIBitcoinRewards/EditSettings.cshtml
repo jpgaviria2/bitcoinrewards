@@ -173,10 +173,6 @@
                         var isSelected = Model.SelectedPayoutProcessorId == processor.ProcessorId;
                         <option value="@processor.ProcessorId" selected="@isSelected">
                             @processor.FriendlyName (@string.Join(", ", processor.SupportedMethods.Select(m => m.ToString())))
-                            @if (processor.IsCashu)
-                            {
-                                <text> - Cashu</text>
-                            }
                         </option>
                     }
                 </select>
@@ -195,19 +191,6 @@
                     <p class="mb-0">
                         <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
                             Go to Payout Processors Settings
-                        </a>
-                    </p>
-                </div>
-            }
-            
-            @if (Model.CashuWalletAvailable && !Model.AvailablePayoutProcessors.Any(p => p.IsCashu && p.IsConfigured))
-            {
-                <div class="alert alert-warning mb-4">
-                    <strong>Cashu Wallet Available</strong>
-                    <p class="mb-2">Cashu wallet is installed but not configured as a payout processor.</p>
-                    <p class="mb-0">
-                        <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
-                            Configure Cashu Payout Processor
                         </a>
                     </p>
                 </div>

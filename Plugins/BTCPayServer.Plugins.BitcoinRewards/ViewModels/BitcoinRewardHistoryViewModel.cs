@@ -39,7 +39,11 @@ public class BitcoinRewardItem
     public DateTime? SentAt { get; set; }
     public DateTime? RedeemedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
+    public string? PullPaymentId { get; set; }
+    public string? ClaimLink { get; set; }
+    public string? PayoutProcessor { get; set; }
+    public string? PayoutMethod { get; set; }
+    public bool HasClaimLink => !string.IsNullOrEmpty(ClaimLink);
     public string? ErrorMessage { get; set; }
-    public bool CanReclaim => Status == RewardStatus.Expired || Status == RewardStatus.Pending;
 }
 

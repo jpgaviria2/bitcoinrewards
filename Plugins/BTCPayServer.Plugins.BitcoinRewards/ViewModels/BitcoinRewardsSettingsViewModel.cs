@@ -79,9 +79,6 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Available Payout Processors")]
     public List<PayoutProcessorOption> AvailablePayoutProcessors { get; set; } = new();
     
-    [Display(Name = "Cashu Wallet Available")]
-    public bool CashuWalletAvailable { get; set; }
-    
     public PlatformFlags GetEnabledPlatforms()
     {
         if (EnableShopify && EnableSquare)

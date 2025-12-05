@@ -12,7 +12,6 @@ public class PayoutProcessorOption
     public string FactoryName { get; set; } = string.Empty;
     public string FriendlyName { get; set; } = string.Empty;
     public List<PayoutMethodId> SupportedMethods { get; set; } = new();
-    public bool IsCashu { get; set; }
     public bool IsAvailable { get; set; }
     public bool IsConfigured { get; set; }
     public string? UnavailableReason { get; set; }

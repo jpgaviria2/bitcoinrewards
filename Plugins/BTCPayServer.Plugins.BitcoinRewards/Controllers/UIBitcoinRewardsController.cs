@@ -24,20 +24,17 @@ public class UIBitcoinRewardsController : Controller
 {
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _rewardsRepository;
-    private readonly ICashuService _cashuService;
     private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
 
     public UIBitcoinRewardsController(
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
-        ICashuService cashuService,
         PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
         ILogger<UIBitcoinRewardsController> logger)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
-        _cashuService = cashuService;
         _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
         _logger = logger;
     }
@@ -63,9 +60,8 @@ public class UIBitcoinRewardsController : Controller
             vm.SetFromSettings(settings);
         }
         
-        // Get configured payout processors and Cashu wallet availability
+        // Get configured payout processors
         vm.AvailablePayoutProcessors = await _payoutProcessorDiscoveryService.GetConfiguredPayoutProcessorsAsync(storeId);
-        vm.CashuWalletAvailable = await _payoutProcessorDiscoveryService.IsCashuWalletInstalledAsync(storeId);
         
         ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
         return View("EditSettings", vm);
@@ -99,9 +95,6 @@ public class UIBitcoinRewardsController : Controller
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
             _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), Percentage={Percentage}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}", 
                 storeId, vm.Enabled, enabledValuesStr, vm.RewardPercentage, vm.EnableShopify, vm.EnableSquare);
-            
-            // Check Cashu wallet availability for informational display
-            vm.CashuWalletAvailable = await _payoutProcessorDiscoveryService.IsCashuWalletInstalledAsync(storeId);
             
             if (!ModelState.IsValid)
             {
@@ -239,6 +232,10 @@ public class UIBitcoinRewardsController : Controller
                 SentAt = r.SentAt,
                 RedeemedAt = r.RedeemedAt,
                 ExpiresAt = r.ExpiresAt,
+                PullPaymentId = r.PullPaymentId,
+                ClaimLink = r.ClaimLink,
+                PayoutProcessor = r.PayoutProcessor,
+                PayoutMethod = r.PayoutMethod,
                 ErrorMessage = r.ErrorMessage
             }).ToList(),
             TotalCount = totalCount
@@ -248,66 +245,6 @@ public class UIBitcoinRewardsController : Controller
         return View("RewardsHistory", vm);
     }
 
-    [HttpPost]
-    [Route("plugins/bitcoin-rewards/{storeId}/history/reclaim/{rewardId}")]
-    [Authorize(Policy = Policies.CanModifyStoreSettings)]
-    [AutoValidateAntiforgeryToken]
-    public async Task<IActionResult> ReclaimToken(string storeId, Guid rewardId)
-    {
-        var reward = await _rewardsRepository.GetRewardAsync(rewardId, storeId);
-        if (reward == null)
-        {
-            TempData.SetStatusMessageModel(new StatusMessageModel
-            {
-                Message = "Reward not found",
-                Severity = StatusMessageModel.StatusSeverity.Error
-            });
-            return RedirectToAction(nameof(RewardsHistory), new { storeId });
-        }
-
-        if (reward.Status != RewardStatus.Expired && reward.Status != RewardStatus.Pending)
-        {
-            TempData.SetStatusMessageModel(new StatusMessageModel
-            {
-                Message = "Only expired or pending rewards can be reclaimed",
-                Severity = StatusMessageModel.StatusSeverity.Error
-            });
-            return RedirectToAction(nameof(RewardsHistory), new { storeId });
-        }
-
-        if (string.IsNullOrEmpty(reward.EcashToken))
-        {
-            TempData.SetStatusMessageModel(new StatusMessageModel
-            {
-                Message = "Reward has no ecash token to reclaim",
-                Severity = StatusMessageModel.StatusSeverity.Error
-            });
-            return RedirectToAction(nameof(RewardsHistory), new { storeId });
-        }
-
-        var reclaimed = await _cashuService.ReclaimTokenAsync(reward.EcashToken, storeId);
-        if (reclaimed)
-        {
-            reward.Status = RewardStatus.Reclaimed;
-            await _rewardsRepository.UpdateRewardAsync(reward);
-            
-            TempData.SetStatusMessageModel(new StatusMessageModel
-            {
-                Message = "Token reclaimed successfully",
-                Severity = StatusMessageModel.StatusSeverity.Success
-            });
-        }
-        else
-        {
-            TempData.SetStatusMessageModel(new StatusMessageModel
-            {
-                Message = "Failed to reclaim token",
-                Severity = StatusMessageModel.StatusSeverity.Error
-            });
-        }
-        
-        return RedirectToAction(nameof(RewardsHistory), new { storeId });
-    }
 
     [HttpGet]
     [Route("plugins/bitcoin-rewards/{storeId}/test/create")]
