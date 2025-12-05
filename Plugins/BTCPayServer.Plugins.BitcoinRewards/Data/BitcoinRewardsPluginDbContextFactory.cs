@@ -19,6 +19,22 @@ public class BitcoinRewardsPluginDbContextFactory : BaseDbContextFactory<Bitcoin
     {
     }
 
+    /// <summary>
+    /// Configure the DbContext builder and force the migrations history table into the plugin schema.
+    /// Without this, EF places __EFMigrationsHistory in the public schema which makes EF think the
+    /// schema exists while the plugin tables are missing, blocking migrations from running.
+    /// </summary>
+    public new void ConfigureBuilder(
+        DbContextOptionsBuilder builder,
+        Action<NpgsqlDbContextOptionsBuilder> npgsqlOptionsAction = null)
+    {
+        base.ConfigureBuilder(builder, options =>
+        {
+            options.MigrationsHistoryTable("__EFMigrationsHistory", BitcoinRewardsPluginDbContext.DefaultPluginSchema);
+            npgsqlOptionsAction?.Invoke(options);
+        });
+    }
+
     public override BitcoinRewardsPluginDbContext CreateContext(
         Action<NpgsqlDbContextOptionsBuilder> npgsqlOptionsAction = null)
     {

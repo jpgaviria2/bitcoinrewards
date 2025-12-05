@@ -31,7 +31,6 @@ public class EmailNotificationService : IEmailNotificationService
         decimal rewardAmountBtc,
         long rewardAmountSatoshis,
         string? pullPaymentLink,
-        string? ecashToken,
         string orderId)
     {
         if (deliveryMethod != DeliveryMethod.Email)
@@ -106,7 +105,7 @@ Reward Amount: {rewardAmountBtc} BTC ({rewardAmountSatoshis} satoshis)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CLAIM YOUR REWARD:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-" + BuildClaimSection(pullPaymentLink, ecashToken, rewardAmountSatoshis) + @"
+" + BuildClaimSection(pullPaymentLink, rewardAmountSatoshis) + @"
 
 Thank you for your purchase!";
 
@@ -157,37 +156,17 @@ Thank you for your purchase!";
         }
     }
 
-    private string BuildClaimSection(string? pullPaymentLink, string? ecashToken, long rewardAmountSatoshis)
+    private string BuildClaimSection(string? pullPaymentLink, long rewardAmountSatoshis)
     {
         if (!string.IsNullOrEmpty(pullPaymentLink))
         {
             var section = $@"1. Click the link below to claim your reward:
 {pullPaymentLink}
 
-2. Choose your preferred payout method (on-chain BTC, Lightning, LNURL, ARK, or Cashu depending on the store configuration).
+2. Choose your preferred payout method (on-chain BTC, Lightning, LNURL, or any enabled payout method).
 3. Submit the payout details to receive {rewardAmountSatoshis} sats.";
 
-            if (!string.IsNullOrEmpty(ecashToken))
-            {
-                section += $@"
-
-Alternative (Cashu token):
-{ecashToken}";
-            }
-
             return section;
-        }
-
-        if (!string.IsNullOrEmpty(ecashToken))
-        {
-            return $@"YOUR CASHU ECASH TOKEN:
-
-{ecashToken}
-
-HOW TO REDEEM:
-1. Copy the token above
-2. Open any Cashu-compatible wallet (e.g., Cashu wallet, Minibits)
-3. Paste or scan the token to redeem your reward";
         }
 
         return "A reward was issued but no claim link is available yet. Please contact the store for assistance.";

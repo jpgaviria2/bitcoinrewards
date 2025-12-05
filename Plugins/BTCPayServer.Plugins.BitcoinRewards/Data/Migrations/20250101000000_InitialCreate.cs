@@ -31,7 +31,6 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                     Currency = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
                     RewardAmount = table.Column<decimal>(type: "numeric(18,8)", nullable: false),
                     RewardAmountSatoshis = table.Column<long>(type: "bigint", nullable: false),
-                    EcashToken = table.Column<string>(type: "character varying(10000)", maxLength: 10000, nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     CreatedAt = table.Column<System.DateTime>(type: "timestamp with time zone", nullable: false),
                     SentAt = table.Column<System.DateTime>(type: "timestamp with time zone", nullable: true),

@@ -12,7 +12,6 @@ public interface IEmailNotificationService
         decimal rewardAmountBtc,
         long rewardAmountSatoshis,
         string? pullPaymentLink,
-        string? ecashToken,
         string orderId);
 }
 

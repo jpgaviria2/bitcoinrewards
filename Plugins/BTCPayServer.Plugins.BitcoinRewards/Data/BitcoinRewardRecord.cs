@@ -60,9 +60,6 @@ public class BitcoinRewardRecord
     [Required]
     public long RewardAmountSatoshis { get; set; }
     
-    [MaxLength(10000)]
-    public string? EcashToken { get; set; }
-
     [MaxLength(100)]
     public string? PullPaymentId { get; set; }
 

@@ -168,7 +168,6 @@ public class BitcoinRewardsService
                         rewardAmountBtc,
                         rewardSatoshis,
                         pullPaymentResult.ClaimLink,
-                        null,
                         transaction.OrderId ?? transaction.TransactionId);
 
                     if (!sent)
