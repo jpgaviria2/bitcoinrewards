@@ -31,6 +31,7 @@ public class EmailNotificationService : IEmailNotificationService
         decimal rewardAmountBtc,
         long rewardAmountSatoshis,
         string? pullPaymentLink,
+        string storeId,
         string orderId)
     {
         if (deliveryMethod != DeliveryMethod.Email)
@@ -49,21 +50,21 @@ public class EmailNotificationService : IEmailNotificationService
             
             if (emailsAssembly == null)
             {
-                _logger.LogDebug("Email plugin assembly not found - email notifications disabled");
+                _logger.LogWarning("Email plugin assembly not found - reward email skipped");
                 return false;
             }
 
             var emailFactoryType = emailsAssembly.GetType("BTCPayServer.Plugins.Emails.Services.EmailSenderFactory");
             if (emailFactoryType == null)
             {
-                _logger.LogDebug("EmailSenderFactory type not found");
+                _logger.LogWarning("EmailSenderFactory type not found - reward email skipped");
                 return false;
             }
 
             var emailSenderFactory = _serviceProvider.GetService(emailFactoryType);
             if (emailSenderFactory == null)
             {
-                _logger.LogDebug("EmailSenderFactory service not available");
+                _logger.LogWarning("EmailSenderFactory service not available - reward email skipped");
                 return false;
             }
 
@@ -75,9 +76,10 @@ public class EmailNotificationService : IEmailNotificationService
                 return false;
             }
 
-            var emailSenderTask = getEmailSenderMethod.Invoke(emailSenderFactory, new object?[] { null });
+            var emailSenderTask = getEmailSenderMethod.Invoke(emailSenderFactory, new object?[] { storeId });
             if (emailSenderTask == null || !(emailSenderTask is Task emailTask))
             {
+                _logger.LogWarning("GetEmailSender invocation did not return a Task - reward email skipped");
                 return false;
             }
 
@@ -87,12 +89,14 @@ public class EmailNotificationService : IEmailNotificationService
             var taskResultProperty = emailTask.GetType().GetProperty("Result");
             if (taskResultProperty == null)
             {
+                _logger.LogWarning("GetEmailSender Task has no Result property - reward email skipped");
                 return false;
             }
 
             var emailSender = taskResultProperty.GetValue(emailTask);
             if (emailSender == null)
             {
+                _logger.LogWarning("GetEmailSender returned null sender - reward email skipped");
                 return false;
             }
 
@@ -115,21 +119,21 @@ Thank you for your purchase!";
             
             if (mimeKitAssembly == null)
             {
-                _logger.LogError("MimeKit assembly not found");
+                _logger.LogError("MimeKit assembly not found - reward email skipped");
                 return false;
             }
 
             var mailboxAddressType = mimeKitAssembly.GetType("MimeKit.MailboxAddress");
             if (mailboxAddressType == null)
             {
-                _logger.LogError("MailboxAddress type not found");
+                _logger.LogError("MailboxAddress type not found - reward email skipped");
                 return false;
             }
 
             var parseMethod = mailboxAddressType.GetMethod("Parse", new[] { typeof(string) });
             if (parseMethod == null)
             {
-                _logger.LogError("MailboxAddress.Parse method not found");
+                _logger.LogError("MailboxAddress.Parse method not found - reward email skipped");
                 return false;
             }
 
