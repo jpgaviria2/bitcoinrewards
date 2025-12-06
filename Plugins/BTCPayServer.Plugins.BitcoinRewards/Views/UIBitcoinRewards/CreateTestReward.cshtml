@@ -22,6 +22,9 @@
             <strong>Test Reward Creation</strong><br/>
             This will create a test reward transaction and process it through the reward system. Use this to test email notifications and reward processing.
         </div>
+        <div class="alert alert-warning mb-4">
+            Test rewards always pay 100% of the amount you enter here. The store Reward Percentage setting is ignored for test rewards; the claim will match this amount (in the selected currency).
+        </div>
 
         <form method="post">
             <div class="form-group mb-4">
@@ -33,7 +36,7 @@
 
             <div class="form-group mb-4">
                 <label asp-for="Currency" class="form-label"></label>
-                <input asp-for="Currency" class="form-control" value="USD" />
+                <input asp-for="Currency" class="form-control" />
                 <span asp-validation-for="Currency" class="text-danger"></span>
                 <small class="form-text text-muted">Transaction currency (USD, EUR, etc.)</small>
             </div>

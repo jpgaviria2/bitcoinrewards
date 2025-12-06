@@ -1,6 +1,7 @@
 #nullable enable
 using System.ComponentModel.DataAnnotations;
 using BTCPayServer.Plugins.BitcoinRewards.Models;
+using BTCPayServer.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 
@@ -15,7 +16,7 @@ public class CreateTestRewardViewModel
 
     [Display(Name = "Currency")]
     [MaxLength(10)]
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = StoreBlob.StandardDefaultCurrency;
 
     [Display(Name = "Platform")]
     public TransactionPlatform Platform { get; set; } = TransactionPlatform.Shopify;

@@ -2,6 +2,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BTCPayServer.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 
@@ -51,7 +52,7 @@ public class BitcoinRewardRecord
     
     [Required]
     [MaxLength(10)]
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = StoreBlob.StandardDefaultCurrency;
     
     [Required]
     [Column(TypeName = "decimal(18,8)")]

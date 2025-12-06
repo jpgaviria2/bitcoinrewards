@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using BTCPayServer.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Models;
 
@@ -15,7 +16,7 @@ public class TransactionData
     public string TransactionId { get; set; } = string.Empty;
     public string? OrderId { get; set; }
     public decimal Amount { get; set; }
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = StoreBlob.StandardDefaultCurrency;
     public string? CustomerEmail { get; set; }
     public string? CustomerPhone { get; set; }
     public TransactionPlatform Platform { get; set; }
