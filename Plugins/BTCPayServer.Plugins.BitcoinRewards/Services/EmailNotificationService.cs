@@ -136,17 +136,30 @@ public class EmailNotificationService : IEmailNotificationService
 
     private string BuildBody(string orderId, decimal rewardAmountBtc, long rewardAmountSatoshis, string? pullPaymentLink)
     {
-        return $@"You've received a Bitcoin reward!
+        var amountLine = $"{rewardAmountBtc:0.########} BTC ({rewardAmountSatoshis} satoshis)";
+        var claimCta = string.IsNullOrWhiteSpace(pullPaymentLink)
+            ? "<p>A claim link is not yet available. Please contact the store for assistance.</p>"
+            : $@"
+<p style=""margin:16px 0;"">
+  <a href=""{pullPaymentLink}"" style=""background:#4caf50;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;"">Claim your reward</a>
+</p>
+<p style=""margin:0 0 8px 0;font-size:13px;color:#444;"">If the button doesn’t work, copy and paste this link:<br/><a href=""{pullPaymentLink}"">{pullPaymentLink}</a></p>";
 
-Order: {orderId}
-Reward Amount: {rewardAmountBtc} BTC ({rewardAmountSatoshis} satoshis)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CLAIM YOUR REWARD:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-" + BuildClaimSection(pullPaymentLink, rewardAmountSatoshis) + @"
-
-Thank you for your purchase!";
+        return $@"
+<div style=""font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;"">
+  <h2 style=""margin:0 0 12px 0;color:#111;"">You’ve received a Bitcoin reward!</h2>
+  <p style=""margin:4px 0;""><strong>Order:</strong> {orderId}</p>
+  <p style=""margin:4px 0;""><strong>Reward:</strong> {amountLine}</p>
+  <hr style=""margin:16px 0;border:0;border-top:1px solid #e0e0e0;""/>
+  <h3 style=""margin:0 0 8px 0;color:#111;"">How to claim</h3>
+  {claimCta}
+  <ol style=""padding-left:18px;margin:0 0 12px 0;"">
+    <li>Open the claim link.</li>
+    <li>Select your payout method (on-chain BTC, Lightning, LNURL, or any enabled payout option).</li>
+    <li>Submit the details to receive {rewardAmountSatoshis} sats.</li>
+  </ol>
+  <p style=""margin:12px 0 0 0;"">Thank you for your purchase!</p>
+</div>";
     }
 
     private static Type? TryLoadTypeFromAssembly(string assemblyName, string typeFullName)
