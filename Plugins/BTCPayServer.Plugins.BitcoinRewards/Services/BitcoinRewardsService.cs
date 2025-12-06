@@ -191,8 +191,7 @@ public class BitcoinRewardsService
 
                     if (!sent)
                     {
-                        reward.Status = RewardStatus.Pending;
-                        reward.ErrorMessage = "Failed to send notification";
+                        reward.ErrorMessage = "Reward created but email notification failed (email plugin not available or send error)";
                         await _repository.UpdateRewardAsync(reward);
                     }
                 }
