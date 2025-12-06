@@ -5,6 +5,10 @@ using System.Reflection;
 using System.Threading.Tasks;
 using BTCPayServer.Plugins.BitcoinRewards;
 using Microsoft.Extensions.Logging;
+using MimeKit;
+using MailKit.Net.Smtp;
+using BTCPayServer.Services;
+using BTCPayServer.Plugins.Emails.Services;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -16,13 +20,16 @@ public class EmailNotificationService : IEmailNotificationService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<EmailNotificationService> _logger;
+    private readonly SettingsRepository _settingsRepository;
 
     public EmailNotificationService(
         IServiceProvider serviceProvider,
-        ILogger<EmailNotificationService> logger)
+        ILogger<EmailNotificationService> logger,
+        SettingsRepository settingsRepository)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _settingsRepository = settingsRepository;
     }
 
     public async Task<bool> SendRewardNotificationAsync(
@@ -42,66 +49,94 @@ public class EmailNotificationService : IEmailNotificationService
 
         try
         {
-            // Use reflection to find and use EmailSenderFactory from Email plugin
-            // This avoids compile-time dependencies that cause ReflectionTypeLoadException
-            var emailsAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == "BTCPayServer.Plugins.Emails" || 
-                                    a.FullName?.Contains("Emails") == true);
-            
-            if (emailsAssembly == null)
+            // Resolve EmailSenderFactory by type name to avoid hard dependency if emails feature is disabled
+            // Prefer the Emails assembly (plugin/builtin) so we can use server email if store email is not configured.
+            var emailFactoryType =
+                  Type.GetType("BTCPayServer.Plugins.Emails.Services.EmailSenderFactory, BTCPayServer.Plugins.Emails")
+               ?? Type.GetType("BTCPayServer.Plugins.Emails.Services.EmailSenderFactory, BTCPayServer")
+               ?? TryLoadTypeFromAssembly("BTCPayServer.Plugins.Emails", "BTCPayServer.Plugins.Emails.Services.EmailSenderFactory")
+               ?? TryLoadTypeFromAssembly("BTCPayServer", "BTCPayServer.Plugins.Emails.Services.EmailSenderFactory")
+               ?? AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(a => a.GetType("BTCPayServer.Plugins.Emails.Services.EmailSenderFactory"))
+                    .FirstOrDefault(t => t != null)
+               // Last-resort: find any EmailSenderFactory by name in loaded assemblies (namespace-agnostic)
+               ?? AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany(SafeGetTypes)
+                    .FirstOrDefault(t => string.Equals(t.Name, "EmailSenderFactory", StringComparison.Ordinal));
+
+            if (emailFactoryType != null)
             {
-                _logger.LogWarning("Email plugin assembly not found - reward email skipped");
-                return false;
+                var emailSenderFactory = _serviceProvider.GetService(emailFactoryType);
+                if (emailSenderFactory != null)
+                {
+                    var getEmailSender = emailFactoryType.GetMethod("GetEmailSender", new[] { typeof(string) });
+                    if (getEmailSender != null)
+                    {
+                        var emailSenderTaskObj = getEmailSender.Invoke(emailSenderFactory, new object?[] { storeId });
+                        if (emailSenderTaskObj is Task emailSenderTask)
+                        {
+                            await emailSenderTask.ConfigureAwait(false);
+                            var resultProp = emailSenderTask.GetType().GetProperty("Result");
+                            var emailSender = resultProp?.GetValue(emailSenderTask);
+                            if (emailSender != null)
+                            {
+                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, pullPaymentLink);
+                            }
+                        }
+                    }
+                }
             }
 
-            var emailFactoryType = emailsAssembly.GetType("BTCPayServer.Plugins.Emails.Services.EmailSenderFactory");
-            if (emailFactoryType == null)
+            // Fallback: use server SMTP settings directly if EmailSenderFactory not available
+            var smtpSettings = await _settingsRepository.GetSettingAsync<EmailSettings>();
+            if (smtpSettings == null || !smtpSettings.IsComplete())
             {
-                _logger.LogWarning("EmailSenderFactory type not found - reward email skipped");
-                return false;
-            }
-
-            var emailSenderFactory = _serviceProvider.GetService(emailFactoryType);
-            if (emailSenderFactory == null)
-            {
-                _logger.LogWarning("EmailSenderFactory service not available - reward email skipped");
-                return false;
-            }
-
-            // Call GetEmailSender method using reflection
-            var getEmailSenderMethod = emailFactoryType.GetMethod("GetEmailSender", new[] { typeof(string) });
-            if (getEmailSenderMethod == null)
-            {
-                _logger.LogError("GetEmailSender method not found");
-                return false;
-            }
-
-            var emailSenderTask = getEmailSenderMethod.Invoke(emailSenderFactory, new object?[] { storeId });
-            if (emailSenderTask == null || !(emailSenderTask is Task emailTask))
-            {
-                _logger.LogWarning("GetEmailSender invocation did not return a Task - reward email skipped");
-                return false;
-            }
-
-            await emailTask;
-            
-            // Get result from Task
-            var taskResultProperty = emailTask.GetType().GetProperty("Result");
-            if (taskResultProperty == null)
-            {
-                _logger.LogWarning("GetEmailSender Task has no Result property - reward email skipped");
-                return false;
-            }
-
-            var emailSender = taskResultProperty.GetValue(emailTask);
-            if (emailSender == null)
-            {
-                _logger.LogWarning("GetEmailSender returned null sender - reward email skipped");
+                _logger.LogWarning("Server email settings not available or incomplete - reward email skipped");
                 return false;
             }
 
             var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
-            var body = $@"You've received a Bitcoin reward!
+            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink);
+            var mailboxAddress = MailboxAddress.Parse(recipient);
+            using var message = smtpSettings.CreateMailMessage(mailboxAddress, subject, body, true);
+            using var client = await smtpSettings.CreateSmtpClient();
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+            _logger.LogInformation("Reward email sent (server SMTP) to {Recipient} for order {OrderId}", recipient, orderId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send reward email to {Recipient} for order {OrderId}", recipient, orderId);
+            return false;
+        }
+    }
+
+    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink)
+    {
+        var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
+        var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink);
+        var mailboxAddress = MailboxAddress.Parse(recipient);
+
+        var sendEmail = emailSender.GetType().GetMethod("SendEmail", new[] { typeof(MailboxAddress), typeof(string), typeof(string) });
+        if (sendEmail == null)
+        {
+            _logger.LogWarning("SendEmail method not found on email sender - reward email skipped");
+            return false;
+        }
+
+        var result = sendEmail.Invoke(emailSender, new object[] { mailboxAddress, subject, body });
+        if (result is Task task)
+        {
+            await task.ConfigureAwait(false);
+        }
+        _logger.LogInformation("Reward email sent to {Recipient} for order {OrderId}", recipient, orderId);
+        return true;
+    }
+
+    private string BuildBody(string orderId, decimal rewardAmountBtc, long rewardAmountSatoshis, string? pullPaymentLink)
+    {
+        return $@"You've received a Bitcoin reward!
 
 Order: {orderId}
 Reward Amount: {rewardAmountBtc} BTC ({rewardAmountSatoshis} satoshis)
@@ -112,51 +147,30 @@ CLAIM YOUR REWARD:
 " + BuildClaimSection(pullPaymentLink, rewardAmountSatoshis) + @"
 
 Thank you for your purchase!";
+    }
 
-            // Use reflection to create MailboxAddress
-            var mimeKitAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == "MimeKit");
-            
-            if (mimeKitAssembly == null)
-            {
-                _logger.LogError("MimeKit assembly not found - reward email skipped");
-                return false;
-            }
-
-            var mailboxAddressType = mimeKitAssembly.GetType("MimeKit.MailboxAddress");
-            if (mailboxAddressType == null)
-            {
-                _logger.LogError("MailboxAddress type not found - reward email skipped");
-                return false;
-            }
-
-            var parseMethod = mailboxAddressType.GetMethod("Parse", new[] { typeof(string) });
-            if (parseMethod == null)
-            {
-                _logger.LogError("MailboxAddress.Parse method not found - reward email skipped");
-                return false;
-            }
-
-            var mailboxAddress = parseMethod.Invoke(null, new object[] { recipient });
-            
-            // Call SendEmail method
-            var sendEmailMethod = emailSender.GetType().GetMethod("SendEmail", 
-                new[] { mailboxAddressType, typeof(string), typeof(string) });
-            
-            if (sendEmailMethod == null)
-            {
-                _logger.LogError("SendEmail method not found");
-                return false;
-            }
-
-            sendEmailMethod.Invoke(emailSender, new[] { mailboxAddress, subject, body });
-            _logger.LogInformation("Reward email sent to {Recipient} for order {OrderId}", recipient, orderId);
-            return true;
-        }
-        catch (Exception ex)
+    private static Type? TryLoadTypeFromAssembly(string assemblyName, string typeFullName)
+    {
+        try
         {
-            _logger.LogError(ex, "Failed to send reward email to {Recipient} for order {OrderId}", recipient, orderId);
-            return false;
+            var asm = Assembly.Load(assemblyName);
+            return asm?.GetType(typeFullName);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static Type[] SafeGetTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch
+        {
+            return Array.Empty<Type>();
         }
     }
 
