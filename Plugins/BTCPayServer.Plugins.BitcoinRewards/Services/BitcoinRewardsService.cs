@@ -92,8 +92,26 @@ public class BitcoinRewardsService
                 return false;
             }
 
+            var isTestReward = transaction.TransactionId.StartsWith("TEST_", StringComparison.OrdinalIgnoreCase);
+
             // Calculate reward amount
-            var rewardAmount = CalculateRewardAmount(transaction.Amount, settings.RewardPercentage);
+            decimal rewardAmount;
+            if (isTestReward)
+            {
+                // Test rewards always pay 100% of the entered amount (ignore store percentage)
+                rewardAmount = transaction.Amount > 0 ? transaction.Amount : 1m;
+                _logger.LogInformation("Test reward using full transaction amount {Amount} {Currency}", transaction.Amount, transaction.Currency);
+            }
+            else
+            {
+                rewardAmount = CalculateRewardAmount(transaction.Amount, settings.RewardPercentage);
+            }
+
+            if (rewardAmount <= 0)
+            {
+                _logger.LogWarning("Calculated reward amount is zero or negative for transaction {TransactionId} in store {StoreId}; aborting reward creation", transaction.TransactionId, storeId);
+                return false;
+            }
             
             // Convert reward amount from store currency to BTC/satoshis
             var rewardSatoshis = await ConvertToSatoshisAsync(transaction.Currency, rewardAmount, storeId);
@@ -219,17 +237,44 @@ public class BitcoinRewardsService
     {
         try
         {
+            var currency = string.IsNullOrWhiteSpace(fromCurrency)
+                ? "BTC"
+                : fromCurrency.Trim().ToUpperInvariant();
+
+            static long EnsureNonNegative(long sats) => Math.Max(0, sats);
+
+            long satoshis;
+
+            // Native sat and btc handling (no fiat conversion needed)
+            if (currency is "SAT" or "SATS" or "SATOSHI" or "SATOSHIS")
+            {
+                satoshis = EnsureNonNegative((long)Math.Round(amount, MidpointRounding.AwayFromZero));
+                return Task.FromResult(satoshis);
+            }
+
+            if (currency is "MSAT" or "MSATS")
+            {
+                satoshis = EnsureNonNegative((long)Math.Round(amount / 1000m, MidpointRounding.AwayFromZero));
+                return Task.FromResult(satoshis);
+            }
+
+            if (currency == "BTC")
+            {
+                satoshis = EnsureNonNegative((long)Math.Round(amount * 100_000_000m, MidpointRounding.AwayFromZero));
+                return Task.FromResult(satoshis);
+            }
+
             // Simplified conversion for now
             // For manual testing, we'll use a fixed rate approximation
             // TODO: Integrate with actual BTCPay Server rate service
             
             // Approximate conversion: assume $50k per BTC if USD, otherwise use a rough estimate
             decimal btcPrice;
-            if (fromCurrency.Equals("USD", StringComparison.OrdinalIgnoreCase))
+            if (currency.Equals("USD", StringComparison.OrdinalIgnoreCase))
             {
                 btcPrice = 50000m; // Approximate BTC price in USD
             }
-            else if (fromCurrency.Equals("EUR", StringComparison.OrdinalIgnoreCase))
+            else if (currency.Equals("EUR", StringComparison.OrdinalIgnoreCase))
             {
                 btcPrice = 45000m; // Rough EUR estimate
             }
@@ -237,17 +282,16 @@ public class BitcoinRewardsService
             {
                 // For other currencies, use a conservative estimate
                 btcPrice = 50000m;
-                _logger.LogWarning("Using default BTC price for currency {Currency}", fromCurrency);
+                _logger.LogWarning("Using default BTC price for currency {Currency}", currency);
             }
 
             // Convert fiat amount to BTC
             var btcAmount = amount / btcPrice;
             
             // Convert BTC to satoshis (1 BTC = 100,000,000 sats)
-            var satoshis = (long)(btcAmount * 100_000_000m);
+            satoshis = EnsureNonNegative((long)Math.Round(btcAmount * 100_000_000m, MidpointRounding.AwayFromZero));
             
-            // Ensure minimum of 1 satoshi
-            return Task.FromResult(Math.Max(1, satoshis));
+            return Task.FromResult(satoshis);
         }
         catch (Exception ex)
         {

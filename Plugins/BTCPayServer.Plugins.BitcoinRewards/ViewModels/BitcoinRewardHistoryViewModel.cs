@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
+using BTCPayServer.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 
@@ -31,7 +32,7 @@ public class BitcoinRewardItem
     public string? CustomerEmail { get; set; }
     public string? CustomerPhone { get; set; }
     public decimal TransactionAmount { get; set; }
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = StoreBlob.StandardDefaultCurrency;
     public decimal RewardAmount { get; set; }
     public long RewardAmountSatoshis { get; set; }
     public RewardStatus Status { get; set; }

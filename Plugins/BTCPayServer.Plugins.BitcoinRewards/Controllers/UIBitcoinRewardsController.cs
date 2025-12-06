@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 using BTCPayServer.Plugins.BitcoinRewards;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using BTCPayServer.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -254,6 +255,8 @@ public class UIBitcoinRewardsController : Controller
         var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
             storeId, 
             BitcoinRewardsStoreSettings.SettingsName);
+        var store = await _storeRepository.FindStore(storeId);
+        var storeCurrency = store?.GetStoreBlob().DefaultCurrency ?? StoreBlob.StandardDefaultCurrency;
         
         if (settings == null || !settings.Enabled)
         {
@@ -266,7 +269,11 @@ public class UIBitcoinRewardsController : Controller
         }
 
         ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
-        return View("CreateTestReward", new CreateTestRewardViewModel { StoreId = storeId });
+        return View("CreateTestReward", new CreateTestRewardViewModel
+        {
+            StoreId = storeId,
+            Currency = storeCurrency
+        });
     }
 
     [HttpPost]
@@ -295,13 +302,19 @@ public class UIBitcoinRewardsController : Controller
             return RedirectToAction(nameof(EditSettings), new { storeId });
         }
 
+        var store = await _storeRepository.FindStore(storeId);
+        var storeCurrency = store?.GetStoreBlob().DefaultCurrency ?? StoreBlob.StandardDefaultCurrency;
+        var currency = string.IsNullOrWhiteSpace(vm.Currency)
+            ? storeCurrency
+            : vm.Currency.Trim().ToUpperInvariant();
+
         // Create test transaction data
         var transaction = new Models.TransactionData
         {
             TransactionId = $"TEST_{Guid.NewGuid():N}",
             OrderId = vm.OrderId,
             Amount = vm.TransactionAmount,
-            Currency = vm.Currency ?? "USD",
+            Currency = currency,
             CustomerEmail = vm.CustomerEmail,
             CustomerPhone = vm.CustomerPhone,
             Platform = vm.Platform,
