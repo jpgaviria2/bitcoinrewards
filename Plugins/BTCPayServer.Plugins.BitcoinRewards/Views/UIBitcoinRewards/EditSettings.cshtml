@@ -35,10 +35,17 @@
             </div>
 
             <div class="form-group mb-4">
-                <label asp-for="RewardPercentage" class="form-label"></label>
-                <input asp-for="RewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
-                <span asp-validation-for="RewardPercentage" class="text-danger"></span>
-                <small class="form-text text-muted">Percentage of transaction amount to give as reward (0-100). For example, 5 means 5% cashback.</small>
+                <label asp-for="ExternalRewardPercentage" class="form-label"></label>
+                <input asp-for="ExternalRewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
+                <span asp-validation-for="ExternalRewardPercentage" class="text-danger"></span>
+                <small class="form-text text-muted">Percentage for Shopify and Square rewards (0-100). Example: 5 means 5% cashback.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="BtcpayRewardPercentage" class="form-label"></label>
+                <input asp-for="BtcpayRewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
+                <span asp-validation-for="BtcpayRewardPercentage" class="text-danger"></span>
+                <small class="form-text text-muted">Percentage for BTCPay payments (any method) that include a buyer email.</small>
             </div>
 
             <div class="form-group mb-4">
@@ -91,6 +98,15 @@
                     <label asp-for="EnableSquare" class="form-check-label"></label>
                 </div>
                 <small class="form-text text-muted">Enable rewards for Square transactions.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input type="hidden" name="EnableBtcpay" value="false">
+                    <input name="EnableBtcpay" class="form-check-input" type="checkbox" id="EnableBtcpay" value="true" @(Model.EnableBtcpay ? "checked" : "")>
+                    <label asp-for="EnableBtcpay" class="form-check-label"></label>
+                </div>
+                <small class="form-text text-muted">Enable rewards for BTCPay payments (any payment method) when buyer email is present.</small>
             </div>
 
             <div id="square-settings" style="display: @(Model.EnableSquare ? "block" : "none");">

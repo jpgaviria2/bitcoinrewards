@@ -13,7 +13,8 @@ public enum PlatformFlags
     None = 0,
     Shopify = 1,
     Square = 2,
-    Both = 3
+    Btcpay = 4,
+    All = Shopify | Square | Btcpay
 }
 
 public class BitcoinRewardsStoreSettings
@@ -26,9 +27,19 @@ public class BitcoinRewardsStoreSettings
     public bool Enabled { get; set; } = false;
     
     /// <summary>
-    /// Reward percentage (0-100)
+    /// Reward percentage (0-100) for external platforms (Shopify/Square). Kept for backward compatibility.
     /// </summary>
     public decimal RewardPercentage { get; set; } = 0m;
+
+    /// <summary>
+    /// Reward percentage (0-100) for Shopify/Square.
+    /// </summary>
+    public decimal ExternalRewardPercentage { get; set; } = 0m;
+
+    /// <summary>
+    /// Reward percentage (0-100) for BTCPay-origin payments.
+    /// </summary>
+    public decimal BtcpayRewardPercentage { get; set; } = 0m;
     
     /// <summary>
     /// Delivery method for rewards (Email or SMS)

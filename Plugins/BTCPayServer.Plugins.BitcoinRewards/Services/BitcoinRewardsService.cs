@@ -55,9 +55,13 @@ public class BitcoinRewardsService
             // For manual test rewards, skip platform validation if no platform flags are set
             if (settings.EnabledPlatforms != PlatformFlags.None)
             {
-                var platform = transaction.Platform == TransactionPlatform.Shopify 
-                    ? PlatformFlags.Shopify 
-                    : PlatformFlags.Square;
+                var platform = transaction.Platform switch
+                {
+                    TransactionPlatform.Shopify => PlatformFlags.Shopify,
+                    TransactionPlatform.Square => PlatformFlags.Square,
+                    TransactionPlatform.Btcpay => PlatformFlags.Btcpay,
+                    _ => PlatformFlags.None
+                };
                 
                 if ((settings.EnabledPlatforms & platform) == PlatformFlags.None)
                 {
@@ -104,7 +108,10 @@ public class BitcoinRewardsService
             }
             else
             {
-                rewardAmount = CalculateRewardAmount(transaction.Amount, settings.RewardPercentage);
+                var percentage = transaction.Platform == TransactionPlatform.Btcpay
+                    ? settings.BtcpayRewardPercentage
+                    : settings.ExternalRewardPercentage > 0 ? settings.ExternalRewardPercentage : settings.RewardPercentage;
+                rewardAmount = CalculateRewardAmount(transaction.Amount, percentage);
             }
 
             if (rewardAmount <= 0)

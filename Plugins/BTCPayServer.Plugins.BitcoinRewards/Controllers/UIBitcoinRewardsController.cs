@@ -86,16 +86,20 @@ public class UIBitcoinRewardsController : Controller
             
             var enableSquareValues = Request.Form["EnableSquare"];
             vm.EnableSquare = enableSquareValues.Count > 0 && enableSquareValues.Contains("true");
+
+            var enableBtcpayValues = Request.Form["EnableBtcpay"];
+            vm.EnableBtcpay = enableBtcpayValues.Count > 0 && enableBtcpayValues.Contains("true");
             
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
             ModelState.Remove(nameof(vm.EnableShopify));
             ModelState.Remove(nameof(vm.EnableSquare));
+            ModelState.Remove(nameof(vm.EnableBtcpay));
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
-            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), Percentage={Percentage}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}", 
-                storeId, vm.Enabled, enabledValuesStr, vm.RewardPercentage, vm.EnableShopify, vm.EnableSquare);
+            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}, EnableBtcpay={EnableBtcpay}", 
+                storeId, vm.Enabled, enabledValuesStr, vm.ExternalRewardPercentage, vm.BtcpayRewardPercentage, vm.EnableShopify, vm.EnableSquare, vm.EnableBtcpay);
             
             if (!ModelState.IsValid)
             {
@@ -126,8 +130,8 @@ public class UIBitcoinRewardsController : Controller
 
             var settings = vm.ToSettings();
             
-            _logger.LogInformation("Saving settings for store {StoreId}: ViewModel.Enabled={VmEnabled}, Settings.Enabled={SettingsEnabled}, Percentage={Percentage}", 
-                storeId, vm.Enabled, settings.Enabled, settings.RewardPercentage);
+            _logger.LogInformation("Saving settings for store {StoreId}: ViewModel.Enabled={VmEnabled}, Settings.Enabled={SettingsEnabled}, ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}", 
+                storeId, vm.Enabled, settings.Enabled, settings.ExternalRewardPercentage, settings.BtcpayRewardPercentage);
             
             await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
             

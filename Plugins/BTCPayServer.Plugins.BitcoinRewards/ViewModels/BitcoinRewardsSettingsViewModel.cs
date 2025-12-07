@@ -12,10 +12,15 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Enable Bitcoin Rewards")]
     public bool Enabled { get; set; }
     
-    [Display(Name = "Reward Percentage")]
+    [Display(Name = "Shopify / Square Reward Percentage")]
     [Range(0, 100, ErrorMessage = "Reward percentage must be between 0 and 100")]
     [Required(ErrorMessage = "Reward percentage is required")]
-    public decimal RewardPercentage { get; set; }
+    public decimal ExternalRewardPercentage { get; set; }
+
+    [Display(Name = "BTCPay Reward Percentage")]
+    [Range(0, 100, ErrorMessage = "Reward percentage must be between 0 and 100")]
+    [Required(ErrorMessage = "BTCPay reward percentage is required")]
+    public decimal BtcpayRewardPercentage { get; set; }
     
     [Display(Name = "Delivery Method")]
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Email;
@@ -25,6 +30,9 @@ public class BitcoinRewardsSettingsViewModel
     
     [Display(Name = "Enable Square")]
     public bool EnableSquare { get; set; }
+
+    [Display(Name = "Enable BTCPay payments")]
+    public bool EnableBtcpay { get; set; }
     
     // Shopify Settings
     [Display(Name = "Shopify Shop URL")]
@@ -81,13 +89,11 @@ public class BitcoinRewardsSettingsViewModel
     
     public PlatformFlags GetEnabledPlatforms()
     {
-        if (EnableShopify && EnableSquare)
-            return PlatformFlags.Both;
-        if (EnableShopify)
-            return PlatformFlags.Shopify;
-        if (EnableSquare)
-            return PlatformFlags.Square;
-        return PlatformFlags.None;
+        PlatformFlags flags = PlatformFlags.None;
+        if (EnableShopify) flags |= PlatformFlags.Shopify;
+        if (EnableSquare) flags |= PlatformFlags.Square;
+        if (EnableBtcpay) flags |= PlatformFlags.Btcpay;
+        return flags;
     }
     
     public void SetFromSettings(BitcoinRewardsStoreSettings settings)
@@ -96,19 +102,23 @@ public class BitcoinRewardsSettingsViewModel
         {
             // Use defaults if settings are null
             Enabled = false;
-            RewardPercentage = 0m;
+            ExternalRewardPercentage = 0m;
+            BtcpayRewardPercentage = 0m;
             DeliveryMethod = DeliveryMethod.Email;
             EnableShopify = false;
             EnableSquare = false;
+            EnableBtcpay = false;
             return;
         }
         
         Enabled = settings.Enabled;
-        RewardPercentage = settings.RewardPercentage;
+        ExternalRewardPercentage = settings.ExternalRewardPercentage > 0 ? settings.ExternalRewardPercentage : settings.RewardPercentage;
+        BtcpayRewardPercentage = settings.BtcpayRewardPercentage > 0 ? settings.BtcpayRewardPercentage : settings.RewardPercentage;
         DeliveryMethod = settings.DeliveryMethod;
         
         EnableShopify = (settings.EnabledPlatforms & PlatformFlags.Shopify) == PlatformFlags.Shopify;
         EnableSquare = (settings.EnabledPlatforms & PlatformFlags.Square) == PlatformFlags.Square;
+        EnableBtcpay = (settings.EnabledPlatforms & PlatformFlags.Btcpay) == PlatformFlags.Btcpay;
         
         ShopifyShopUrl = settings.Shopify?.ShopUrl;
         ShopifyAccessToken = settings.Shopify?.AccessToken;
@@ -135,7 +145,9 @@ public class BitcoinRewardsSettingsViewModel
         var settings = new BitcoinRewardsStoreSettings
         {
             Enabled = Enabled,
-            RewardPercentage = RewardPercentage,
+            RewardPercentage = ExternalRewardPercentage,
+            ExternalRewardPercentage = ExternalRewardPercentage,
+            BtcpayRewardPercentage = BtcpayRewardPercentage,
             DeliveryMethod = DeliveryMethod,
             EnabledPlatforms = GetEnabledPlatforms(),
             EmailTemplate = EmailTemplate,

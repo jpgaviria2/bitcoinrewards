@@ -30,6 +30,10 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.RewardPullPaymentService>();
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.AddHttpClient<Clients.SquareApiClient>();
+
+        // BTCPay invoice listener
+        services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<HostedServices.BtcpayInvoiceRewardHostedService>());
         
         // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
