@@ -10,6 +10,8 @@ using MailKit.Net.Smtp;
 using BTCPayServer.Services;
 using BTCPayServer.Plugins.Emails.Services;
 using QRCoder;
+using LNURL;
+using System.Web;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -65,12 +67,7 @@ public class EmailNotificationService : IEmailNotificationService
                     .SelectMany(SafeGetTypes)
                     .FirstOrDefault(t => string.Equals(t.Name, "EmailSenderFactory", StringComparison.Ordinal));
 
-            string? lnurlLink = null;
-            if (!string.IsNullOrEmpty(pullPaymentLink) && pullPaymentLink.Contains("/pull-payments/", StringComparison.OrdinalIgnoreCase))
-            {
-                var lnurlSuffix = pullPaymentLink.EndsWith("/", StringComparison.Ordinal) ? "lnurl" : "/lnurl";
-                lnurlLink = pullPaymentLink + lnurlSuffix;
-            }
+            var lnurlBech32 = GetLnurlBech32FromPullPaymentLink(pullPaymentLink);
 
             if (emailFactoryType != null)
             {
@@ -88,7 +85,7 @@ public class EmailNotificationService : IEmailNotificationService
                             var emailSender = resultProp?.GetValue(emailSenderTask);
                             if (emailSender != null)
                             {
-                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, pullPaymentLink, lnurlLink);
+                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, pullPaymentLink, lnurlBech32);
                             }
                         }
                     }
@@ -104,7 +101,7 @@ public class EmailNotificationService : IEmailNotificationService
             }
 
             var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
-            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlLink);
+            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32);
             var mailboxAddress = MailboxAddress.Parse(recipient);
             using var message = smtpSettings.CreateMailMessage(mailboxAddress, subject, body, true);
             using var client = await smtpSettings.CreateSmtpClient();
@@ -120,10 +117,10 @@ public class EmailNotificationService : IEmailNotificationService
         }
     }
 
-    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlLink)
+    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlBech32)
     {
         var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
-        var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlLink);
+        var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32);
         var mailboxAddress = MailboxAddress.Parse(recipient);
 
         var sendEmail = emailSender.GetType().GetMethod("SendEmail", new[] { typeof(MailboxAddress), typeof(string), typeof(string) });
@@ -142,7 +139,7 @@ public class EmailNotificationService : IEmailNotificationService
         return true;
     }
 
-    private string BuildBody(string orderId, decimal rewardAmountBtc, long rewardAmountSatoshis, string? pullPaymentLink, string? lnurlLink)
+    private string BuildBody(string orderId, decimal rewardAmountBtc, long rewardAmountSatoshis, string? pullPaymentLink, string? lnurlBech32)
     {
         var amountLine = $"{rewardAmountBtc:0.########} BTC ({rewardAmountSatoshis} satoshis)";
         var claimCta = string.IsNullOrWhiteSpace(pullPaymentLink)
@@ -154,15 +151,15 @@ public class EmailNotificationService : IEmailNotificationService
 <p style=""margin:0 0 8px 0;font-size:13px;color:#444;"">If the button doesn’t work, copy and paste this link:<br/><a href=""{pullPaymentLink}"">{pullPaymentLink}</a></p>";
 
         var lnurlQrBlock = string.Empty;
-        if (!string.IsNullOrEmpty(lnurlLink))
+        if (!string.IsNullOrEmpty(lnurlBech32))
         {
-            var lnurlQr = BuildQrDataUri(lnurlLink);
+            var lnurlQr = BuildQrDataUri(lnurlBech32);
             lnurlQrBlock = $@"
   <div style=""margin:16px 0;padding:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;"">
     <div style=""font-weight:600;margin-bottom:6px;"">Lightning claim (LNURL)</div>
     <p style=""margin:0 0 8px 0;font-size:13px;color:#444;"">Scan this with a LNURL-withdraw enabled wallet:</p>
     <img src=""{lnurlQr}"" alt=""LNURL Withdraw QR"" style=""max-width:200px;height:auto;display:block;margin:0 auto 8px auto;"" />
-    <code style=""display:block;font-size:12px;word-break:break-all;color:#444;text-align:center;"">{lnurlLink}</code>
+    <code style=""display:block;font-size:12px;word-break:break-all;color:#444;text-align:center;"">{lnurlBech32}</code>
   </div>";
         }
 
@@ -191,6 +188,34 @@ public class EmailNotificationService : IEmailNotificationService
         var pngQr = new PngByteQRCode(data);
         var bytes = pngQr.GetGraphic(6);
         return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private static string? GetLnurlBech32FromPullPaymentLink(string? pullPaymentLink)
+    {
+        if (string.IsNullOrEmpty(pullPaymentLink))
+            return null;
+
+        if (!Uri.TryCreate(pullPaymentLink, UriKind.Absolute, out var uri))
+            return null;
+
+        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var ppIndex = Array.FindIndex(segments, s => s.Equals("pull-payments", StringComparison.OrdinalIgnoreCase));
+        if (ppIndex < 0 || ppIndex + 1 >= segments.Length)
+            return null;
+
+        var ppId = segments[ppIndex + 1];
+        var builder = new UriBuilder(uri.Scheme, uri.Host, uri.Port);
+        builder.Path = $"/BTC/lnurl/withdraw/pp/{HttpUtility.UrlEncode(ppId)}";
+        var endpoint = builder.Uri;
+
+        try
+        {
+            return LNURL.LNURL.EncodeUri(endpoint, "withdrawRequest", true).ToString();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static Type? TryLoadTypeFromAssembly(string assemblyName, string typeFullName)
