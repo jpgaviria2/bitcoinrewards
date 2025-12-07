@@ -82,6 +82,7 @@
   
   <ItemGroup>
     <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <!-- Exclude legacy Cashu-specific code and UI from build -->
