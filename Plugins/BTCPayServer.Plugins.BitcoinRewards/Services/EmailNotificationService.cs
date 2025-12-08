@@ -12,6 +12,8 @@ using BTCPayServer.Plugins.Emails.Services;
 using QRCoder;
 using LNURL;
 using System.Web;
+using BTCPayServer.Services.Stores;
+using Microsoft.AspNetCore.Http;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -24,15 +26,21 @@ public class EmailNotificationService : IEmailNotificationService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<EmailNotificationService> _logger;
     private readonly SettingsRepository _settingsRepository;
+    private readonly StoreRepository _storeRepository;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public EmailNotificationService(
         IServiceProvider serviceProvider,
         ILogger<EmailNotificationService> logger,
-        SettingsRepository settingsRepository)
+        SettingsRepository settingsRepository,
+        StoreRepository storeRepository,
+        IHttpContextAccessor httpContextAccessor)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _settingsRepository = settingsRepository;
+        _storeRepository = storeRepository;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<bool> SendRewardNotificationAsync(
@@ -67,7 +75,8 @@ public class EmailNotificationService : IEmailNotificationService
                     .SelectMany(SafeGetTypes)
                     .FirstOrDefault(t => string.Equals(t.Name, "EmailSenderFactory", StringComparison.Ordinal));
 
-            var lnurlBech32 = GetLnurlBech32FromPullPaymentLink(pullPaymentLink);
+            var normalizedClaimLink = NormalizeClaimLink(pullPaymentLink, storeId);
+            var lnurlBech32 = GetLnurlBech32FromPullPaymentLink(normalizedClaimLink);
 
             if (emailFactoryType != null)
             {
@@ -85,7 +94,7 @@ public class EmailNotificationService : IEmailNotificationService
                             var emailSender = resultProp?.GetValue(emailSenderTask);
                             if (emailSender != null)
                             {
-                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, pullPaymentLink, lnurlBech32);
+                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, normalizedClaimLink, lnurlBech32);
                             }
                         }
                     }
@@ -101,7 +110,7 @@ public class EmailNotificationService : IEmailNotificationService
             }
 
             var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
-            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32);
+            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, normalizedClaimLink, lnurlBech32);
             var mailboxAddress = MailboxAddress.Parse(recipient);
             using var message = smtpSettings.CreateMailMessage(mailboxAddress, subject, body, true);
             using var client = await smtpSettings.CreateSmtpClient();
@@ -190,7 +199,7 @@ public class EmailNotificationService : IEmailNotificationService
         return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
     }
 
-    private static string? GetLnurlBech32FromPullPaymentLink(string? pullPaymentLink)
+    private string? GetLnurlBech32FromPullPaymentLink(string? pullPaymentLink)
     {
         if (string.IsNullOrEmpty(pullPaymentLink))
             return null;
@@ -216,6 +225,62 @@ public class EmailNotificationService : IEmailNotificationService
         {
             return null;
         }
+    }
+
+    private string? NormalizeClaimLink(string? claimLink, string storeId)
+    {
+        if (string.IsNullOrEmpty(claimLink))
+            return claimLink;
+
+        // Load settings to get fallback base URL if needed
+        var settings = _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+            storeId,
+            BitcoinRewardsStoreSettings.SettingsName).GetAwaiter().GetResult();
+        var fallbackBase = settings?.ServerBaseUrl;
+
+        // If it's file:// or any non-http(s), treat as relative
+        if (Uri.TryCreate(claimLink, UriKind.Absolute, out var absolute))
+        {
+            if (absolute.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) ||
+                absolute.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("NormalizeClaimLink using absolute claim link for store {StoreId}", storeId);
+                return absolute.ToString();
+            }
+            // fall through to treat as relative path
+            claimLink = absolute.PathAndQuery;
+        }
+
+        var http = _httpContextAccessor.HttpContext;
+        if (http != null && http.Request.Host.HasValue)
+        {
+            var requestBase = new Uri($"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}");
+            var built = new Uri(requestBase, claimLink).ToString();
+            _logger.LogDebug("NormalizeClaimLink built from HttpContext for store {StoreId}: {Link}", storeId, built);
+            return built;
+        }
+
+        var store = _storeRepository.FindStore(storeId).GetAwaiter().GetResult();
+        if (store?.StoreWebsite is string website && Uri.TryCreate(website, UriKind.Absolute, out var siteBase))
+        {
+            var combined = new Uri(siteBase, claimLink);
+            var built = combined.ToString();
+            _logger.LogDebug("NormalizeClaimLink built from store website for store {StoreId}: {Link}", storeId, built);
+            return built;
+        }
+
+        if (!string.IsNullOrEmpty(fallbackBase) &&
+            Uri.TryCreate(fallbackBase, UriKind.Absolute, out var fallbackUri) &&
+            (fallbackUri.Scheme == Uri.UriSchemeHttps || fallbackUri.Scheme == Uri.UriSchemeHttp))
+        {
+            var combined = new Uri(fallbackUri, claimLink);
+            var built = combined.ToString();
+            _logger.LogDebug("NormalizeClaimLink built from fallback base URL for store {StoreId}: {Link}", storeId, built);
+            return built;
+        }
+
+        _logger.LogWarning("NormalizeClaimLink returning relative link for store {StoreId}: {Link}", storeId, claimLink);
+        return claimLink;
     }
 
     private static Type? TryLoadTypeFromAssembly(string assemblyName, string typeFullName)

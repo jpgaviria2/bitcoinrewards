@@ -9,7 +9,9 @@ using BTCPayServer.HostedServices;
 using BTCPayServer.Payments;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.ViewModels;
+using BTCPayServer.Plugins.BitcoinRewards;
 using BTCPayServer.Services.Stores;
+using BTCPayServer.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
@@ -81,6 +83,10 @@ public class RewardPullPaymentService
                 return new PullPaymentResult(false, Error: "Store not found");
             }
 
+            var storeSettings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+                storeId,
+                BitcoinRewardsStoreSettings.SettingsName);
+
             var request = new CreatePullPaymentRequest
             {
                 Name = "Bitcoin Reward",
@@ -100,7 +106,7 @@ public class RewardPullPaymentService
                 return new PullPaymentResult(false, Error: "Pull payment id missing");
             }
 
-            var claimLink = BuildClaimLink(pullPaymentId);
+            var claimLink = BuildClaimLink(pullPaymentId, store, storeSettings?.ServerBaseUrl);
 
             _logger.LogInformation("Created pull payment {PullPaymentId} for reward (store {StoreId}, sats {Sats}) using {Processor}/{PayoutMethod}",
                 pullPaymentId, storeId, rewardSats, selection.Processor, selection.PayoutMethodId);
@@ -118,7 +124,7 @@ public class RewardPullPaymentService
         }
     }
 
-    private string BuildClaimLink(string pullPaymentId)
+    private string BuildClaimLink(string pullPaymentId, BTCPayServer.Data.StoreData store, string? fallbackBaseUrl)
     {
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
@@ -127,11 +133,31 @@ public class RewardPullPaymentService
                 new { pullPaymentId }, httpContext.Request.Scheme, httpContext.Request.Host, httpContext.Request.PathBase);
             if (!string.IsNullOrEmpty(link))
             {
+                _logger.LogDebug("Claim link built from HttpContext for pull payment {PullPaymentId}", pullPaymentId);
                 return link;
             }
         }
 
+        // Fallback: use store website if available to build absolute link
+        if (!string.IsNullOrEmpty(store.StoreWebsite) && Uri.TryCreate(store.StoreWebsite, UriKind.Absolute, out var baseUri))
+        {
+            var combined = new Uri(baseUri, $"/pull-payments/{pullPaymentId}");
+            _logger.LogDebug("Claim link built from store website for pull payment {PullPaymentId}", pullPaymentId);
+            return combined.ToString();
+        }
+
+        // Fallback: use configured server base URL if provided
+        if (!string.IsNullOrEmpty(fallbackBaseUrl) &&
+            Uri.TryCreate(fallbackBaseUrl, UriKind.Absolute, out var fallbackUri) &&
+            (fallbackUri.Scheme == Uri.UriSchemeHttps || fallbackUri.Scheme == Uri.UriSchemeHttp))
+        {
+            var combined = new Uri(fallbackUri, $"/pull-payments/{pullPaymentId}");
+            _logger.LogDebug("Claim link built from fallback base URL for pull payment {PullPaymentId}", pullPaymentId);
+            return combined.ToString();
+        }
+
         // Fallback to relative path
+        _logger.LogWarning("Claim link falling back to relative path for pull payment {PullPaymentId}", pullPaymentId);
         return $"/pull-payments/{pullPaymentId}";
     }
 

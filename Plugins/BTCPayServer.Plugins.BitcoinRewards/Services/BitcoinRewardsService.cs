@@ -51,9 +51,11 @@ public class BitcoinRewardsService
                 return false;
             }
 
-            // Check if platform is enabled
+            var isTestReward = transaction.TransactionId.StartsWith("TEST_", StringComparison.OrdinalIgnoreCase);
+
+            // Check if platform is enabled (skip for test rewards)
             // For manual test rewards, skip platform validation if no platform flags are set
-            if (settings.EnabledPlatforms != PlatformFlags.None)
+            if (!isTestReward && settings.EnabledPlatforms != PlatformFlags.None)
             {
                 var platform = transaction.Platform switch
                 {
@@ -85,9 +87,13 @@ public class BitcoinRewardsService
             }
 
             // Check if transaction already processed
-            var platformEnum = transaction.Platform == TransactionPlatform.Shopify 
-                ? RewardPlatform.Shopify 
-                : RewardPlatform.Square;
+            var platformEnum = transaction.Platform switch
+            {
+                TransactionPlatform.Shopify => RewardPlatform.Shopify,
+                TransactionPlatform.Square => RewardPlatform.Square,
+                TransactionPlatform.Btcpay => RewardPlatform.Btcpay,
+                _ => RewardPlatform.Shopify
+            };
             
             if (await _repository.TransactionExistsAsync(storeId, transaction.TransactionId, platformEnum))
             {
@@ -95,8 +101,6 @@ public class BitcoinRewardsService
                     transaction.TransactionId, storeId);
                 return false;
             }
-
-            var isTestReward = transaction.TransactionId.StartsWith("TEST_", StringComparison.OrdinalIgnoreCase);
 
             // Calculate reward amount
             decimal rewardAmount;

@@ -18,7 +18,8 @@ public enum RewardStatus
 public enum RewardPlatform
 {
     Shopify = 0,
-    Square = 1
+    Square = 1,
+    Btcpay = 2
 }
 
 public class BitcoinRewardRecord

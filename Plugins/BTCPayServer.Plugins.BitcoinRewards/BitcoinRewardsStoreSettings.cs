@@ -85,6 +85,11 @@ public class BitcoinRewardsStoreSettings
     /// Selected payout processor ID for rewards (format: "{Processor}:{PayoutMethodId}")
     /// </summary>
     public string? SelectedPayoutProcessorId { get; set; }
+
+    /// <summary>
+    /// Optional fallback base URL (https://...) used to build absolute claim links when HttpContext and StoreWebsite are unavailable.
+    /// </summary>
+    public string? ServerBaseUrl { get; set; }
 }
 
 public class ShopifyApiCredentials

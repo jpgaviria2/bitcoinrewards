@@ -86,6 +86,11 @@ public class BitcoinRewardsSettingsViewModel
     
     [Display(Name = "Available Payout Processors")]
     public List<PayoutProcessorOption> AvailablePayoutProcessors { get; set; } = new();
+
+    // Fallback base URL for claim links
+    [Display(Name = "Server Base URL (fallback)")]
+    [Url(ErrorMessage = "Enter a valid absolute URL (e.g., https://yourdomain.com/)")]
+    public string? ServerBaseUrl { get; set; }
     
     public PlatformFlags GetEnabledPlatforms()
     {
@@ -129,6 +134,7 @@ public class BitcoinRewardsSettingsViewModel
         SquareEnvironment = settings.Square?.Environment;
         
         EmailTemplate = settings.EmailTemplate;
+        ServerBaseUrl = settings.ServerBaseUrl;
         
         SmsProvider = settings.SmsProvider?.Provider;
         SmsApiKey = settings.SmsProvider?.ApiKey;
@@ -153,7 +159,8 @@ public class BitcoinRewardsSettingsViewModel
             EmailTemplate = EmailTemplate,
             MinimumTransactionAmount = MinimumTransactionAmount,
             MaximumRewardSatoshis = MaximumRewardSatoshis,
-            SelectedPayoutProcessorId = SelectedPayoutProcessorId
+            SelectedPayoutProcessorId = SelectedPayoutProcessorId,
+            ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim()
         };
         
         if (EnableShopify)
