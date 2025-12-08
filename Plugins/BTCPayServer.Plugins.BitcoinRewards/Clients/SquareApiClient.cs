@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using BTCPayServer.Logging;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Clients;
 
@@ -84,12 +85,41 @@ public class SquareApiClient
         }
     }
 
-    public bool VerifyWebhookSignature(string requestBody, string signature, string signatureKey)
+    public bool VerifyWebhookSignature(string notificationUrl, string requestBody, string signature, string signatureKey)
     {
-        // TODO: Implement Square webhook signature verification
-        // Square uses HMAC-SHA256 with the signature key
-        // Reference: https://developer.squareup.com/docs/webhooks/step4validate
-        return true; // Placeholder
+        if (string.IsNullOrEmpty(signatureKey) || string.IsNullOrEmpty(signature) || string.IsNullOrEmpty(notificationUrl))
+        {
+            _logger.LogWarning("Square webhook verification skipped due to missing data (url or signature key).");
+            return false;
+        }
+
+        try
+        {
+            // Per Square docs: HMAC-SHA256 over notificationUrl + requestBody, Base64 encoded
+            var payload = $"{notificationUrl}{requestBody}";
+            var keyBytes = Encoding.UTF8.GetBytes(signatureKey);
+            var payloadBytes = Encoding.UTF8.GetBytes(payload);
+
+            using var hmac = new HMACSHA256(keyBytes);
+            var hash = hmac.ComputeHash(payloadBytes);
+            var computedSignature = Convert.ToBase64String(hash);
+
+            var matches = CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(computedSignature),
+                Encoding.UTF8.GetBytes(signature));
+
+            if (!matches)
+            {
+                _logger.LogWarning("Square webhook signature mismatch.");
+            }
+
+            return matches;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying Square webhook signature.");
+            return false;
+        }
     }
 }
 

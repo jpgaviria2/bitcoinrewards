@@ -31,6 +31,11 @@ Then enable the plugin in Server Settings > Plugins if needed.
 ## Notes on helper scripts
 - `scripts/build-local.sh` / `.ps1` currently assume the csproj sits at repo root and will fail here. Use the `dotnet build` command above until the scripts are updated.
 
+## Post-install configuration (high level)
+- Square: set Application ID, Access Token, Location ID, environment, and webhook signature key (used to verify incoming webhooks).
+- Rates: plugin fetches BTC/fiat via CoinGecko; ensure outbound HTTPS.
+- Migrations: plugin migrations auto-apply on startup via `BitcoinRewardsMigrationRunner`.
+
 ## Troubleshooting
 - Missing BTCPay namespaces/types: ensure you ran the `dotnet build` command from repo root so the submodule restore ran.
 - Plugin not showing in BTCPay: confirm the `.btcpay` file exists in `/datadir/plugins` (or your BTCPay plugins directory) and restart BTCPay.

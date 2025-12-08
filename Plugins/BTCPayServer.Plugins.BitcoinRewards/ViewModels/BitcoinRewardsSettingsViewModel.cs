@@ -53,6 +53,9 @@ public class BitcoinRewardsSettingsViewModel
     
     [Display(Name = "Square Environment")]
     public string? SquareEnvironment { get; set; }
+
+    [Display(Name = "Square Webhook Signature Key")]
+    public string? SquareWebhookSignatureKey { get; set; }
     
     // Email Settings
     [Display(Name = "Email Template (Optional)")]
@@ -133,6 +136,7 @@ public class BitcoinRewardsSettingsViewModel
         SquareAccessToken = settings.Square?.AccessToken;
         SquareLocationId = settings.Square?.LocationId;
         SquareEnvironment = settings.Square?.Environment;
+        SquareWebhookSignatureKey = settings.Square?.WebhookSignatureKey;
         
         EmailTemplate = settings.EmailTemplate;
         ServerBaseUrl = settings.ServerBaseUrl;
@@ -180,7 +184,8 @@ public class BitcoinRewardsSettingsViewModel
                 ApplicationId = SquareApplicationId,
                 AccessToken = SquareAccessToken,
                 LocationId = SquareLocationId,
-                Environment = SquareEnvironment ?? "production"
+                Environment = SquareEnvironment ?? "production",
+                WebhookSignatureKey = SquareWebhookSignatureKey
             };
         }
         

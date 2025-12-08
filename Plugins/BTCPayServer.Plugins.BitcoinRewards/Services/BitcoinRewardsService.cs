@@ -5,9 +5,10 @@ using System.Threading.Tasks;
 using System.Threading;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Models;
-using BTCPayServer.Services.Rates;
 using BTCPayServer.Services.Stores;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
+using System.Text.Json;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -16,22 +17,23 @@ public class BitcoinRewardsService
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _repository;
     private readonly IEmailNotificationService _emailService;
-    private readonly CurrencyNameTable _currencyNameTable;
     private readonly RewardPullPaymentService _pullPaymentService;
     private readonly ILogger<BitcoinRewardsService> _logger;
+    private static readonly HttpClient _httpClient = new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(5)
+    };
 
     public BitcoinRewardsService(
         StoreRepository storeRepository,
         BitcoinRewardsRepository repository,
         IEmailNotificationService emailService,
-        CurrencyNameTable currencyNameTable,
         ILogger<BitcoinRewardsService> logger,
         RewardPullPaymentService pullPaymentService)
     {
         _storeRepository = storeRepository;
         _repository = repository;
         _emailService = emailService;
-        _currencyNameTable = currencyNameTable;
         _pullPaymentService = pullPaymentService;
         _logger = logger;
     }
@@ -236,14 +238,43 @@ public class BitcoinRewardsService
         return transactionAmount * (percentage / 100m);
     }
 
-    private Task<decimal?> GetBtcRateAsync(string fromCurrency)
+    private async Task<decimal?> GetBtcRateAsync(string fromCurrency)
     {
-        // Simplified for now - use approximate USD/BTC rate
-        // TODO: Integrate with actual rate service
-        return Task.FromResult<decimal?>(50000m); // Approximate BTC price in USD
+        if (string.IsNullOrWhiteSpace(fromCurrency))
+            return null;
+
+        try
+        {
+            var currency = fromCurrency.Trim().ToLowerInvariant();
+            // Use CoinGecko simple price API as a lightweight rate source
+            var url = $"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={currency}";
+            var response = await _httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Rate fetch failed for {Currency}: {Status} {Reason}", currency, response.StatusCode, response.ReasonPhrase);
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            var doc = await JsonDocument.ParseAsync(stream);
+            if (doc.RootElement.TryGetProperty("bitcoin", out var btcObj) &&
+                btcObj.TryGetProperty(currency, out var rateProp) &&
+                rateProp.TryGetDecimal(out var rate))
+            {
+                return rate;
+            }
+
+            _logger.LogWarning("Rate response missing currency {Currency}", currency);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching rate for {Currency}", fromCurrency);
+            return null;
+        }
     }
 
-    private Task<long> ConvertToSatoshisAsync(string fromCurrency, decimal amount, string storeId)
+    private async Task<long> ConvertToSatoshisAsync(string fromCurrency, decimal amount, string storeId)
     {
         try
         {
@@ -259,60 +290,43 @@ public class BitcoinRewardsService
             if (currency is "SAT" or "SATS" or "SATOSHI" or "SATOSHIS")
             {
                 satoshis = EnsureNonNegative((long)Math.Round(amount, MidpointRounding.AwayFromZero));
-                return Task.FromResult(satoshis);
+                return satoshis;
             }
 
             if (currency is "MSAT" or "MSATS")
             {
                 satoshis = EnsureNonNegative((long)Math.Round(amount / 1000m, MidpointRounding.AwayFromZero));
-                return Task.FromResult(satoshis);
+                return satoshis;
             }
 
             if (currency == "BTC")
             {
                 satoshis = EnsureNonNegative((long)Math.Round(amount * 100_000_000m, MidpointRounding.AwayFromZero));
-                return Task.FromResult(satoshis);
+                return satoshis;
             }
 
-            // Simplified conversion for now
-            // For manual testing, we'll use a fixed rate approximation
-            // TODO: Integrate with actual BTCPay Server rate service
-            
-            // Approximate conversion: assume $50k per BTC if USD, otherwise use a rough estimate
-            decimal btcPrice;
-            if (currency.Equals("USD", StringComparison.OrdinalIgnoreCase))
+            var rate = await GetBtcRateAsync(currency);
+            if (!rate.HasValue || rate.Value <= 0)
             {
-                btcPrice = 50000m; // Approximate BTC price in USD
-            }
-            else if (currency.Equals("EUR", StringComparison.OrdinalIgnoreCase))
-            {
-                btcPrice = 45000m; // Rough EUR estimate
-            }
-            else
-            {
-                // For other currencies, use a conservative estimate
-                btcPrice = 50000m;
-                _logger.LogWarning("Using default BTC price for currency {Currency}", currency);
+                _logger.LogWarning("No BTC rate available for currency {Currency}", currency);
+                return 0L;
             }
 
-            // Convert fiat amount to BTC
-            var btcAmount = amount / btcPrice;
-            
-            // Convert BTC to satoshis (1 BTC = 100,000,000 sats)
+            var btcAmount = amount / rate.Value;
             satoshis = EnsureNonNegative((long)Math.Round(btcAmount * 100_000_000m, MidpointRounding.AwayFromZero));
-            
+
             // Enforce minimum 1 sat when amount > 0 to avoid zeroed rewards
             if (satoshis == 0 && amount > 0)
             {
                 satoshis = 1;
             }
-            
-            return Task.FromResult(satoshis);
+
+            return satoshis;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error converting {Amount} {Currency} to satoshis", amount, fromCurrency);
-            return Task.FromResult(0L);
+            return 0L;
         }
     }
 }

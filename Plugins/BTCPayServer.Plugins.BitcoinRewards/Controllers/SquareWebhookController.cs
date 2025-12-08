@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Text.Json;
 using BTCPayServer.Plugins.BitcoinRewards.Clients;
+using BTCPayServer.Services.Stores;
+using System.Security.Cryptography;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -19,13 +21,16 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 public class SquareWebhookController : Controller
 {
     private readonly BitcoinRewardsService _rewardsService;
+    private readonly StoreRepository _storeRepository;
     private readonly ILogger<SquareWebhookController> _logger;
 
     public SquareWebhookController(
         BitcoinRewardsService rewardsService,
+        StoreRepository storeRepository,
         ILogger<SquareWebhookController> logger)
     {
         _rewardsService = rewardsService;
+        _storeRepository = storeRepository;
         _logger = logger;
     }
 
@@ -49,11 +54,23 @@ public class SquareWebhookController : Controller
                 return BadRequest("Missing signature");
             }
 
-            // TODO: Verify webhook signature using SquareApiClient
-            // var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, ...);
-            // var client = new SquareApiClient(...);
-            // if (!client.VerifyWebhookSignature(requestBody, signature, settings.Square.WebhookSecret))
-            //     return Unauthorized();
+            var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+                storeId,
+                BitcoinRewardsStoreSettings.SettingsName);
+            var signatureKey = settings?.Square?.WebhookSignatureKey;
+            var notificationUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}";
+
+            if (string.IsNullOrWhiteSpace(signatureKey))
+            {
+                _logger.LogWarning("Square webhook signature key not configured for store {StoreId}", storeId);
+                return Unauthorized();
+            }
+
+            if (!VerifySignature(notificationUrl, requestBody, signature, signatureKey))
+            {
+                _logger.LogWarning("Square webhook signature verification failed for store {StoreId}", storeId);
+                return Unauthorized();
+            }
 
             // Parse webhook payload
             var jsonDoc = JsonDocument.Parse(requestBody);
@@ -125,5 +142,26 @@ public class SquareWebhookController : Controller
             return StatusCode(500);
         }
     }
-}
 
+    private static bool VerifySignature(string notificationUrl, string body, string signature, string signatureKey)
+    {
+        try
+        {
+            var payload = $"{notificationUrl}{body}";
+            var keyBytes = Encoding.UTF8.GetBytes(signatureKey);
+            var payloadBytes = Encoding.UTF8.GetBytes(payload);
+
+            using var hmac = new HMACSHA256(keyBytes);
+            var hash = hmac.ComputeHash(payloadBytes);
+            var computed = Convert.ToBase64String(hash);
+
+            return CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(computed),
+                Encoding.UTF8.GetBytes(signature));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

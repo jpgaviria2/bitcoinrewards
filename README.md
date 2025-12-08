@@ -25,9 +25,10 @@ Enable via BTCPay Server Settings → Plugins.
 
 ## Configuration Notes
 - Set reward percentages and enabled platforms (Shopify locked off).
-- Square: configure Application ID, Access Token, Location ID, environment.
+- Square: configure Application ID, Access Token, Location ID, environment, and webhook signature key (used to verify incoming webhooks).
 - BTCPay: rewards require buyer email on invoices.
 - Email delivery: ensure SMTP is configured in BTCPay.
+- Rates: plugin fetches BTC/fiat rates via CoinGecko; ensure outbound HTTPS allowed.
 
 ## Development tips
 - Repo includes BTCPay Server as a submodule; `Directory.Build.targets` restores/builds dependencies automatically during `dotnet build`.
@@ -37,3 +38,4 @@ Enable via BTCPay Server Settings → Plugins.
 - Target: .NET 8
 - Plugin output: `.btcpay` package built from `BTCPayServer.Plugins.BitcoinRewards.dll`
 - License: MIT
+- Migrations: plugin migrations auto-apply on startup via `BitcoinRewardsMigrationRunner`.

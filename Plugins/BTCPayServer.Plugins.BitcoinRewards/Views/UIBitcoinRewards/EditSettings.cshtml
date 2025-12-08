@@ -140,6 +140,13 @@
                     <span asp-validation-for="SquareEnvironment" class="text-danger"></span>
                     <small class="form-text text-muted">Square API environment.</small>
                 </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="SquareWebhookSignatureKey" class="form-label"></label>
+                    <input asp-for="SquareWebhookSignatureKey" class="form-control" type="password" />
+                    <span asp-validation-for="SquareWebhookSignatureKey" class="text-danger"></span>
+                    <small class="form-text text-muted">Square webhook signature key used to verify incoming webhooks.</small>
+                </div>
             </div>
 
             <h3 class="mt-5 mb-3">Advanced Settings</h3>

@@ -104,6 +104,7 @@ public class SquareApiCredentials
     public string? AccessToken { get; set; }
     public string? LocationId { get; set; }
     public string? Environment { get; set; } // "sandbox" or "production"
+    public string? WebhookSignatureKey { get; set; }
 }
 
 public class SmsProviderConfig
