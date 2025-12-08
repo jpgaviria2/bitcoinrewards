@@ -1,4 +1,7 @@
 #nullable enable
+// Suppress CS0436 duplicate type warning because we intentionally ship an EmailSettings
+// shim for environments where the Emails plugin assembly may be absent.
+#pragma warning disable CS0436
 using System;
 using System.Linq;
 using System.Reflection;
@@ -98,6 +101,8 @@ public class EmailNotificationService : IEmailNotificationService
                             }
                         }
                     }
+
+#pragma warning restore CS0436
                 }
             }
 
