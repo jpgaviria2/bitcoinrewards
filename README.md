@@ -1,48 +1,39 @@
-# Bitcoin Rewards Plugin
+# BTCPayServer Bitcoin Rewards Plugin
 
-A BTCPay Server plugin for managing Bitcoin rewards.
+Bitcoin-backed rewards for BTCPay Server merchants with Square and BTCPay invoice support. Shopify is temporarily disabled (toggle locked off, “coming soon”).
 
-## Development
+## Features
+- Reward creation for BTCPay invoices (with buyer email) and Square payments.
+- Lightning pull-payments for reward redemption.
+- Email notifications for reward claims.
+- Configurable reward percentages, minimums, and caps per platform.
 
-If you are a developer maintaining this plugin, clone this repository with `--recurse-submodules`:
-
+## Build
+From repo root:
 ```bash
-git clone --recurse-submodules https://github.com/yourusername/btcpayserver-plugin-bitcoinrewards
+dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj -c Release
+cp Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll BTCPayServer.Plugins.BitcoinRewards.btcpay
 ```
 
-Then create the `appsettings.dev.json` file in `submodules\btcpayserver\BTCPayServer`, with the following content:
-
-```json
-{
-  "DEBUG_PLUGINS": "../../../Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Debug/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll"
-}
-```
-
-This will ensure that BTCPay Server loads the plugin when it starts.
-
-Start the development dependencies via docker-compose:
-
+## Install (docker example)
 ```bash
-docker-compose up -d dev
+docker exec generated_btcpayserver_1 mkdir -p /datadir/plugins
+docker cp BTCPayServer.Plugins.BitcoinRewards.btcpay generated_btcpayserver_1:/datadir/plugins/
+docker restart generated_btcpayserver_1
 ```
+Enable via BTCPay Server Settings → Plugins.
 
-Finally:
-1. Set up BTCPay Server as the startup project in [Rider](https://www.jetbrains.com/rider/) or Visual Studio.
-2. Make sure to select the `Bitcoin-HTTPS` launch settings.
+## Configuration Notes
+- Set reward percentages and enabled platforms (Shopify locked off).
+- Square: configure Application ID, Access Token, Location ID, environment.
+- BTCPay: rewards require buyer email on invoices.
+- Email delivery: ensure SMTP is configured in BTCPay.
 
-If you want to reset the environment you can run:
+## Development tips
+- Repo includes BTCPay Server as a submodule; `Directory.Build.targets` restores/builds dependencies automatically during `dotnet build`.
+- For local debug with BTCPay, point `DEBUG_PLUGINS` to the built DLL if needed.
 
-```bash
-docker-compose down -v
-docker-compose up -d dev
-```
-
-Note: Running or compiling the BTCPay Server project will not automatically recompile the plugin project. Therefore, if you make any changes to the project, do not forget to build it before running BTCPay Server in debug mode.
-
-We recommend using Rider for plugin development, as it supports hot reload with plugins. You can edit .cshtml files, save, and refresh the page to see the changes.
-
-Visual Studio does not support this feature.
-
-## Building
-
-See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed build instructions.
+## Repository info
+- Target: .NET 8
+- Plugin output: `.btcpay` package built from `BTCPayServer.Plugins.BitcoinRewards.dll`
+- License: MIT

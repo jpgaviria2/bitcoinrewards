@@ -121,7 +121,8 @@ public class BitcoinRewardsSettingsViewModel
         BtcpayRewardPercentage = settings.BtcpayRewardPercentage > 0 ? settings.BtcpayRewardPercentage : settings.RewardPercentage;
         DeliveryMethod = settings.DeliveryMethod;
         
-        EnableShopify = (settings.EnabledPlatforms & PlatformFlags.Shopify) == PlatformFlags.Shopify;
+        // Shopify temporarily disabled
+        EnableShopify = false;
         EnableSquare = (settings.EnabledPlatforms & PlatformFlags.Square) == PlatformFlags.Square;
         EnableBtcpay = (settings.EnabledPlatforms & PlatformFlags.Btcpay) == PlatformFlags.Btcpay;
         

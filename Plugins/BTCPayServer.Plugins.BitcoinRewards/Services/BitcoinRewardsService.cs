@@ -301,6 +301,12 @@ public class BitcoinRewardsService
             // Convert BTC to satoshis (1 BTC = 100,000,000 sats)
             satoshis = EnsureNonNegative((long)Math.Round(btcAmount * 100_000_000m, MidpointRounding.AwayFromZero));
             
+            // Enforce minimum 1 sat when amount > 0 to avoid zeroed rewards
+            if (satoshis == 0 && amount > 0)
+            {
+                satoshis = 1;
+            }
+            
             return Task.FromResult(satoshis);
         }
         catch (Exception ex)

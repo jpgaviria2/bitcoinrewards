@@ -81,8 +81,8 @@ public class UIBitcoinRewardsController : Controller
             var enabledValues = Request.Form["Enabled"];
             vm.Enabled = enabledValues.Count > 0 && enabledValues.Contains("true");
             
-            var enableShopifyValues = Request.Form["EnableShopify"];
-            vm.EnableShopify = enableShopifyValues.Count > 0 && enableShopifyValues.Contains("true");
+            // Shopify temporarily disabled
+            vm.EnableShopify = false;
             
             var enableSquareValues = Request.Form["EnableSquare"];
             vm.EnableSquare = enableSquareValues.Count > 0 && enableSquareValues.Contains("true");

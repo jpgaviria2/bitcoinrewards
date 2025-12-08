@@ -82,9 +82,16 @@ public class SquareWebhookController : Controller
                             ? currencyProp.GetString() ?? "USD"
                             : "USD";
 
-                        var receiptEmail = payment.TryGetProperty("receipt_email", out var emailProp) 
-                            ? emailProp.GetString() 
-                            : null;
+                        // Prefer receipt_email; fall back to buyer_email_address (Square sends this instead in many cases)
+                        string? receiptEmail = null;
+                        if (payment.TryGetProperty("receipt_email", out var emailProp))
+                        {
+                            receiptEmail = emailProp.GetString();
+                        }
+                        if (string.IsNullOrWhiteSpace(receiptEmail) && payment.TryGetProperty("buyer_email_address", out var buyerEmailProp))
+                        {
+                            receiptEmail = buyerEmailProp.GetString();
+                        }
                         var receiptPhone = payment.TryGetProperty("receipt_phone", out var phoneProp) 
                             ? phoneProp.GetString() 
                             : null;

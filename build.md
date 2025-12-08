@@ -1,45 +1,37 @@
-# Build Bitcoin Rewards Plugin (.btcpay) for testing
+# Build Bitcoin Rewards Plugin (.btcpay)
 
-Follow these steps to produce the distributable `.btcpay` plugin file at the repository root.
+Reliable steps to produce the distributable `.btcpay` file from this repo.
 
 ## Prerequisites
 - .NET SDK 8.0.x
-- Git (only if BTCPay Server needs to be cloned for dependencies)
-- PowerShell 7+ (Windows/macOS/Linux) or Bash (Linux/macOS/WSL)
+- Git (for automatic BTCPay submodule fetch)
 
-## Quick build (Windows / PowerShell)
-1) From the repo root, run:
+## Recommended local build (works in this repo)
+From the repo root, run:
 ```
-pwsh -File scripts/build-local.ps1
+dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj -c Release
 ```
-   - By default this will clone and build BTCPay Server next to the repo (../btcpayserver).  
-   - To reuse an existing BTCPay build, pass `-SkipBTCPayServerBuild` and set `-BTCPayServerPath` to the directory containing `BTCPayServer.dll` (Release/net8.0).
+- This initializes/restores the BTCPay submodule automatically (see `Directory.Build.targets`), so you do NOT need to pre-clone BTCPay or set `BTCPAYSERVER_PATH`.
+- Output: `Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll`
 
-2) After a successful build, copy the artifact to the repo root:
+Package the plugin (rename the DLL to .btcpay) and place it at repo root:
 ```
-Copy-Item bin\Release\net8.0\BTCPayServer.Plugins.BitcoinRewards.btcpay .\
-```
-
-## Quick build (Linux/macOS/WSL / Bash)
-1) From the repo root, run:
-```
-./scripts/build-local.sh
-```
-   - Uses `BTCPAYSERVER_PATH` if you already have built BTCPay Server; otherwise it will clone and build it in `../btcpayserver`.
-   - Set `SKIP_BTCPAYSERVER_BUILD=true` to skip cloning/building BTCPay if you provide `BTCPAYSERVER_PATH` (path that contains `BTCPayServer.dll` under Release/net8.0).
-
-2) Copy the artifact to the repo root:
-```
-cp bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.btcpay ./
+cp Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll \
+   BTCPayServer.Plugins.BitcoinRewards.btcpay
 ```
 
-## Verifying the build
-- Ensure the file exists at `./BTCPayServer.Plugins.BitcoinRewards.btcpay`.
-- Optionally check size and timestamp:
-  - PowerShell: `Get-Item .\BTCPayServer.Plugins.BitcoinRewards.btcpay | Format-List Name,Length,LastWriteTime`
-  - Bash: `ls -lh BTCPayServer.Plugins.BitcoinRewards.btcpay`
+## Optional: install into a local BTCPay docker container
+Example for the running container named `generated_btcpayserver_1`:
+```
+docker exec generated_btcpayserver_1 mkdir -p /datadir/plugins
+docker cp BTCPayServer.Plugins.BitcoinRewards.btcpay generated_btcpayserver_1:/datadir/plugins/
+docker restart generated_btcpayserver_1
+```
 
-You can now upload or install this `.btcpay` file on a BTCPay Server instance for testing. 
+## Notes on the helper scripts
+- `scripts/build-local.sh` and `scripts/build-local.ps1` currently assume the plugin csproj is at repo root, so they will fail as-is. Prefer the `dotnet build` command above until the scripts are updated.
 
-
-
+## Verify artifact
+```
+ls -lh BTCPayServer.Plugins.BitcoinRewards.btcpay
+```

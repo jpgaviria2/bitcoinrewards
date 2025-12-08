@@ -69,25 +69,25 @@
             <div class="form-group mb-4">
                 <div class="form-check form-switch">
                     <input type="hidden" name="EnableShopify" value="false">
-                    <input name="EnableShopify" class="form-check-input" type="checkbox" id="EnableShopify" value="true" @(Model.EnableShopify ? "checked" : "")>
-                    <label asp-for="EnableShopify" class="form-check-label"></label>
+                    <input name="EnableShopify" class="form-check-input" type="checkbox" id="EnableShopify" value="true" disabled>
+                    <label class="form-check-label" for="EnableShopify">Enable Shopify (coming soon)</label>
                 </div>
-                <small class="form-text text-muted">Enable rewards for Shopify transactions.</small>
+                <small class="form-text text-muted text-warning">Shopify integration is temporarily disabled; toggle is locked off.</small>
             </div>
 
-            <div id="shopify-settings" style="display: @(Model.EnableShopify ? "block" : "none");">
+            <div id="shopify-settings" style="display:none;">
                 <div class="form-group mb-3">
                     <label asp-for="ShopifyShopUrl" class="form-label"></label>
-                    <input asp-for="ShopifyShopUrl" class="form-control" placeholder="https://your-store.myshopify.com" />
+                    <input asp-for="ShopifyShopUrl" class="form-control" placeholder="https://your-store.myshopify.com" disabled />
                     <span asp-validation-for="ShopifyShopUrl" class="text-danger"></span>
-                    <small class="form-text text-muted">Your Shopify store URL.</small>
+                    <small class="form-text text-muted">Your Shopify store URL (coming soon).</small>
                 </div>
 
                 <div class="form-group mb-3">
                     <label asp-for="ShopifyAccessToken" class="form-label"></label>
-                    <input asp-for="ShopifyAccessToken" class="form-control" type="password" />
+                    <input asp-for="ShopifyAccessToken" class="form-control" type="password" disabled />
                     <span asp-validation-for="ShopifyAccessToken" class="text-danger"></span>
-                    <small class="form-text text-muted">Shopify API access token for webhook authentication.</small>
+                    <small class="form-text text-muted">Shopify API access token (coming soon).</small>
                 </div>
             </div>
 
