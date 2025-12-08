@@ -7,6 +7,11 @@ using MailKit.Security;
 using MimeKit;
 using Newtonsoft.Json;
 
+// This shim intentionally mirrors BTCPayServer.Plugins.Emails.Services.EmailSettings.
+// Suppress the duplicate-type warning since we want to compile even when the
+// Emails plugin assembly is referenced.
+#pragma warning disable CS0436
+
 // Shim for BTCPayServer.Plugins.Emails.Services.EmailSettings so we can read
 // server SMTP settings even when the Emails plugin assembly is not present.
 namespace BTCPayServer.Plugins.Emails.Services;
@@ -103,4 +108,6 @@ public static class MailboxAddressValidator
 
     public static MailboxAddress Parse(string value) => MailboxAddress.Parse(value);
 }
+
+#pragma warning restore CS0436
 
