@@ -9,6 +9,7 @@ using BTCPayServer.Services.Stores;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Text.Json;
+using BTCPayServer.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -46,6 +47,8 @@ public class BitcoinRewardsService
             var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
                 storeId, 
                 BitcoinRewardsStoreSettings.SettingsName);
+            var store = await _storeRepository.FindStore(storeId);
+            var storeCurrency = store?.GetStoreBlob().DefaultCurrency ?? StoreBlob.StandardDefaultCurrency;
 
             if (settings == null || !settings.Enabled)
             {
@@ -80,11 +83,14 @@ public class BitcoinRewardsService
             }
 
             // Check minimum transaction amount
+            // Convert transaction amount to store currency for min check
+            var txAmountInStoreCurrency = await ConvertToStoreCurrencyAsync(transaction.Amount, transaction.Currency, storeCurrency);
+
             if (settings.MinimumTransactionAmount.HasValue && 
-                transaction.Amount < settings.MinimumTransactionAmount.Value)
+                txAmountInStoreCurrency < settings.MinimumTransactionAmount.Value)
             {
-                _logger.LogWarning("Transaction amount {Amount} below minimum {Minimum} for store {StoreId}", 
-                    transaction.Amount, settings.MinimumTransactionAmount, storeId);
+                _logger.LogWarning("Transaction amount {Amount} {TxCurrency} (~{StoreAmount} {StoreCurrency}) below minimum {Minimum} for store {StoreId}", 
+                    transaction.Amount, transaction.Currency, txAmountInStoreCurrency, storeCurrency, settings.MinimumTransactionAmount, storeId);
                 return false;
             }
 
@@ -200,7 +206,8 @@ public class BitcoinRewardsService
                         rewardSatoshis,
                         pullPaymentResult.ClaimLink,
                         storeId,
-                        transaction.OrderId ?? transaction.TransactionId);
+                        transaction.OrderId ?? transaction.TransactionId,
+                        settings.EmailTemplate);
 
                     if (!sent)
                     {
@@ -327,6 +334,47 @@ public class BitcoinRewardsService
         {
             _logger.LogError(ex, "Error converting {Amount} {Currency} to satoshis", amount, fromCurrency);
             return 0L;
+        }
+    }
+
+    private async Task<decimal> ConvertToStoreCurrencyAsync(decimal amount, string fromCurrency, string storeCurrency)
+    {
+        var fromCur = string.IsNullOrWhiteSpace(fromCurrency) ? "BTC" : fromCurrency.Trim().ToUpperInvariant();
+        var toCur = string.IsNullOrWhiteSpace(storeCurrency) ? "BTC" : storeCurrency.Trim().ToUpperInvariant();
+
+        if (fromCur == toCur)
+            return amount;
+
+        try
+        {
+            // Handle sats/msats target directly
+            if (toCur is "SAT" or "SATS" or "SATOSHI" or "SATOSHIS")
+            {
+                // Convert from to BTC then to sats
+                var rateFrom = await GetBtcRateAsync(fromCur);
+                if (!rateFrom.HasValue || rateFrom.Value <= 0)
+                    return 0m;
+                var btcAmount = amount / rateFrom.Value;
+                return btcAmount * 100_000_000m;
+            }
+
+            // Convert via BTC bridge for fiat->fiat or fiat->BTC/BTC->fiat
+            var rateFromFiatPerBtc = await GetBtcRateAsync(fromCur);
+            var rateToFiatPerBtc = await GetBtcRateAsync(toCur);
+            if (!rateFromFiatPerBtc.HasValue || rateFromFiatPerBtc.Value <= 0 || !rateToFiatPerBtc.HasValue || rateToFiatPerBtc.Value <= 0)
+            {
+                _logger.LogWarning("Missing rate to convert {Amount} {From} to {To}", amount, fromCur, toCur);
+                return 0m;
+            }
+
+            var btcAmountBridge = amount / rateFromFiatPerBtc.Value;
+            var targetAmount = btcAmountBridge * rateToFiatPerBtc.Value;
+            return targetAmount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error converting {Amount} from {FromCurrency} to store currency {StoreCurrency}", amount, fromCurrency, storeCurrency);
+            return 0m;
         }
     }
 }

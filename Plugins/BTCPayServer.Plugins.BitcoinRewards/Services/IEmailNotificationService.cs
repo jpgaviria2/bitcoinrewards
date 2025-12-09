@@ -13,6 +13,7 @@ public interface IEmailNotificationService
         long rewardAmountSatoshis,
         string? pullPaymentLink,
         string storeId,
-        string orderId);
+        string orderId,
+        string? emailTemplateOverride = null);
 }
 

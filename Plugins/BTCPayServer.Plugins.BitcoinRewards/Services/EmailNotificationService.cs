@@ -53,7 +53,8 @@ public class EmailNotificationService : IEmailNotificationService
         long rewardAmountSatoshis,
         string? pullPaymentLink,
         string storeId,
-        string orderId)
+        string orderId,
+        string? emailTemplateOverride = null)
     {
         if (deliveryMethod != DeliveryMethod.Email)
         {
@@ -97,7 +98,7 @@ public class EmailNotificationService : IEmailNotificationService
                             var emailSender = resultProp?.GetValue(emailSenderTask);
                             if (emailSender != null)
                             {
-                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, normalizedClaimLink, lnurlBech32);
+                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, normalizedClaimLink, lnurlBech32, emailTemplateOverride);
                             }
                         }
                     }
@@ -115,7 +116,7 @@ public class EmailNotificationService : IEmailNotificationService
             }
 
             var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
-            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, normalizedClaimLink, lnurlBech32);
+            var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, normalizedClaimLink, lnurlBech32, emailTemplateOverride);
             var mailboxAddress = MailboxAddress.Parse(recipient);
             using var message = smtpSettings.CreateMailMessage(mailboxAddress, subject, body, true);
             using var client = await smtpSettings.CreateSmtpClient();
@@ -131,10 +132,10 @@ public class EmailNotificationService : IEmailNotificationService
         }
     }
 
-    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlBech32)
+    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlBech32, string? emailTemplateOverride)
     {
         var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
-        var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32);
+        var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32, emailTemplateOverride);
         var mailboxAddress = MailboxAddress.Parse(recipient);
 
         var sendEmail = emailSender.GetType().GetMethod("SendEmail", new[] { typeof(MailboxAddress), typeof(string), typeof(string) });
@@ -153,7 +154,7 @@ public class EmailNotificationService : IEmailNotificationService
         return true;
     }
 
-    private string BuildBody(string orderId, decimal rewardAmountBtc, long rewardAmountSatoshis, string? pullPaymentLink, string? lnurlBech32)
+    private string BuildBody(string orderId, decimal rewardAmountBtc, long rewardAmountSatoshis, string? pullPaymentLink, string? lnurlBech32, string? template)
     {
         var amountLine = $"{rewardAmountBtc:0.########} BTC ({rewardAmountSatoshis} satoshis)";
         var claimCta = string.IsNullOrWhiteSpace(pullPaymentLink)
@@ -177,7 +178,7 @@ public class EmailNotificationService : IEmailNotificationService
   </div>";
         }
 
-        return $@"
+        var defaultBody = $@"
 <div style=""font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;"">
   <h2 style=""margin:0 0 12px 0;color:#111;"">You’ve received a Bitcoin reward!</h2>
   <p style=""margin:4px 0;""><strong>Order:</strong> {orderId}</p>
@@ -193,6 +194,29 @@ public class EmailNotificationService : IEmailNotificationService
   </ol>
   <p style=""margin:12px 0 0 0;"">Thank you for your purchase!</p>
 </div>";
+
+        if (string.IsNullOrWhiteSpace(template))
+        {
+            return defaultBody;
+        }
+
+        // Simple token replacement for a custom template
+        var tokens = new (string Token, string Value)[]
+        {
+            ("{ORDER_ID}", orderId),
+            ("{AMOUNT_BTC}", rewardAmountBtc.ToString("0.########")),
+            ("{AMOUNT_SATS}", rewardAmountSatoshis.ToString()),
+            ("{CLAIM_LINK}", pullPaymentLink ?? string.Empty),
+            ("{LNURL}", lnurlBech32 ?? string.Empty),
+        };
+
+        var body = template;
+        foreach (var (token, value) in tokens)
+        {
+            body = body.Replace(token, value ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return body;
     }
 
     private static string BuildQrDataUri(string content)

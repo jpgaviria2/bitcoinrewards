@@ -184,6 +184,13 @@
                 <small class="form-text text-muted">Optional: Custom email template. Use {RewardAmount}, {EcashToken}, {OrderId} as placeholders.</small>
             </div>
 
+            <div class="form-group mb-4">
+                <label asp-for="EmailTemplateOverride" class="form-label"></label>
+                <textarea asp-for="EmailTemplateOverride" class="form-control" rows="6" placeholder="Use {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL} tokens"></textarea>
+                <span asp-validation-for="EmailTemplateOverride" class="text-danger"></span>
+                <small class="form-text text-muted">Optional override template (HTML allowed). Tokens: {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL}.</small>
+            </div>
+
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
             <p class="text-muted mb-4">
                 Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.
