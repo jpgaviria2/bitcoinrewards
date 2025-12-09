@@ -49,7 +49,7 @@ public class BitcoinRewardsService
 
             if (settings == null || !settings.Enabled)
             {
-                _logger.LogDebug("Bitcoin Rewards not enabled for store {StoreId}", storeId);
+                _logger.LogWarning("Bitcoin Rewards not enabled or settings missing for store {StoreId}", storeId);
                 return false;
             }
 
@@ -83,7 +83,7 @@ public class BitcoinRewardsService
             if (settings.MinimumTransactionAmount.HasValue && 
                 transaction.Amount < settings.MinimumTransactionAmount.Value)
             {
-                _logger.LogDebug("Transaction amount {Amount} below minimum {Minimum} for store {StoreId}", 
+                _logger.LogWarning("Transaction amount {Amount} below minimum {Minimum} for store {StoreId}", 
                     transaction.Amount, settings.MinimumTransactionAmount, storeId);
                 return false;
             }

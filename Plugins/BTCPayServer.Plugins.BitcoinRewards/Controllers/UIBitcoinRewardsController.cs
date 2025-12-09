@@ -76,6 +76,10 @@ public class UIBitcoinRewardsController : Controller
     {
         if (command == "Save")
         {
+            var existingSettings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+                storeId,
+                BitcoinRewardsStoreSettings.SettingsName);
+
             // For checkboxes with hidden inputs, Request.Form may contain multiple values
             // Check if "true" is in the collection (checkbox value) vs just "false" (hidden input)
             var enabledValues = Request.Form["Enabled"];
@@ -118,17 +122,37 @@ public class UIBitcoinRewardsController : Controller
 
             if (vm.EnableSquare)
             {
-                if (string.IsNullOrWhiteSpace(vm.SquareApplicationId) || 
-                    string.IsNullOrWhiteSpace(vm.SquareAccessToken) ||
-                    string.IsNullOrWhiteSpace(vm.SquareLocationId))
+                var existingSquare = existingSettings?.Square;
+                var hasExistingAppId = !string.IsNullOrWhiteSpace(existingSquare?.ApplicationId);
+                var hasExistingAccessToken = !string.IsNullOrWhiteSpace(existingSquare?.AccessToken);
+                var hasExistingLocationId = !string.IsNullOrWhiteSpace(existingSquare?.LocationId);
+                var hasExistingSigKey = !string.IsNullOrWhiteSpace(existingSquare?.WebhookSignatureKey);
+
+                if (string.IsNullOrWhiteSpace(vm.SquareApplicationId) && !hasExistingAppId)
                 {
-                    ModelState.AddModelError("", "Square Application ID, Access Token, and Location ID are required when Square is enabled");
+                    ModelState.AddModelError("", "Square Application ID is required when Square is enabled");
+                }
+                if (string.IsNullOrWhiteSpace(vm.SquareAccessToken) && !hasExistingAccessToken)
+                {
+                    ModelState.AddModelError("", "Square Access Token is required when Square is enabled");
+                }
+                if (string.IsNullOrWhiteSpace(vm.SquareLocationId) && !hasExistingLocationId)
+                {
+                    ModelState.AddModelError("", "Square Location ID is required when Square is enabled");
+                }
+                if (string.IsNullOrWhiteSpace(vm.SquareWebhookSignatureKey) && !hasExistingSigKey)
+                {
+                    ModelState.AddModelError("", "Square Webhook Signature Key is required when Square is enabled");
+                }
+
+                if (!ModelState.IsValid)
+                {
                     ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
                     return View("EditSettings", vm);
                 }
             }
 
-            var settings = vm.ToSettings();
+            var settings = vm.ToSettings(existingSettings);
             
             _logger.LogInformation("Saving settings for store {StoreId}: ViewModel.Enabled={VmEnabled}, Settings.Enabled={SettingsEnabled}, ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}", 
                 storeId, vm.Enabled, settings.Enabled, settings.ExternalRewardPercentage, settings.BtcpayRewardPercentage);

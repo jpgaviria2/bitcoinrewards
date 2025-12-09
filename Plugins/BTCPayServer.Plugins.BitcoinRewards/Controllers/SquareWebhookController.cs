@@ -9,9 +9,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Text.Json;
-using BTCPayServer.Plugins.BitcoinRewards.Clients;
 using BTCPayServer.Services.Stores;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Http.Extensions;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -47,7 +49,7 @@ public class SquareWebhookController : Controller
             }
 
             // Get webhook signature from headers
-            var signature = Request.Headers["X-Square-Signature"].ToString();
+            var signature = Request.Headers["X-Square-Signature"].ToString()?.Trim();
             if (string.IsNullOrEmpty(signature))
             {
                 _logger.LogWarning("Square webhook missing signature");
@@ -57,8 +59,9 @@ public class SquareWebhookController : Controller
             var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
                 storeId,
                 BitcoinRewardsStoreSettings.SettingsName);
-            var signatureKey = settings?.Square?.WebhookSignatureKey;
-            var notificationUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}";
+            var signatureKey = settings?.Square?.WebhookSignatureKey?.Trim();
+            var primaryUrl = Request.GetEncodedUrl();
+            var candidateUrls = BuildSignatureUrls(primaryUrl);
 
             if (string.IsNullOrWhiteSpace(signatureKey))
             {
@@ -66,9 +69,39 @@ public class SquareWebhookController : Controller
                 return Unauthorized();
             }
 
-            if (!VerifySignature(notificationUrl, requestBody, signature, signatureKey))
+            var verified = false;
+            string? firstComputedSha1 = null;
+            string? firstComputedSha256 = null;
+            foreach (var url in candidateUrls)
             {
-                _logger.LogWarning("Square webhook signature verification failed for store {StoreId}", storeId);
+                var computedSha1 = ComputeSignatureSha1(url, requestBody, signatureKey);
+                var computedSha256 = ComputeSignatureSha256(url, requestBody, signatureKey);
+                firstComputedSha1 ??= computedSha1;
+                firstComputedSha256 ??= computedSha256;
+
+                if (!string.IsNullOrEmpty(computedSha1) &&
+                    CryptographicOperations.FixedTimeEquals(
+                        Encoding.UTF8.GetBytes(computedSha1),
+                        Encoding.UTF8.GetBytes(signature)))
+                {
+                    verified = true;
+                    break;
+                }
+
+                if (!string.IsNullOrEmpty(computedSha256) &&
+                    CryptographicOperations.FixedTimeEquals(
+                        Encoding.UTF8.GetBytes(computedSha256),
+                        Encoding.UTF8.GetBytes(signature)))
+                {
+                    verified = true;
+                    break;
+                }
+            }
+
+            if (!verified)
+            {
+                _logger.LogWarning("Square webhook signature verification failed for store {StoreId} (sig={Sig}, urls tried: {Urls}, computedSha1={Sha1}, computedSha256={Sha256})",
+                    storeId, signature, string.Join(", ", candidateUrls), firstComputedSha1 ?? "n/a", firstComputedSha256 ?? "n/a");
                 return Unauthorized();
             }
 
@@ -143,7 +176,71 @@ public class SquareWebhookController : Controller
         }
     }
 
-    private static bool VerifySignature(string notificationUrl, string body, string signature, string signatureKey)
+    private static List<string> BuildSignatureUrls(string primaryUrl)
+    {
+        var urls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(primaryUrl))
+            return urls.ToList();
+
+        void AddVariants(string url)
+        {
+            urls.Add(url);
+
+            // Trailing slash variants
+            if (url.EndsWith('/'))
+            {
+                urls.Add(url.TrimEnd('/'));
+            }
+            else
+            {
+                urls.Add(url + "/");
+            }
+
+            // Port-stripped variants for :443 and :80
+            if (url.Contains(":443", StringComparison.Ordinal))
+            {
+                urls.Add(url.Replace(":443", "", StringComparison.Ordinal));
+            }
+            if (url.Contains(":80", StringComparison.Ordinal))
+            {
+                urls.Add(url.Replace(":80", "", StringComparison.Ordinal));
+            }
+        }
+
+        AddVariants(primaryUrl);
+
+        // Scheme flip variants
+        if (primaryUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            AddVariants("https://" + primaryUrl.Substring("http://".Length));
+        }
+        else if (primaryUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            AddVariants("http://" + primaryUrl.Substring("https://".Length));
+        }
+
+        return urls.ToList();
+    }
+
+    private static string ComputeSignatureSha1(string notificationUrl, string body, string signatureKey)
+    {
+        try
+        {
+            var payload = $"{notificationUrl}{body}";
+            var keyBytes = Encoding.UTF8.GetBytes(signatureKey);
+            var payloadBytes = Encoding.UTF8.GetBytes(payload);
+
+            using var hmac = new HMACSHA1(keyBytes);
+            var hash = hmac.ComputeHash(payloadBytes);
+            return Convert.ToBase64String(hash);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string ComputeSignatureSha256(string notificationUrl, string body, string signatureKey)
     {
         try
         {
@@ -153,15 +250,11 @@ public class SquareWebhookController : Controller
 
             using var hmac = new HMACSHA256(keyBytes);
             var hash = hmac.ComputeHash(payloadBytes);
-            var computed = Convert.ToBase64String(hash);
-
-            return CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(computed),
-                Encoding.UTF8.GetBytes(signature));
+            return Convert.ToBase64String(hash);
         }
         catch
         {
-            return false;
+            return string.Empty;
         }
     }
 }

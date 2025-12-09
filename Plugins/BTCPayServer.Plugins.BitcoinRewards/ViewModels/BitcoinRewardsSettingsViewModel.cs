@@ -56,6 +56,9 @@ public class BitcoinRewardsSettingsViewModel
 
     [Display(Name = "Square Webhook Signature Key")]
     public string? SquareWebhookSignatureKey { get; set; }
+
+    public bool HasSquareAccessToken { get; set; }
+    public bool HasSquareWebhookSignatureKey { get; set; }
     
     // Email Settings
     [Display(Name = "Email Template (Optional)")]
@@ -137,6 +140,13 @@ public class BitcoinRewardsSettingsViewModel
         SquareLocationId = settings.Square?.LocationId;
         SquareEnvironment = settings.Square?.Environment;
         SquareWebhookSignatureKey = settings.Square?.WebhookSignatureKey;
+
+        HasSquareAccessToken = !string.IsNullOrWhiteSpace(settings.Square?.AccessToken);
+        HasSquareWebhookSignatureKey = !string.IsNullOrWhiteSpace(settings.Square?.WebhookSignatureKey);
+
+        // Never echo secrets back into the form fields
+        SquareAccessToken = null;
+        SquareWebhookSignatureKey = null;
         
         EmailTemplate = settings.EmailTemplate;
         ServerBaseUrl = settings.ServerBaseUrl;
@@ -151,22 +161,21 @@ public class BitcoinRewardsSettingsViewModel
         SelectedPayoutProcessorId = settings.SelectedPayoutProcessorId;
     }
     
-    public BitcoinRewardsStoreSettings ToSettings()
+    public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
     {
-        var settings = new BitcoinRewardsStoreSettings
-        {
-            Enabled = Enabled,
-            RewardPercentage = ExternalRewardPercentage,
-            ExternalRewardPercentage = ExternalRewardPercentage,
-            BtcpayRewardPercentage = BtcpayRewardPercentage,
-            DeliveryMethod = DeliveryMethod,
-            EnabledPlatforms = GetEnabledPlatforms(),
-            EmailTemplate = EmailTemplate,
-            MinimumTransactionAmount = MinimumTransactionAmount,
-            MaximumRewardSatoshis = MaximumRewardSatoshis,
-            SelectedPayoutProcessorId = SelectedPayoutProcessorId,
-            ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim()
-        };
+        var settings = existing ?? new BitcoinRewardsStoreSettings();
+
+        settings.Enabled = Enabled;
+        settings.RewardPercentage = ExternalRewardPercentage;
+        settings.ExternalRewardPercentage = ExternalRewardPercentage;
+        settings.BtcpayRewardPercentage = BtcpayRewardPercentage;
+        settings.DeliveryMethod = DeliveryMethod;
+        settings.EnabledPlatforms = GetEnabledPlatforms();
+        settings.EmailTemplate = EmailTemplate;
+        settings.MinimumTransactionAmount = MinimumTransactionAmount;
+        settings.MaximumRewardSatoshis = MaximumRewardSatoshis;
+        settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;
+        settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();
         
         if (EnableShopify)
         {
@@ -179,14 +188,21 @@ public class BitcoinRewardsSettingsViewModel
         
         if (EnableSquare)
         {
-            settings.Square = new SquareApiCredentials
-            {
-                ApplicationId = SquareApplicationId,
-                AccessToken = SquareAccessToken,
-                LocationId = SquareLocationId,
-                Environment = SquareEnvironment ?? "production",
-                WebhookSignatureKey = SquareWebhookSignatureKey
-            };
+            settings.Square ??= new SquareApiCredentials();
+
+            if (!string.IsNullOrWhiteSpace(SquareApplicationId))
+                settings.Square.ApplicationId = SquareApplicationId;
+            if (!string.IsNullOrWhiteSpace(SquareAccessToken))
+                settings.Square.AccessToken = SquareAccessToken;
+            if (!string.IsNullOrWhiteSpace(SquareLocationId))
+                settings.Square.LocationId = SquareLocationId;
+
+            settings.Square.Environment = string.IsNullOrWhiteSpace(SquareEnvironment)
+                ? settings.Square.Environment ?? "production"
+                : SquareEnvironment;
+
+            if (!string.IsNullOrWhiteSpace(SquareWebhookSignatureKey))
+                settings.Square.WebhookSignatureKey = SquareWebhookSignatureKey;
         }
         
         if (DeliveryMethod == DeliveryMethod.Sms && !string.IsNullOrWhiteSpace(SmsProvider))
