@@ -79,6 +79,12 @@
 	<ProjectReference Include="..\..\submodules\BTCPayServer.Common\BTCPayServer.Common.csproj" Private="true" />
 	<EmbeddedResource Include="Resources\**" />
   </ItemGroup>
+
+  <!-- Exclude the manifest file from default content items -->
+  <ItemGroup>
+	<Content Remove="BTCPayServer.Plugins.BitcoinRewards.json" />
+	<None Include="BTCPayServer.Plugins.BitcoinRewards.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />

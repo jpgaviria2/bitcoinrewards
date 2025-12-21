@@ -1,0 +1,17 @@
+{
+  "Identifier": "BTCPayServer.Plugins.BitcoinRewards",
+  "Name": "Bitcoin Rewards",
+  "Version": "1.0.0.0",
+  "Description": "Bitcoin-backed rewards system that integrates with Square and Shopify to automatically send rewards to customers.",
+  "SystemPlugin": false,
+  "Dependencies": [
+    {
+      "Identifier": "BTCPayServer",
+      "Condition": ">=2.3.0"
+    }
+  ],
+  "Documentation": null,
+  "Source": null,
+  "Author": null,
+  "AuthorLink": null
+}
