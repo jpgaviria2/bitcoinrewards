@@ -125,9 +125,9 @@ public class SquareWebhookController : Controller
                     {
                         // Extract transaction data
                         var amountMoney = payment.TryGetProperty("amount_money", out var am) ? am : default;
-                        // Square payload in our flow already comes in major units; avoid dividing by 100
-                        var amount = amountMoney.TryGetProperty("amount", out var amountProp) 
-                            ? amountProp.GetDecimal()
+                        // Square amounts are in smallest currency units (cents), convert to major units (dollars)
+                        var amount = amountMoney.TryGetProperty("amount", out var amountProp)
+                            ? amountProp.GetInt64() / 100.0m
                             : 0;
                         var currency = amountMoney.TryGetProperty("currency", out var currencyProp)
                             ? currencyProp.GetString() ?? "USD"
