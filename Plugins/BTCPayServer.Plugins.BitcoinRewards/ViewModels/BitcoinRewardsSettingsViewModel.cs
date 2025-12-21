@@ -61,6 +61,9 @@ public class BitcoinRewardsSettingsViewModel
     public bool HasSquareWebhookSignatureKey { get; set; }
     
     // Email Settings
+    [Display(Name = "Email Subject Override (Optional)")]
+    public string? EmailSubjectOverride { get; set; }
+
     [Display(Name = "Email Template Override (Optional)")]
     public string? EmailTemplateOverride { get; set; }
     
@@ -148,6 +151,7 @@ public class BitcoinRewardsSettingsViewModel
         SquareAccessToken = null;
         SquareWebhookSignatureKey = null;
         
+        EmailSubjectOverride = settings.EmailSubject;
         EmailTemplateOverride = settings.EmailTemplate;
         ServerBaseUrl = settings.ServerBaseUrl;
         
@@ -171,7 +175,8 @@ public class BitcoinRewardsSettingsViewModel
         settings.BtcpayRewardPercentage = BtcpayRewardPercentage;
         settings.DeliveryMethod = DeliveryMethod;
         settings.EnabledPlatforms = GetEnabledPlatforms();
-        settings.        EmailTemplate = EmailTemplateOverride;
+        settings.EmailSubject = EmailSubjectOverride;
+        settings.EmailTemplate = EmailTemplateOverride;
         settings.MinimumTransactionAmount = MinimumTransactionAmount;
         settings.MaximumRewardSatoshis = MaximumRewardSatoshis;
         settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;

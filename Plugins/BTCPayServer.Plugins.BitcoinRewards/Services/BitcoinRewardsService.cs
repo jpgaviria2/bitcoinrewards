@@ -207,7 +207,8 @@ public class BitcoinRewardsService
                         pullPaymentResult.ClaimLink,
                         storeId,
                         transaction.OrderId ?? transaction.TransactionId,
-                        settings.EmailTemplate);
+                        settings.EmailTemplate,
+                        settings.EmailSubject);
 
                     if (!sent)
                     {

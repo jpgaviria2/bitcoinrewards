@@ -14,6 +14,7 @@ public interface IEmailNotificationService
         string? pullPaymentLink,
         string storeId,
         string orderId,
-        string? emailTemplateOverride = null);
+        string? emailTemplateOverride = null,
+        string? emailSubjectOverride = null);
 }
 

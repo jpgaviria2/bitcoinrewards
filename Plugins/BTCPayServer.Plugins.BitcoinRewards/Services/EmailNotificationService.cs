@@ -54,7 +54,8 @@ public class EmailNotificationService : IEmailNotificationService
         string? pullPaymentLink,
         string storeId,
         string orderId,
-        string? emailTemplateOverride = null)
+        string? emailTemplateOverride = null,
+        string? emailSubjectOverride = null)
     {
         if (deliveryMethod != DeliveryMethod.Email)
         {
@@ -98,7 +99,7 @@ public class EmailNotificationService : IEmailNotificationService
                             var emailSender = resultProp?.GetValue(emailSenderTask);
                             if (emailSender != null)
                             {
-                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, normalizedClaimLink, lnurlBech32, emailTemplateOverride);
+                                return await SendViaEmailSender(emailSender, recipient, rewardAmountSatoshis, rewardAmountBtc, orderId, normalizedClaimLink, lnurlBech32, emailTemplateOverride, emailSubjectOverride);
                             }
                         }
                     }
@@ -115,7 +116,7 @@ public class EmailNotificationService : IEmailNotificationService
                 return false;
             }
 
-            var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
+            var subject = BuildSubject(rewardAmountSatoshis, emailSubjectOverride);
             var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, normalizedClaimLink, lnurlBech32, emailTemplateOverride);
             var mailboxAddress = MailboxAddress.Parse(recipient);
             using var message = smtpSettings.CreateMailMessage(mailboxAddress, subject, body, true);
@@ -132,9 +133,9 @@ public class EmailNotificationService : IEmailNotificationService
         }
     }
 
-    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlBech32, string? emailTemplateOverride)
+    private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlBech32, string? emailTemplateOverride, string? emailSubjectOverride)
     {
-        var subject = $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
+        var subject = BuildSubject(rewardAmountSatoshis, emailSubjectOverride);
         var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32, emailTemplateOverride);
         var mailboxAddress = MailboxAddress.Parse(recipient);
 
@@ -201,6 +202,7 @@ public class EmailNotificationService : IEmailNotificationService
         }
 
         // Simple token replacement for a custom template
+        var lnurlQrDataUri = string.IsNullOrEmpty(lnurlBech32) ? string.Empty : BuildQrDataUri(lnurlBech32);
         var tokens = new (string Token, string Value)[]
         {
             ("{ORDER_ID}", orderId),
@@ -208,6 +210,7 @@ public class EmailNotificationService : IEmailNotificationService
             ("{AMOUNT_SATS}", rewardAmountSatoshis.ToString()),
             ("{CLAIM_LINK}", pullPaymentLink ?? string.Empty),
             ("{LNURL}", lnurlBech32 ?? string.Empty),
+            ("{LNURL_QR}", lnurlQrDataUri),
         };
 
         var body = template;
@@ -217,6 +220,29 @@ public class EmailNotificationService : IEmailNotificationService
         }
 
         return body;
+    }
+
+    private static string BuildSubject(long rewardAmountSatoshis, string? subjectTemplate = null)
+    {
+        if (string.IsNullOrWhiteSpace(subjectTemplate))
+        {
+            return $"Your Bitcoin Reward - {rewardAmountSatoshis} sats";
+        }
+
+        // Simple token replacement for custom subject
+        var tokens = new (string Token, string Value)[]
+        {
+            ("{AMOUNT_SATS}", rewardAmountSatoshis.ToString()),
+            ("{AMOUNT_BTC}", (rewardAmountSatoshis / 100_000_000m).ToString("0.########")),
+        };
+
+        var subject = subjectTemplate;
+        foreach (var (token, value) in tokens)
+        {
+            subject = subject.Replace(token, value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return subject;
     }
 
     private static string BuildQrDataUri(string content)

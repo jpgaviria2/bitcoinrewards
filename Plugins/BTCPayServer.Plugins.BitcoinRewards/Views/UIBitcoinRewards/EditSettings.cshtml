@@ -178,6 +178,13 @@
             </div>
 
             <div class="form-group mb-4">
+                <label asp-for="EmailSubjectOverride" class="form-label"></label>
+                <input asp-for="EmailSubjectOverride" class="form-control" placeholder="Your Bitcoin Reward - {AMOUNT_SATS} sats" />
+                <span asp-validation-for="EmailSubjectOverride" class="text-danger"></span>
+                <small class="form-text text-muted">Optional custom subject line. Tokens: {AMOUNT_SATS}, {AMOUNT_BTC}.</small>
+            </div>
+
+            <div class="form-group mb-4">
                 <label asp-for="EmailTemplateOverride" class="form-label"></label>
 
                 <!-- Tab navigation for HTML/Preview -->
@@ -205,7 +212,7 @@
 
                 <span asp-validation-for="EmailTemplateOverride" class="text-danger"></span>
                 <small class="form-text text-muted">
-                    Optional override template (HTML allowed). Tokens: {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL}.
+                    Optional override template (HTML allowed). Tokens: {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL}, {LNURL_QR}.
                     <a href="#" id="load-sample-template">Load sample template</a>
                 </small>
             </div>
@@ -272,6 +279,7 @@
         });
 
         // Email template preview functionality
+        const subjectInput = document.getElementById('EmailSubjectOverride');
         const textarea = document.getElementById('email-template-textarea');
         const previewDiv = document.getElementById('email-template-preview');
         const loadSampleBtn = document.getElementById('load-sample-template');
@@ -285,7 +293,8 @@
                     .replace(/{AMOUNT_BTC}/g, '0.00123456')
                     .replace(/{AMOUNT_SATS}/g, '123456')
                     .replace(/{CLAIM_LINK}/g, 'https://example.com/claim/abc123')
-                    .replace(/{LNURL}/g, 'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns');
+                    .replace(/{LNURL}/g, 'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns')
+                    .replace(/{LNURL_QR}/g, 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAKYSURBVHic7ZxNSBRBEMX/'); // Sample QR data URI
 
                 previewDiv.innerHTML = processedHtml;
             } else {
@@ -296,12 +305,17 @@
         // Update preview when tab is clicked
         document.getElementById('preview-tab').addEventListener('click', updatePreview);
 
-        // Update preview when textarea changes
+        // Update preview when textarea or subject changes
         textarea.addEventListener('input', function() {
             if (document.getElementById('preview-tab').classList.contains('active')) {
                 updatePreview();
             }
         });
+        if (subjectInput) {
+            subjectInput.addEventListener('input', function() {
+                // Could add subject preview here if needed
+            });
+        }
 
         // Load sample template
         loadSampleBtn.addEventListener('click', function(e) {
@@ -335,7 +349,7 @@
             <h3 style="margin: 0 0 10px 0; color: #495057;">Lightning Claim (LNURL)</h3>
             <p style="margin: 0 0 10px 0; color: #6c757d;">Scan with LNURL-withdraw enabled wallet:</p>
             <div style="text-align: center;">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAKYSURBVHic7ZxNSBRBEMX/" alt="LNURL QR Code" style="max-width: 150px; height: auto;" />
+                <img src="{LNURL_QR}" alt="LNURL QR Code" style="max-width: 150px; height: auto;" />
                 <p style="margin: 10px 0; font-family: monospace; font-size: 12px; word-break: break-all; color: #6c757d;">{LNURL}</p>
             </div>
         </div>

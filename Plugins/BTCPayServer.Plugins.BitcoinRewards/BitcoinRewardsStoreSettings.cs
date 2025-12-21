@@ -65,6 +65,11 @@ public class BitcoinRewardsStoreSettings
     /// Email template for reward notifications (optional)
     /// </summary>
     public string? EmailTemplate { get; set; }
+
+    /// <summary>
+    /// Email subject template for reward notifications (optional)
+    /// </summary>
+    public string? EmailSubject { get; set; }
     
     /// <summary>
     /// SMS provider configuration (for future SMS integration)
