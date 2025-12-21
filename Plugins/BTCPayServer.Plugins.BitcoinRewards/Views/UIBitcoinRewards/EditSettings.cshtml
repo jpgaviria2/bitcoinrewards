@@ -186,9 +186,35 @@
 
             <div class="form-group mb-4">
                 <label asp-for="EmailTemplateOverride" class="form-label"></label>
-                <textarea asp-for="EmailTemplateOverride" class="form-control" rows="6" placeholder="Use {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL} tokens"></textarea>
+
+                <!-- Tab navigation for HTML/Preview -->
+                <ul class="nav nav-tabs mb-2" id="email-template-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="html-tab" data-bs-toggle="tab" data-bs-target="#html-panel" type="button" role="tab" aria-controls="html-panel" aria-selected="true">HTML Source</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="preview-tab" data-bs-toggle="tab" data-bs-target="#preview-panel" type="button" role="tab" aria-controls="preview-panel" aria-selected="false">Live Preview</button>
+                    </li>
+                </ul>
+
+                <!-- Tab content -->
+                <div class="tab-content border rounded p-3 mb-2" id="email-template-content">
+                    <div class="tab-pane fade show active" id="html-panel" role="tabpanel" aria-labelledby="html-tab">
+                        <textarea asp-for="EmailTemplateOverride" class="form-control" rows="8" id="email-template-textarea" placeholder="Use {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL} tokens"></textarea>
+                    </div>
+                    <div class="tab-pane fade" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab">
+                        <div id="email-template-preview" class="border rounded p-3 bg-light" style="min-height: 200px;">
+                            <!-- Preview will be populated by JavaScript -->
+                            <p class="text-muted mb-0">Click "Live Preview" to see how your email will look.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <span asp-validation-for="EmailTemplateOverride" class="text-danger"></span>
-                <small class="form-text text-muted">Optional override template (HTML allowed). Tokens: {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL}.</small>
+                <small class="form-text text-muted">
+                    Optional override template (HTML allowed). Tokens: {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL}.
+                    <a href="#" id="load-sample-template">Load sample template</a>
+                </small>
             </div>
 
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
@@ -250,6 +276,95 @@
         });
         document.getElementById('EnableSquare').addEventListener('change', function() {
             document.getElementById('square-settings').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Email template preview functionality
+        const textarea = document.getElementById('email-template-textarea');
+        const previewDiv = document.getElementById('email-template-preview');
+        const loadSampleBtn = document.getElementById('load-sample-template');
+
+        function updatePreview() {
+            const html = textarea.value;
+            if (html.trim()) {
+                // Simple token replacement for preview (using sample data)
+                let processedHtml = html
+                    .replace(/{ORDER_ID}/g, 'ORDER-12345')
+                    .replace(/{AMOUNT_BTC}/g, '0.00123456')
+                    .replace(/{AMOUNT_SATS}/g, '123456')
+                    .replace(/{CLAIM_LINK}/g, 'https://example.com/claim/abc123')
+                    .replace(/{LNURL}/g, 'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns');
+
+                previewDiv.innerHTML = processedHtml;
+            } else {
+                previewDiv.innerHTML = '<p class="text-muted mb-0">Click "Live Preview" to see how your email will look.</p>';
+            }
+        }
+
+        // Update preview when tab is clicked
+        document.getElementById('preview-tab').addEventListener('click', updatePreview);
+
+        // Update preview when textarea changes
+        textarea.addEventListener('input', function() {
+            if (document.getElementById('preview-tab').classList.contains('active')) {
+                updatePreview();
+            }
+        });
+
+        // Load sample template
+        loadSampleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sampleTemplate = `<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600;">🎉 Bitcoin Reward Earned!</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">You've received a reward for your recent purchase</p>
+    </div>
+
+    <div style="padding: 30px 20px; color: #333;">
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h2 style="margin: 0 0 15px 0; color: #495057;">Reward Details</h2>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <strong>Order ID:</strong> <span>{ORDER_ID}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <strong>Reward Amount:</strong> <span style="color: #28a745; font-weight: 600;">{AMOUNT_BTC} BTC ({AMOUNT_SATS} sats)</span>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{CLAIM_LINK}" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; box-shadow: 0 2px 4px rgba(40,167,69,0.2);">Claim Your Reward</a>
+        </div>
+
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #856404;"><strong>⚡ Lightning Option Available:</strong> Scan the QR code below with a Lightning wallet</p>
+        </div>
+
+        <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 20px 0; background: #f8f9fa;">
+            <h3 style="margin: 0 0 10px 0; color: #495057;">Lightning Claim (LNURL)</h3>
+            <p style="margin: 0 0 10px 0; color: #6c757d;">Scan with LNURL-withdraw enabled wallet:</p>
+            <div style="text-align: center;">
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAKYSURBVHic7ZxNSBRBEMX/" alt="LNURL QR Code" style="max-width: 150px; height: auto;" />
+                <p style="margin: 10px 0; font-family: monospace; font-size: 12px; word-break: break-all; color: #6c757d;">{LNURL}</p>
+            </div>
+        </div>
+
+        <div style="border-top: 1px solid #dee2e6; padding-top: 20px; margin-top: 20px;">
+            <h3 style="margin: 0 0 15px 0; color: #495057;">How to Claim:</h3>
+            <ol style="padding-left: 20px; margin: 0;">
+                <li>Click the "Claim Your Reward" button above</li>
+                <li>Choose your preferred payout method (on-chain BTC, Lightning, or any enabled option)</li>
+                <li>Enter your payment details and receive your {AMOUNT_SATS} sats</li>
+            </ol>
+        </div>
+
+        <p style="margin: 30px 0 0 0; text-align: center; color: #6c757d;">Thank you for your business! 🎯</p>
+    </div>
+</div>`;
+
+            textarea.value = sampleTemplate;
+            // Trigger preview update if preview tab is active
+            if (document.getElementById('preview-tab').classList.contains('active')) {
+                updatePreview();
+            }
         });
     </script>
 }

@@ -34,6 +34,6 @@
   `git commit -m "Handle Square major-unit amounts and email template override"`
 - Tag next version (next available after v1.1.11 is v1.1.12):  
   `git tag v1.1.12`
-- Push via SSH (origin is HTTPS; use full SSH URL):  
-  `git push git@github.com:jpgaviria2/bitcoinrewards.git main`  
-  `git push git@github.com:jpgaviria2/bitcoinrewards.git v1.1.12`
+- Push via SSH (origin is HTTPS; use full SSH URL):
+  `git push git@github.com:YOUR_USERNAME/bitcoinrewards.git main`
+  `git push git@github.com:YOUR_USERNAME/bitcoinrewards.git v1.1.12`
