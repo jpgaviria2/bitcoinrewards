@@ -1,9 +1,88 @@
 @using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@using System.Globalization
 @model DisplayRewardsViewModel
 @{
     Layout = null;
+    
+    // Check if custom template is provided
+    var useCustomTemplate = !string.IsNullOrWhiteSpace(Model.CustomTemplate) && Model.HasReward;
+    
+    // Helper function to replace tokens in custom template
+    string ReplaceTokens(string template)
+    {
+        var result = template
+            .Replace("{AMOUNT_BTC}", Model.RewardAmountBtc.ToString("0.########", CultureInfo.InvariantCulture))
+            .Replace("{AMOUNT_SATS}", Model.RewardAmountSatoshis.ToString("N0", CultureInfo.InvariantCulture))
+            .Replace("{CLAIM_LINK}", Model.ClaimLink ?? "")
+            .Replace("{LNURL}", Model.LnurlString ?? "")
+            .Replace("{QR_CODE}", !string.IsNullOrEmpty(Model.LnurlQrDataUri) 
+                ? $"<img src=\"{Model.LnurlQrDataUri}\" alt=\"Reward QR Code\" style=\"max-width: 500px; width: 100%; height: auto;\" />" 
+                : "")
+            .Replace("{COUNTDOWN_TIMER}", $"<div class=\"countdown-timer\" id=\"countdown-timer\">Time remaining: <span id=\"countdown-seconds\">{Model.RemainingSeconds}</span>s</div>")
+            .Replace("{DONE_BUTTON}", "<button class=\"done-button\" id=\"done-button\" onclick=\"hideReward()\">✓ Done</button>");
+        return result;
+    }
 }
 
+@if (useCustomTemplate)
+{
+    @Html.Raw(ReplaceTokens(Model.CustomTemplate!))
+    
+    <!-- Inject countdown and hide logic for custom templates -->
+    <script>
+        // Client-side timeout and countdown
+        let remainingSeconds = @Model.RemainingSeconds;
+        const countdownElement = document.getElementById('countdown-seconds');
+        const countdownTimer = document.getElementById('countdown-timer');
+        
+        function hideReward() {
+            // For custom templates, we'll hide the body or reload
+            window.location.reload();
+        }
+        
+        function updateCountdown() {
+            if (remainingSeconds <= 0) {
+                hideReward();
+                return;
+            }
+            
+            remainingSeconds--;
+            if (countdownElement) {
+                countdownElement.textContent = remainingSeconds;
+            }
+            
+            // Update styling based on remaining time
+            if (countdownTimer) {
+                if (remainingSeconds <= 10) {
+                    countdownTimer.classList.add('critical');
+                    countdownTimer.classList.remove('warning');
+                } else if (remainingSeconds <= 30) {
+                    countdownTimer.classList.add('warning');
+                    countdownTimer.classList.remove('critical');
+                } else {
+                    countdownTimer.classList.remove('warning', 'critical');
+                }
+            }
+            
+            setTimeout(updateCountdown, 1000);
+        }
+        
+        // Start countdown if there's remaining time
+        if (remainingSeconds > 0) {
+            setTimeout(updateCountdown, 1000);
+        } else {
+            // Already expired, hide immediately
+            hideReward();
+        }
+        
+        // Auto-refresh
+        setTimeout(function() {
+            window.location.reload();
+        }, @Model.AutoRefreshSeconds * 1000);
+    </script>
+}
+else
+{
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -314,4 +393,4 @@
     }
 </body>
 </html>
-
+}

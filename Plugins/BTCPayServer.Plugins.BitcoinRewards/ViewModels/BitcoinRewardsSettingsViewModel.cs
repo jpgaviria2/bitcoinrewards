@@ -114,6 +114,9 @@ public class BitcoinRewardsSettingsViewModel
     [Range(5, 1440, ErrorMessage = "Display timeframe must be between 5 and 1440 minutes (24 hours)")]
     public int DisplayTimeframeMinutes { get; set; } = 60;
     
+    [Display(Name = "Display Template Override (Optional)")]
+    public string? DisplayTemplateOverride { get; set; }
+    
     public PlatformFlags GetEnabledPlatforms()
     {
         PlatformFlags flags = PlatformFlags.None;
@@ -180,6 +183,7 @@ public class BitcoinRewardsSettingsViewModel
         DisplayTimeoutSeconds = settings.DisplayTimeoutSeconds;
         DisplayAutoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
         DisplayTimeframeMinutes = settings.DisplayTimeframeMinutes;
+        DisplayTemplateOverride = settings.DisplayTemplateOverride;
     }
     
     public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
@@ -202,6 +206,7 @@ public class BitcoinRewardsSettingsViewModel
         settings.DisplayTimeoutSeconds = DisplayTimeoutSeconds;
         settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
         settings.DisplayTimeframeMinutes = DisplayTimeframeMinutes;
+        settings.DisplayTemplateOverride = DisplayTemplateOverride;
         
         if (EnableShopify)
         {

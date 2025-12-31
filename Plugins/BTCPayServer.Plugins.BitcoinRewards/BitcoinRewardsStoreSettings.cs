@@ -110,6 +110,11 @@ public class BitcoinRewardsStoreSettings
     /// How far back to look for unclaimed rewards on the display page (in minutes)
     /// </summary>
     public int DisplayTimeframeMinutes { get; set; } = 60;
+    
+    /// <summary>
+    /// Custom HTML template for the rewards display page (optional)
+    /// </summary>
+    public string? DisplayTemplateOverride { get; set; }
 }
 
 public class ShopifyApiCredentials

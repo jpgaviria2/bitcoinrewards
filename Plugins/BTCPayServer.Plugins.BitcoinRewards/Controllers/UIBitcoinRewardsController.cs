@@ -460,6 +460,7 @@ public class UIBitcoinRewardsController : Controller
         
         // Extract LNURL from claim link if present
         string? lnurlQrDataUri = null;
+        string? lnurlBech32 = null;
         var claimLink = latestReward.ClaimLink;
         
         _logger.LogInformation("DisplayRewards: ClaimLink = {ClaimLink}", claimLink);
@@ -467,7 +468,7 @@ public class UIBitcoinRewardsController : Controller
         // Extract LNURL from the pull payment link
         if (!string.IsNullOrEmpty(claimLink))
         {
-            var lnurlBech32 = GetLnurlBech32FromClaimLink(claimLink);
+            lnurlBech32 = GetLnurlBech32FromClaimLink(claimLink);
             _logger.LogInformation("DisplayRewards: Extracted LNURL Bech32 = {LnurlBech32}", lnurlBech32);
             
             if (!string.IsNullOrEmpty(lnurlBech32))
@@ -495,7 +496,9 @@ public class UIBitcoinRewardsController : Controller
             TimeframeMinutes = timeframeMinutes,
             DisplayTimeoutSeconds = displayTimeoutSeconds,
             RemainingSeconds = remainingSeconds,
-            PullPaymentId = latestReward.PullPaymentId
+            PullPaymentId = latestReward.PullPaymentId,
+            CustomTemplate = settings.DisplayTemplateOverride,
+            LnurlString = lnurlBech32
         };
         
         ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");

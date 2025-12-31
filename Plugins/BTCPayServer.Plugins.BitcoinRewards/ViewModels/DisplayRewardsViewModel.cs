@@ -18,5 +18,7 @@ public class DisplayRewardsViewModel
     public int DisplayTimeoutSeconds { get; set; } = 60;
     public int RemainingSeconds { get; set; }
     public string? PullPaymentId { get; set; }
+    public string? CustomTemplate { get; set; }
+    public string? LnurlString { get; set; }
 }
 
