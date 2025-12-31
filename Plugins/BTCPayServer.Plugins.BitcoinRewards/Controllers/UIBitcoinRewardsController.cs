@@ -422,8 +422,16 @@ public class UIBitcoinRewardsController : Controller
         var timeframeMinutes = settings.DisplayTimeframeMinutes;
         var autoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
         
+        _logger.LogInformation("DisplayRewards: Fetching latest unclaimed reward for store {StoreId} with timeframe {TimeframeMinutes} minutes", 
+            storeId, timeframeMinutes);
+        
         // Get latest unclaimed reward within timeframe
         var latestReward = await _rewardsRepository.GetLatestUnclaimedRewardAsync(storeId, timeframeMinutes);
+        
+        _logger.LogInformation("DisplayRewards: Latest reward found: {HasReward}, ClaimLink: {HasClaimLink}, OrderId: {OrderId}", 
+            latestReward != null, 
+            latestReward?.ClaimLink != null,
+            latestReward?.OrderId);
         
         if (latestReward == null || string.IsNullOrEmpty(latestReward.ClaimLink))
         {
@@ -440,13 +448,18 @@ public class UIBitcoinRewardsController : Controller
         string? lnurlQrDataUri = null;
         var claimLink = latestReward.ClaimLink;
         
+        _logger.LogInformation("DisplayRewards: ClaimLink = {ClaimLink}", claimLink);
+        
         // Extract LNURL from the pull payment link
         if (!string.IsNullOrEmpty(claimLink))
         {
             var lnurlBech32 = GetLnurlBech32FromClaimLink(claimLink);
+            _logger.LogInformation("DisplayRewards: Extracted LNURL Bech32 = {LnurlBech32}", lnurlBech32);
+            
             if (!string.IsNullOrEmpty(lnurlBech32))
             {
                 lnurlQrDataUri = BuildQrDataUri(lnurlBech32);
+                _logger.LogInformation("DisplayRewards: Generated QR code data URI (length: {Length})", lnurlQrDataUri?.Length ?? 0);
             }
         }
         
