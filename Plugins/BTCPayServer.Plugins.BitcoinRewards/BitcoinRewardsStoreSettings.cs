@@ -95,6 +95,21 @@ public class BitcoinRewardsStoreSettings
     /// Optional fallback base URL (https://...) used to build absolute claim links when HttpContext and StoreWebsite are unavailable.
     /// </summary>
     public string? ServerBaseUrl { get; set; }
+    
+    /// <summary>
+    /// Enable display mode to broadcast rewards to connected display devices via SignalR
+    /// </summary>
+    public bool EnableDisplayMode { get; set; } = false;
+    
+    /// <summary>
+    /// Automatically use display mode when customer email and phone are missing
+    /// </summary>
+    public bool FallbackToDisplayWhenNoEmail { get; set; } = true;
+    
+    /// <summary>
+    /// How long the QR code should be displayed on the display device (in seconds)
+    /// </summary>
+    public int DisplayDurationSeconds { get; set; } = 60;
 }
 
 public class ShopifyApiCredentials

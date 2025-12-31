@@ -101,6 +101,17 @@ public class BitcoinRewardsSettingsViewModel
     [Url(ErrorMessage = "Enter a valid absolute URL (e.g., https://yourdomain.com/)")]
     public string? ServerBaseUrl { get; set; }
     
+    // Physical Store Display Settings
+    [Display(Name = "Enable Display Mode")]
+    public bool EnableDisplayMode { get; set; }
+    
+    [Display(Name = "Fallback to Display When No Email/Phone")]
+    public bool FallbackToDisplayWhenNoEmail { get; set; } = true;
+    
+    [Display(Name = "Display Duration (seconds)")]
+    [Range(10, 300, ErrorMessage = "Display duration must be between 10 and 300 seconds")]
+    public int DisplayDurationSeconds { get; set; } = 60;
+    
     public PlatformFlags GetEnabledPlatforms()
     {
         PlatformFlags flags = PlatformFlags.None;
@@ -163,6 +174,10 @@ public class BitcoinRewardsSettingsViewModel
         MinimumTransactionAmount = settings.MinimumTransactionAmount;
         MaximumRewardSatoshis = settings.MaximumRewardSatoshis;
         SelectedPayoutProcessorId = settings.SelectedPayoutProcessorId;
+        
+        EnableDisplayMode = settings.EnableDisplayMode;
+        FallbackToDisplayWhenNoEmail = settings.FallbackToDisplayWhenNoEmail;
+        DisplayDurationSeconds = settings.DisplayDurationSeconds;
     }
     
     public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
@@ -181,6 +196,10 @@ public class BitcoinRewardsSettingsViewModel
         settings.MaximumRewardSatoshis = MaximumRewardSatoshis;
         settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;
         settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();
+        
+        settings.EnableDisplayMode = EnableDisplayMode;
+        settings.FallbackToDisplayWhenNoEmail = FallbackToDisplayWhenNoEmail;
+        settings.DisplayDurationSeconds = DisplayDurationSeconds;
         
         if (EnableShopify)
         {

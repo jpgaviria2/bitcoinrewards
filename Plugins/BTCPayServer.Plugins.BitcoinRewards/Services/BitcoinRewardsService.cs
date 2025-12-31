@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Text.Json;
 using BTCPayServer.Data;
+using System.Linq;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -19,6 +20,7 @@ public class BitcoinRewardsService
     private readonly BitcoinRewardsRepository _repository;
     private readonly IEmailNotificationService _emailService;
     private readonly RewardPullPaymentService _pullPaymentService;
+    private readonly RewardDisplayService _displayService;
     private readonly ILogger<BitcoinRewardsService> _logger;
     private static readonly HttpClient _httpClient = new HttpClient
     {
@@ -30,12 +32,14 @@ public class BitcoinRewardsService
         BitcoinRewardsRepository repository,
         IEmailNotificationService emailService,
         ILogger<BitcoinRewardsService> logger,
-        RewardPullPaymentService pullPaymentService)
+        RewardPullPaymentService pullPaymentService,
+        RewardDisplayService displayService)
     {
         _storeRepository = storeRepository;
         _repository = repository;
         _emailService = emailService;
         _pullPaymentService = pullPaymentService;
+        _displayService = displayService;
         _logger = logger;
     }
 
@@ -196,7 +200,13 @@ public class BitcoinRewardsService
 
                 await _repository.AddRewardAsync(reward);
 
-                if (!string.IsNullOrEmpty(deliveryTarget))
+                var hasEmailOrPhone = !string.IsNullOrEmpty(deliveryTarget);
+
+                // Check if we should broadcast to display device
+                var shouldBroadcastToDisplay = (settings.EnableDisplayMode || 
+                                               (settings.FallbackToDisplayWhenNoEmail && !hasEmailOrPhone));
+
+                if (hasEmailOrPhone)
                 {
                     var rewardAmountBtc = rewardSatoshis / 100_000_000m;
                     var sent = await _emailService.SendRewardNotificationAsync(
@@ -214,7 +224,35 @@ public class BitcoinRewardsService
                     {
                         reward.ErrorMessage = "Reward created but email notification failed (email plugin not available or send error)";
                         await _repository.UpdateRewardAsync(reward);
+                        
+                        // Fallback to display if email failed and display mode is enabled
+                        if (settings.FallbackToDisplayWhenNoEmail)
+                        {
+                            shouldBroadcastToDisplay = true;
+                        }
                     }
+                }
+
+                // Broadcast to display device if enabled or needed as fallback
+                if (shouldBroadcastToDisplay && !string.IsNullOrEmpty(pullPaymentResult.ClaimLink))
+                {
+                    var displayMessage = new RewardDisplayMessage
+                    {
+                        ClaimLink = pullPaymentResult.ClaimLink,
+                        RewardSatoshis = rewardSatoshis,
+                        Currency = transaction.Currency,
+                        RewardAmount = rewardAmount,
+                        TransactionId = transaction.TransactionId,
+                        OrderId = transaction.OrderId,
+                        CreatedAt = DateTime.UtcNow,
+                        DisplayDurationSeconds = settings.DisplayDurationSeconds
+                    };
+
+                    await _displayService.BroadcastRewardToDisplay(storeId, displayMessage);
+                    
+                    _logger.LogInformation(
+                        "Reward broadcasted to display for store {StoreId} (no email: {NoEmail}, display enabled: {DisplayEnabled})", 
+                        storeId, !hasEmailOrPhone, settings.EnableDisplayMode);
                 }
 
                 _logger.LogInformation("Reward pull payment created for store {StoreId} with pull payment {PullPaymentId}", storeId, pullPaymentResult.PullPaymentId);

@@ -217,6 +217,53 @@
                 </small>
             </div>
 
+            <h3 class="mt-5 mb-3">Physical Store Display Settings</h3>
+            <p class="text-muted mb-4">
+                Configure display mode for physical stores where customer email/phone is not available.
+            </p>
+
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input type="hidden" name="EnableDisplayMode" value="false">
+                    <input name="EnableDisplayMode" class="form-check-input" type="checkbox" id="EnableDisplayMode" value="true" @(Model.EnableDisplayMode ? "checked" : "")>
+                    <label asp-for="EnableDisplayMode" class="form-check-label"></label>
+                </div>
+                <span asp-validation-for="EnableDisplayMode" class="text-danger"></span>
+                <small class="form-text text-muted">Always broadcast rewards to connected display devices via SignalR.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input type="hidden" name="FallbackToDisplayWhenNoEmail" value="false">
+                    <input name="FallbackToDisplayWhenNoEmail" class="form-check-input" type="checkbox" id="FallbackToDisplayWhenNoEmail" value="true" @(Model.FallbackToDisplayWhenNoEmail ? "checked" : "")>
+                    <label asp-for="FallbackToDisplayWhenNoEmail" class="form-check-label"></label>
+                </div>
+                <span asp-validation-for="FallbackToDisplayWhenNoEmail" class="text-danger"></span>
+                <small class="form-text text-muted">Automatically use display mode when customer email/phone is missing (recommended for physical stores).</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="DisplayDurationSeconds" class="form-label"></label>
+                <input asp-for="DisplayDurationSeconds" class="form-control" type="number" min="10" max="300" />
+                <span asp-validation-for="DisplayDurationSeconds" class="text-danger"></span>
+                <small class="form-text text-muted">How long to show the QR code on the display device (10-300 seconds).</small>
+            </div>
+
+            <div class="alert alert-info mb-4" id="display-url-info" style="display: @(Model.EnableDisplayMode || Model.FallbackToDisplayWhenNoEmail ? "block" : "none");">
+                <strong>Display Device Setup:</strong>
+                <p class="mb-2">To set up a display device for this store:</p>
+                <ol class="mb-2">
+                    <li>Open a web browser on your display device (tablet, monitor, etc.)</li>
+                    <li>Navigate to the display application with these parameters:</li>
+                </ol>
+                <div class="bg-white p-2 rounded border mb-2">
+                    <code id="display-url">Loading...</code>
+                </div>
+                <p class="mb-0 small">
+                    Display application repository: <a href="https://github.com/yourusername/btcpay-rewards-display" target="_blank" rel="noopener">btcpay-rewards-display</a>
+                </p>
+            </div>
+
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
             <p class="text-muted mb-4">
                 Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.
@@ -277,6 +324,29 @@
         document.getElementById('EnableSquare').addEventListener('change', function() {
             document.getElementById('square-settings').style.display = this.checked ? 'block' : 'none';
         });
+
+        // Display mode URL generation
+        function updateDisplayUrl() {
+            const enableDisplay = document.getElementById('EnableDisplayMode').checked;
+            const fallbackDisplay = document.getElementById('FallbackToDisplayWhenNoEmail').checked;
+            const displayInfo = document.getElementById('display-url-info');
+            
+            if (enableDisplay || fallbackDisplay) {
+                displayInfo.style.display = 'block';
+                const storeId = '@Model.StoreId';
+                const serverUrl = window.location.origin;
+                const displayUrl = `[Display App URL]?server=${encodeURIComponent(serverUrl)}&store=${encodeURIComponent(storeId)}`;
+                document.getElementById('display-url').textContent = displayUrl;
+            } else {
+                displayInfo.style.display = 'none';
+            }
+        }
+
+        document.getElementById('EnableDisplayMode').addEventListener('change', updateDisplayUrl);
+        document.getElementById('FallbackToDisplayWhenNoEmail').addEventListener('change', updateDisplayUrl);
+        
+        // Initialize on page load
+        updateDisplayUrl();
 
         // Email template preview functionality
         const subjectInput = document.getElementById('EmailSubjectOverride');

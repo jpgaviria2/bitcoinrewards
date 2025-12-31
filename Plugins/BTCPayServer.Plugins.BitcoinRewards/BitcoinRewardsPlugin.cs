@@ -1,6 +1,8 @@
+using System;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -29,7 +31,11 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.BitcoinRewardsService>();
         services.TryAddScoped<Services.RewardPullPaymentService>();
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
+        services.TryAddScoped<Services.RewardDisplayService>();
         services.AddHttpClient<Clients.SquareApiClient>();
+
+        // SignalR for display broadcasting
+        services.AddSignalR();
 
         // BTCPay invoice listener
         services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
@@ -48,6 +54,18 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
             
         base.Execute(services);
+    }
+    
+    public override void Execute(Microsoft.AspNetCore.Builder.IApplicationBuilder applicationBuilder,
+        IServiceProvider serviceProvider)
+    {
+        // Map SignalR hub endpoint
+        if (applicationBuilder is Microsoft.AspNetCore.Routing.IEndpointRouteBuilder endpointRouteBuilder)
+        {
+            endpointRouteBuilder.MapHub<Hubs.RewardDisplayHub>("/plugins/bitcoin-rewards/hubs/display");
+        }
+        
+        base.Execute(applicationBuilder, serviceProvider);
     }
 }
 
