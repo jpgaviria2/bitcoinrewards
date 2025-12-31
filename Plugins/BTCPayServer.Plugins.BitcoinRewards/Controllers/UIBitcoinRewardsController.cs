@@ -440,16 +440,13 @@ public class UIBitcoinRewardsController : Controller
         string? lnurlQrDataUri = null;
         var claimLink = latestReward.ClaimLink;
         
-        // Try to extract LNURL from the claim link query string
-        if (!string.IsNullOrEmpty(claimLink) && claimLink.Contains("lightning="))
+        // Extract LNURL from the pull payment link
+        if (!string.IsNullOrEmpty(claimLink))
         {
-            var uri = new Uri(claimLink);
-            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            var lnurl = query["lightning"];
-            
-            if (!string.IsNullOrEmpty(lnurl))
+            var lnurlBech32 = GetLnurlBech32FromClaimLink(claimLink);
+            if (!string.IsNullOrEmpty(lnurlBech32))
             {
-                lnurlQrDataUri = BuildQrDataUri(lnurl);
+                lnurlQrDataUri = BuildQrDataUri(lnurlBech32);
             }
         }
         
@@ -469,6 +466,37 @@ public class UIBitcoinRewardsController : Controller
         
         ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");
         return View("DisplayRewards", vm);
+    }
+    
+    private static string? GetLnurlBech32FromClaimLink(string? claimLink)
+    {
+        if (string.IsNullOrEmpty(claimLink))
+            return null;
+
+        if (!Uri.TryCreate(claimLink, UriKind.Absolute, out var uri))
+            return null;
+
+        // Extract pull payment ID from URL like: https://anmore.cash/pull-payments/{ppId}
+        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var ppIndex = Array.FindIndex(segments, s => s.Equals("pull-payments", StringComparison.OrdinalIgnoreCase));
+        if (ppIndex < 0 || ppIndex + 1 >= segments.Length)
+            return null;
+
+        var ppId = segments[ppIndex + 1];
+        
+        // Build LNURL withdraw endpoint: /BTC/lnurl/withdraw/pp/{ppId}
+        var builder = new UriBuilder(uri.Scheme, uri.Host, uri.Port);
+        builder.Path = $"/BTC/lnurl/withdraw/pp/{System.Web.HttpUtility.UrlEncode(ppId)}";
+        var endpoint = builder.Uri;
+
+        try
+        {
+            return LNURL.LNURL.EncodeUri(endpoint, "withdrawRequest", true).ToString();
+        }
+        catch
+        {
+            return null;
+        }
     }
     
     private static string BuildQrDataUri(string content)
