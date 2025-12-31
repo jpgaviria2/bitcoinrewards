@@ -17,6 +17,7 @@ using BTCPayServer.Plugins.BitcoinRewards;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using BTCPayServer.Data;
+using QRCoder;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -396,6 +397,87 @@ public class UIBitcoinRewardsController : Controller
         }
 
         return RedirectToAction(nameof(RewardsHistory), new { storeId });
+    }
+
+    [HttpGet]
+    [Route("plugins/bitcoin-rewards/{storeId}/display")]
+    [Authorize(Policy = Policies.CanViewStoreSettings)]
+    public async Task<IActionResult> DisplayRewards(string storeId)
+    {
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+            storeId, 
+            BitcoinRewardsStoreSettings.SettingsName);
+        
+        if (settings == null || !settings.Enabled)
+        {
+            return View("DisplayRewards", new DisplayRewardsViewModel
+            {
+                StoreId = storeId,
+                HasReward = false,
+                AutoRefreshSeconds = 10,
+                TimeframeMinutes = 60
+            });
+        }
+        
+        var timeframeMinutes = settings.DisplayTimeframeMinutes;
+        var autoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
+        
+        // Get latest unclaimed reward within timeframe
+        var latestReward = await _rewardsRepository.GetLatestUnclaimedRewardAsync(storeId, timeframeMinutes);
+        
+        if (latestReward == null || string.IsNullOrEmpty(latestReward.ClaimLink))
+        {
+            return View("DisplayRewards", new DisplayRewardsViewModel
+            {
+                StoreId = storeId,
+                HasReward = false,
+                AutoRefreshSeconds = autoRefreshSeconds,
+                TimeframeMinutes = timeframeMinutes
+            });
+        }
+        
+        // Extract LNURL from claim link if present
+        string? lnurlQrDataUri = null;
+        var claimLink = latestReward.ClaimLink;
+        
+        // Try to extract LNURL from the claim link query string
+        if (!string.IsNullOrEmpty(claimLink) && claimLink.Contains("lightning="))
+        {
+            var uri = new Uri(claimLink);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var lnurl = query["lightning"];
+            
+            if (!string.IsNullOrEmpty(lnurl))
+            {
+                lnurlQrDataUri = BuildQrDataUri(lnurl);
+            }
+        }
+        
+        var vm = new DisplayRewardsViewModel
+        {
+            StoreId = storeId,
+            HasReward = true,
+            LnurlQrDataUri = lnurlQrDataUri,
+            ClaimLink = claimLink,
+            RewardAmountSatoshis = latestReward.RewardAmountSatoshis,
+            RewardAmountBtc = latestReward.RewardAmount,
+            OrderId = latestReward.OrderId,
+            CreatedAt = latestReward.CreatedAt,
+            AutoRefreshSeconds = autoRefreshSeconds,
+            TimeframeMinutes = timeframeMinutes
+        };
+        
+        ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");
+        return View("DisplayRewards", vm);
+    }
+    
+    private static string BuildQrDataUri(string content)
+    {
+        using var generator = new QRCodeGenerator();
+        var data = generator.CreateQrCode(content, QRCodeGenerator.ECCLevel.Q);
+        var pngQr = new PngByteQRCode(data);
+        var bytes = pngQr.GetGraphic(10); // Scale factor 10 for larger QR code
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
     }
 }
 

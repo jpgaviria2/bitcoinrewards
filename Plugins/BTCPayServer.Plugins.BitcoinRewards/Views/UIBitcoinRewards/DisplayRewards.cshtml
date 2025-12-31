@@ -1,0 +1,230 @@
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@model DisplayRewardsViewModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="@Model.AutoRefreshSeconds">
+    <title>Bitcoin Rewards Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .header {
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 1.5rem;
+            opacity: 0.9;
+        }
+        
+        .reward-display {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+        }
+        
+        .reward-display.waiting {
+            padding: 80px 50px;
+        }
+        
+        .waiting-message {
+            color: #667eea;
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .waiting-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+        }
+        
+        .qr-code {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            display: inline-block;
+        }
+        
+        .qr-code img {
+            max-width: 500px;
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+        
+        .reward-info {
+            color: #333;
+            margin-top: 30px;
+        }
+        
+        .amount {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #28a745;
+            margin: 20px 0;
+        }
+        
+        .order-id {
+            font-size: 1.2rem;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .instructions {
+            color: #495057;
+            font-size: 1.3rem;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+        
+        .refresh-button {
+            background: white;
+            color: #667eea;
+            border: 2px solid white;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .refresh-button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .footer {
+            margin-top: 30px;
+            opacity: 0.8;
+            font-size: 1rem;
+        }
+        
+        .status-bar {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        @@media (max-width: 768px) {
+            .header h1 { font-size: 2rem; }
+            .header p { font-size: 1.2rem; }
+            .reward-display { padding: 30px 20px; }
+            .qr-code img { max-width: 350px; }
+            .amount { font-size: 2rem; }
+            .instructions { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Trails Coffee Rewards</h1>
+            <p>Bitcoin Rewards Display</p>
+        </div>
+        
+        <div class="status-bar">
+            Auto-refresh: @Model.AutoRefreshSeconds seconds | Timeframe: @Model.TimeframeMinutes minutes
+        </div>
+        
+        @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
+        {
+            <div class="reward-display">
+                <h2 style="color: #667eea; font-size: 2rem; margin-bottom: 20px;">✨ Scan to Claim Your Reward!</h2>
+                
+                <div class="qr-code">
+                    <img src="@Model.LnurlQrDataUri" alt="Reward QR Code" />
+                </div>
+                
+                <div class="reward-info">
+                    <div class="amount">@Model.RewardAmountSatoshis sats</div>
+                    @if (!string.IsNullOrEmpty(Model.OrderId))
+                    {
+                        <div class="order-id">Order: @Model.OrderId</div>
+                    }
+                    @if (Model.CreatedAt.HasValue)
+                    {
+                        <div class="order-id">Created: @Model.CreatedAt.Value.ToLocalTime().ToString("h:mm:ss tt")</div>
+                    }
+                </div>
+                
+                <div class="instructions">
+                    Scan the QR code above with your<br/>
+                    Trails Coffee Rewards Wallet
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="reward-display waiting">
+                <div class="waiting-icon">⏳</div>
+                <div class="waiting-message">Waiting for rewards...</div>
+                <p style="color: #666; font-size: 1.2rem;">
+                    The latest unclaimed reward will appear here automatically
+                </p>
+            </div>
+        }
+        
+        <button class="refresh-button" onclick="window.location.reload();">🔄 Refresh Now</button>
+        
+        <div class="footer">
+            <p>Page refreshes automatically every @Model.AutoRefreshSeconds seconds</p>
+            <p style="margin-top: 10px; font-size: 0.9rem;">
+                <a href="/plugins/bitcoin-rewards/@Model.StoreId/settings" style="color: white; text-decoration: underline;">Back to Settings</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+

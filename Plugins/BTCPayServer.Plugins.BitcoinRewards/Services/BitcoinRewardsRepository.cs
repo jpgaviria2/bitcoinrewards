@@ -109,5 +109,19 @@ public class BitcoinRewardsRepository
                           r.TransactionId == transactionId && 
                           r.Platform == platform);
     }
+    
+    public async Task<BitcoinRewardRecord?> GetLatestUnclaimedRewardAsync(string storeId, int timeframeMinutes)
+    {
+        await using var context = _dbContextFactory.CreateContext();
+        var cutoffTime = DateTime.UtcNow.AddMinutes(-timeframeMinutes);
+        
+        return await context.BitcoinRewardRecords
+            .Where(r => r.StoreId == storeId && 
+                       (r.Status == RewardStatus.Pending || r.Status == RewardStatus.Sent) &&
+                       r.CreatedAt >= cutoffTime &&
+                       !string.IsNullOrEmpty(r.ClaimLink))
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
 }
 

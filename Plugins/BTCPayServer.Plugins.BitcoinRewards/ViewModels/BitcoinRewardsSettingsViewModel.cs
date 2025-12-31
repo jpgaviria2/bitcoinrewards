@@ -112,6 +112,14 @@ public class BitcoinRewardsSettingsViewModel
     [Range(10, 300, ErrorMessage = "Display duration must be between 10 and 300 seconds")]
     public int DisplayDurationSeconds { get; set; } = 60;
     
+    [Display(Name = "Display Timeframe (minutes)")]
+    [Range(5, 1440, ErrorMessage = "Display timeframe must be between 5 and 1440 minutes (24 hours)")]
+    public int DisplayTimeframeMinutes { get; set; } = 60;
+    
+    [Display(Name = "Auto-Refresh Interval (seconds)")]
+    [Range(5, 60, ErrorMessage = "Auto-refresh interval must be between 5 and 60 seconds")]
+    public int DisplayAutoRefreshSeconds { get; set; } = 10;
+    
     public PlatformFlags GetEnabledPlatforms()
     {
         PlatformFlags flags = PlatformFlags.None;
@@ -178,6 +186,8 @@ public class BitcoinRewardsSettingsViewModel
         EnableDisplayMode = settings.EnableDisplayMode;
         FallbackToDisplayWhenNoEmail = settings.FallbackToDisplayWhenNoEmail;
         DisplayDurationSeconds = settings.DisplayDurationSeconds;
+        DisplayTimeframeMinutes = settings.DisplayTimeframeMinutes;
+        DisplayAutoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
     }
     
     public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
@@ -200,6 +210,8 @@ public class BitcoinRewardsSettingsViewModel
         settings.EnableDisplayMode = EnableDisplayMode;
         settings.FallbackToDisplayWhenNoEmail = FallbackToDisplayWhenNoEmail;
         settings.DisplayDurationSeconds = DisplayDurationSeconds;
+        settings.DisplayTimeframeMinutes = DisplayTimeframeMinutes;
+        settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
         
         if (EnableShopify)
         {

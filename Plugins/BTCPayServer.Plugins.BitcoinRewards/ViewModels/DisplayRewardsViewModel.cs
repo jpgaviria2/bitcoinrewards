@@ -1,0 +1,19 @@
+#nullable enable
+using System;
+
+namespace BTCPayServer.Plugins.BitcoinRewards.ViewModels;
+
+public class DisplayRewardsViewModel
+{
+    public string StoreId { get; set; } = string.Empty;
+    public bool HasReward { get; set; }
+    public string? LnurlQrDataUri { get; set; }
+    public string? ClaimLink { get; set; }
+    public long RewardAmountSatoshis { get; set; }
+    public decimal RewardAmountBtc { get; set; }
+    public string? OrderId { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public int AutoRefreshSeconds { get; set; } = 10;
+    public int TimeframeMinutes { get; set; } = 60;
+}
+
