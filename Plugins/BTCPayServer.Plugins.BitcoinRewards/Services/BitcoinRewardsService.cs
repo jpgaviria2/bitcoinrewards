@@ -202,9 +202,17 @@ public class BitcoinRewardsService
 
                 var hasEmailOrPhone = !string.IsNullOrEmpty(deliveryTarget);
 
+                // #region agent log
+                fetch('http://localhost:7242/ingest/9cc8503e-9377-42d7-a40e-cae3e24e54e0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BitcoinRewardsService.cs:203',message:'Delivery target check',data:{hasEmailOrPhone:hasEmailOrPhone,deliveryTarget:deliveryTarget,deliveryMethod:settings.DeliveryMethod.ToString(),enableDisplayMode:settings.EnableDisplayMode,fallbackToDisplay:settings.FallbackToDisplayWhenNoEmail},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E',runId:'post-fix'})}).catch(()=>{});
+                // #endregion
+
                 // Check if we should broadcast to display device
                 var shouldBroadcastToDisplay = (settings.EnableDisplayMode || 
                                                (settings.FallbackToDisplayWhenNoEmail && !hasEmailOrPhone));
+
+                // #region agent log
+                fetch('http://localhost:7242/ingest/9cc8503e-9377-42d7-a40e-cae3e24e54e0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BitcoinRewardsService.cs:206',message:'Display broadcast decision',data:{shouldBroadcastToDisplay:shouldBroadcastToDisplay,hasEmailOrPhone:hasEmailOrPhone},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E',runId:'post-fix'})}).catch(()=>{});
+                // #endregion
 
                 if (hasEmailOrPhone)
                 {

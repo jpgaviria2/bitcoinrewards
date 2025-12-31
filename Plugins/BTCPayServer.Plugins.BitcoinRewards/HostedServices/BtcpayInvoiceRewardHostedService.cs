@@ -52,8 +52,11 @@ public class BtcpayInvoiceRewardHostedService : EventHostedServiceBase
             return;
 
         var buyerEmail = invoice.Metadata?.BuyerEmail;
-        if (string.IsNullOrWhiteSpace(buyerEmail))
-            return;
+        
+        // Allow processing even without email - BitcoinRewardsService will handle fallback to display mode
+        // This enables rewards to be broadcast to display devices when no email is provided
+        // if (string.IsNullOrWhiteSpace(buyerEmail))
+        //     return;
 
         var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
             invoice.StoreId,
