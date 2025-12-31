@@ -121,7 +121,7 @@
             line-height: 1.6;
         }
         
-        .refresh-button {
+        .refresh-button, .done-button {
             background: white;
             color: #667eea;
             border: 2px solid white;
@@ -134,13 +134,41 @@
             text-decoration: none;
             display: inline-block;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin: 10px;
         }
         
-        .refresh-button:hover {
+        .refresh-button:hover, .done-button:hover {
             background: #667eea;
             color: white;
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .done-button {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+        
+        .done-button:hover {
+            background: #218838;
+            border-color: #218838;
+        }
+        
+        .countdown-timer {
+            color: #667eea;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        
+        .countdown-timer.warning {
+            color: #ffc107;
+        }
+        
+        .countdown-timer.critical {
+            color: #dc3545;
+            animation: pulse 1s ease-in-out infinite;
         }
         
         .footer {
@@ -203,11 +231,17 @@
                     Scan the QR code above with your<br/>
                     Trails Coffee Rewards Wallet
                 </div>
+                
+                <div class="countdown-timer" id="countdown-timer">
+                    Time remaining: <span id="countdown-seconds">@Model.RemainingSeconds</span>s
+                </div>
+                
+                <button class="done-button" id="done-button" onclick="hideReward()">✓ Done</button>
             </div>
         }
         else
         {
-            <div class="reward-display waiting">
+            <div class="reward-display waiting" id="waiting-display">
                 <div class="waiting-icon">⏳</div>
                 <div class="waiting-message">Waiting for rewards...</div>
                 <p style="color: #666; font-size: 1.2rem;">
@@ -225,6 +259,59 @@
             </p>
         </div>
     </div>
+    
+    @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
+    {
+        <script>
+            // Client-side timeout and countdown
+            let remainingSeconds = @Model.RemainingSeconds;
+            const countdownElement = document.getElementById('countdown-seconds');
+            const countdownTimer = document.getElementById('countdown-timer');
+            
+            function hideReward() {
+                const rewardDisplay = document.querySelector('.reward-display:not(.waiting)');
+                const waitingDisplay = document.getElementById('waiting-display');
+                
+                if (rewardDisplay) {
+                    rewardDisplay.style.display = 'none';
+                }
+                if (waitingDisplay) {
+                    waitingDisplay.style.display = 'block';
+                }
+            }
+            
+            function updateCountdown() {
+                if (remainingSeconds <= 0) {
+                    hideReward();
+                    return;
+                }
+                
+                remainingSeconds--;
+                countdownElement.textContent = remainingSeconds;
+                
+                // Update styling based on remaining time
+                if (remainingSeconds <= 10) {
+                    countdownTimer.classList.add('critical');
+                    countdownTimer.classList.remove('warning');
+                } else if (remainingSeconds <= 30) {
+                    countdownTimer.classList.add('warning');
+                    countdownTimer.classList.remove('critical');
+                } else {
+                    countdownTimer.classList.remove('warning', 'critical');
+                }
+                
+                setTimeout(updateCountdown, 1000);
+            }
+            
+            // Start countdown if there's remaining time
+            if (remainingSeconds > 0) {
+                setTimeout(updateCountdown, 1000);
+            } else {
+                // Already expired, hide immediately
+                hideReward();
+            }
+        </script>
+    }
 </body>
 </html>
 

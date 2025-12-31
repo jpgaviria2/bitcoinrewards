@@ -101,6 +101,19 @@ public class BitcoinRewardsSettingsViewModel
     [Url(ErrorMessage = "Enter a valid absolute URL (e.g., https://yourdomain.com/)")]
     public string? ServerBaseUrl { get; set; }
     
+    // Display Settings
+    [Display(Name = "Display Timeout (seconds)")]
+    [Range(10, 300, ErrorMessage = "Display timeout must be between 10 and 300 seconds")]
+    public int DisplayTimeoutSeconds { get; set; } = 60;
+    
+    [Display(Name = "Auto-Refresh Interval (seconds)")]
+    [Range(5, 60, ErrorMessage = "Auto-refresh interval must be between 5 and 60 seconds")]
+    public int DisplayAutoRefreshSeconds { get; set; } = 10;
+    
+    [Display(Name = "Display Timeframe (minutes)")]
+    [Range(5, 1440, ErrorMessage = "Display timeframe must be between 5 and 1440 minutes (24 hours)")]
+    public int DisplayTimeframeMinutes { get; set; } = 60;
+    
     public PlatformFlags GetEnabledPlatforms()
     {
         PlatformFlags flags = PlatformFlags.None;
@@ -163,6 +176,10 @@ public class BitcoinRewardsSettingsViewModel
         MinimumTransactionAmount = settings.MinimumTransactionAmount;
         MaximumRewardSatoshis = settings.MaximumRewardSatoshis;
         SelectedPayoutProcessorId = settings.SelectedPayoutProcessorId;
+        
+        DisplayTimeoutSeconds = settings.DisplayTimeoutSeconds;
+        DisplayAutoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
+        DisplayTimeframeMinutes = settings.DisplayTimeframeMinutes;
     }
     
     public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
@@ -181,6 +198,10 @@ public class BitcoinRewardsSettingsViewModel
         settings.MaximumRewardSatoshis = MaximumRewardSatoshis;
         settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;
         settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();
+        
+        settings.DisplayTimeoutSeconds = DisplayTimeoutSeconds;
+        settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
+        settings.DisplayTimeframeMinutes = DisplayTimeframeMinutes;
         
         if (EnableShopify)
         {

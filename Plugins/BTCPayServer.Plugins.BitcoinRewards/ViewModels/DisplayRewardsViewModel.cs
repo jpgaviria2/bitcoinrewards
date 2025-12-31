@@ -15,5 +15,8 @@ public class DisplayRewardsViewModel
     public DateTime? CreatedAt { get; set; }
     public int AutoRefreshSeconds { get; set; } = 10;
     public int TimeframeMinutes { get; set; } = 60;
+    public int DisplayTimeoutSeconds { get; set; } = 60;
+    public int RemainingSeconds { get; set; }
+    public string? PullPaymentId { get; set; }
 }
 

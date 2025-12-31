@@ -217,6 +217,32 @@
                 </small>
             </div>
 
+            <h3 class="mt-5 mb-3">Display Settings</h3>
+            <p class="text-muted mb-4">
+                Configure how rewards are displayed on the display page.
+            </p>
+
+            <div class="form-group mb-4">
+                <label asp-for="DisplayTimeoutSeconds" class="form-label"></label>
+                <input asp-for="DisplayTimeoutSeconds" class="form-control" type="number" min="10" max="300" />
+                <span asp-validation-for="DisplayTimeoutSeconds" class="text-danger"></span>
+                <small class="form-text text-muted">How long to show the QR code on the display before automatically hiding it (10-300 seconds).</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="DisplayAutoRefreshSeconds" class="form-label"></label>
+                <input asp-for="DisplayAutoRefreshSeconds" class="form-control" type="number" min="5" max="60" />
+                <span asp-validation-for="DisplayAutoRefreshSeconds" class="text-danger"></span>
+                <small class="form-text text-muted">How often the display page auto-refreshes (5-60 seconds).</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="DisplayTimeframeMinutes" class="form-label"></label>
+                <input asp-for="DisplayTimeframeMinutes" class="form-control" type="number" min="5" max="1440" />
+                <span asp-validation-for="DisplayTimeframeMinutes" class="text-danger"></span>
+                <small class="form-text text-muted">How far back to look for unclaimed rewards on the display page (5-1440 minutes).</small>
+            </div>
+
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
             <p class="text-muted mb-4">
                 Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.

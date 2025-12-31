@@ -27,17 +27,20 @@ public class UIBitcoinRewardsController : Controller
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _rewardsRepository;
     private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
+    private readonly PullPaymentStatusService _pullPaymentStatusService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
 
     public UIBitcoinRewardsController(
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
         PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
+        PullPaymentStatusService pullPaymentStatusService,
         ILogger<UIBitcoinRewardsController> logger)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
+        _pullPaymentStatusService = pullPaymentStatusService;
         _logger = logger;
     }
 
@@ -412,12 +415,13 @@ public class UIBitcoinRewardsController : Controller
         
         var timeframeMinutes = settings.DisplayTimeframeMinutes;
         var autoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
+        var displayTimeoutSeconds = settings.DisplayTimeoutSeconds;
         
-        _logger.LogInformation("DisplayRewards: Fetching latest unclaimed reward for store {StoreId} with timeframe {TimeframeMinutes} minutes", 
-            storeId, timeframeMinutes);
+        _logger.LogInformation("DisplayRewards: Fetching latest unclaimed reward for store {StoreId} with timeframe {TimeframeMinutes} minutes and timeout {TimeoutSeconds} seconds", 
+            storeId, timeframeMinutes, displayTimeoutSeconds);
         
-        // Get latest unclaimed reward within timeframe
-        var latestReward = await _rewardsRepository.GetLatestUnclaimedRewardAsync(storeId, timeframeMinutes);
+        // Get latest unclaimed reward within timeframe and display timeout
+        var latestReward = await _rewardsRepository.GetLatestUnclaimedRewardAsync(storeId, timeframeMinutes, displayTimeoutSeconds);
         
         _logger.LogInformation("DisplayRewards: Latest reward found: {HasReward}, ClaimLink: {HasClaimLink}, OrderId: {OrderId}", 
             latestReward != null, 
@@ -431,8 +435,27 @@ public class UIBitcoinRewardsController : Controller
                 StoreId = storeId,
                 HasReward = false,
                 AutoRefreshSeconds = autoRefreshSeconds,
-                TimeframeMinutes = timeframeMinutes
+                TimeframeMinutes = timeframeMinutes,
+                DisplayTimeoutSeconds = displayTimeoutSeconds
             });
+        }
+        
+        // Check if the pull payment has been claimed
+        if (!string.IsNullOrEmpty(latestReward.PullPaymentId))
+        {
+            var isClaimed = await _pullPaymentStatusService.IsPullPaymentClaimedAsync(latestReward.PullPaymentId);
+            if (isClaimed)
+            {
+                _logger.LogInformation("DisplayRewards: Pull payment {PullPaymentId} has been claimed, hiding reward", latestReward.PullPaymentId);
+                return View("DisplayRewards", new DisplayRewardsViewModel
+                {
+                    StoreId = storeId,
+                    HasReward = false,
+                    AutoRefreshSeconds = autoRefreshSeconds,
+                    TimeframeMinutes = timeframeMinutes,
+                    DisplayTimeoutSeconds = displayTimeoutSeconds
+                });
+            }
         }
         
         // Extract LNURL from claim link if present
@@ -454,6 +477,10 @@ public class UIBitcoinRewardsController : Controller
             }
         }
         
+        // Calculate remaining seconds
+        var rewardAge = DateTime.UtcNow - latestReward.CreatedAt;
+        var remainingSeconds = Math.Max(0, displayTimeoutSeconds - (int)rewardAge.TotalSeconds);
+        
         var vm = new DisplayRewardsViewModel
         {
             StoreId = storeId,
@@ -465,7 +492,10 @@ public class UIBitcoinRewardsController : Controller
             OrderId = latestReward.OrderId,
             CreatedAt = latestReward.CreatedAt,
             AutoRefreshSeconds = autoRefreshSeconds,
-            TimeframeMinutes = timeframeMinutes
+            TimeframeMinutes = timeframeMinutes,
+            DisplayTimeoutSeconds = displayTimeoutSeconds,
+            RemainingSeconds = remainingSeconds,
+            PullPaymentId = latestReward.PullPaymentId
         };
         
         ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");

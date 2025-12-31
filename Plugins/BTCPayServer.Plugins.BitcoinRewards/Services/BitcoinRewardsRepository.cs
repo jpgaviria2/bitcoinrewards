@@ -110,15 +110,17 @@ public class BitcoinRewardsRepository
                           r.Platform == platform);
     }
     
-    public async Task<BitcoinRewardRecord?> GetLatestUnclaimedRewardAsync(string storeId, int timeframeMinutes)
+    public async Task<BitcoinRewardRecord?> GetLatestUnclaimedRewardAsync(string storeId, int timeframeMinutes, int displayTimeoutSeconds)
     {
         await using var context = _dbContextFactory.CreateContext();
         var cutoffTime = DateTime.UtcNow.AddMinutes(-timeframeMinutes);
+        var timeoutCutoff = DateTime.UtcNow.AddSeconds(-displayTimeoutSeconds);
         
         return await context.BitcoinRewardRecords
             .Where(r => r.StoreId == storeId && 
                        (r.Status == RewardStatus.Pending || r.Status == RewardStatus.Sent) &&
                        r.CreatedAt >= cutoffTime &&
+                       r.CreatedAt >= timeoutCutoff && // Only show rewards that haven't timed out
                        !string.IsNullOrEmpty(r.ClaimLink))
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync();
