@@ -217,78 +217,6 @@
                 </small>
             </div>
 
-            <h3 class="mt-5 mb-3">Physical Store Display Settings</h3>
-            <p class="text-muted mb-4">
-                Configure display mode for physical stores where customer email/phone is not available.
-            </p>
-
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="EnableDisplayMode" value="false">
-                    <input name="EnableDisplayMode" class="form-check-input" type="checkbox" id="EnableDisplayMode" value="true" @(Model.EnableDisplayMode ? "checked" : "")>
-                    <label asp-for="EnableDisplayMode" class="form-check-label"></label>
-                </div>
-                <span asp-validation-for="EnableDisplayMode" class="text-danger"></span>
-                <small class="form-text text-muted">Always broadcast rewards to connected display devices via SignalR.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="FallbackToDisplayWhenNoEmail" value="false">
-                    <input name="FallbackToDisplayWhenNoEmail" class="form-check-input" type="checkbox" id="FallbackToDisplayWhenNoEmail" value="true" @(Model.FallbackToDisplayWhenNoEmail ? "checked" : "")>
-                    <label asp-for="FallbackToDisplayWhenNoEmail" class="form-check-label"></label>
-                </div>
-                <span asp-validation-for="FallbackToDisplayWhenNoEmail" class="text-danger"></span>
-                <small class="form-text text-muted">Automatically use display mode when customer email/phone is missing (recommended for physical stores).</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="DisplayDurationSeconds" class="form-label"></label>
-                <input asp-for="DisplayDurationSeconds" class="form-control" type="number" min="10" max="300" />
-                <span asp-validation-for="DisplayDurationSeconds" class="text-danger"></span>
-                <small class="form-text text-muted">How long to show the QR code on the display device (10-300 seconds).</small>
-            </div>
-            
-            <div class="form-group mb-4">
-                <label asp-for="DisplayTimeframeMinutes" class="form-label"></label>
-                <input asp-for="DisplayTimeframeMinutes" class="form-control" type="number" min="5" max="1440" />
-                <span asp-validation-for="DisplayTimeframeMinutes" class="text-danger"></span>
-                <small class="form-text text-muted">How far back to look for unclaimed rewards on the display page (5-1440 minutes).</small>
-            </div>
-            
-            <div class="form-group mb-4">
-                <label asp-for="DisplayAutoRefreshSeconds" class="form-label"></label>
-                <input asp-for="DisplayAutoRefreshSeconds" class="form-control" type="number" min="5" max="60" />
-                <span asp-validation-for="DisplayAutoRefreshSeconds" class="text-danger"></span>
-                <small class="form-text text-muted">How often the display page auto-refreshes (5-60 seconds).</small>
-            </div>
-
-            <div class="alert alert-info mb-4" id="display-url-info" style="display: @(Model.EnableDisplayMode || Model.FallbackToDisplayWhenNoEmail ? "block" : "none");">
-                <strong>📱 Display Page Setup:</strong>
-                <p class="mb-3">To set up a display device for showing rewards:</p>
-                <ol class="mb-3">
-                    <li>Open the display page on a second device (tablet, monitor, etc.)</li>
-                    <li>Log into BTCPay Server on that device</li>
-                    <li>Click the button below or navigate to the display page</li>
-                    <li>Press F11 for fullscreen mode</li>
-                </ol>
-                <div class="mb-3">
-                    <a href="/plugins/bitcoin-rewards/@Model.StoreId/display" 
-                       class="btn btn-primary btn-lg" 
-                       target="_blank" 
-                       rel="noopener">
-                        🖥️ Open Display Page
-                    </a>
-                </div>
-                <div class="bg-white p-2 rounded border mb-2">
-                    <small class="text-muted">Display URL:</small><br/>
-                    <code>@(Context.Request.Scheme)://@(Context.Request.Host)/plugins/bitcoin-rewards/@Model.StoreId/display</code>
-                </div>
-                <p class="mb-0 small text-muted">
-                    💡 The display page auto-refreshes every @Model.DisplayAutoRefreshSeconds seconds and shows the latest unclaimed reward from the last @Model.DisplayTimeframeMinutes minutes.
-                </p>
-            </div>
-
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
             <p class="text-muted mb-4">
                 Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.
@@ -349,29 +277,6 @@
         document.getElementById('EnableSquare').addEventListener('change', function() {
             document.getElementById('square-settings').style.display = this.checked ? 'block' : 'none';
         });
-
-        // Display mode URL generation
-        function updateDisplayUrl() {
-            const enableDisplay = document.getElementById('EnableDisplayMode').checked;
-            const fallbackDisplay = document.getElementById('FallbackToDisplayWhenNoEmail').checked;
-            const displayInfo = document.getElementById('display-url-info');
-            
-            if (enableDisplay || fallbackDisplay) {
-                displayInfo.style.display = 'block';
-                const storeId = '@Model.StoreId';
-                const serverUrl = window.location.origin;
-                const displayUrl = `[Display App URL]?server=${encodeURIComponent(serverUrl)}&store=${encodeURIComponent(storeId)}`;
-                document.getElementById('display-url').textContent = displayUrl;
-            } else {
-                displayInfo.style.display = 'none';
-            }
-        }
-
-        document.getElementById('EnableDisplayMode').addEventListener('change', updateDisplayUrl);
-        document.getElementById('FallbackToDisplayWhenNoEmail').addEventListener('change', updateDisplayUrl);
-        
-        // Initialize on page load
-        updateDisplayUrl();
 
         // Email template preview functionality
         const subjectInput = document.getElementById('EmailSubjectOverride');

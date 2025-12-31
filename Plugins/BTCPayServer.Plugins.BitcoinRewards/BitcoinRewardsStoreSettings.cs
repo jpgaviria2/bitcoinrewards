@@ -95,31 +95,6 @@ public class BitcoinRewardsStoreSettings
     /// Optional fallback base URL (https://...) used to build absolute claim links when HttpContext and StoreWebsite are unavailable.
     /// </summary>
     public string? ServerBaseUrl { get; set; }
-    
-    /// <summary>
-    /// Enable display mode to broadcast rewards to connected display devices via SignalR
-    /// </summary>
-    public bool EnableDisplayMode { get; set; } = false;
-    
-    /// <summary>
-    /// Automatically use display mode when customer email and phone are missing
-    /// </summary>
-    public bool FallbackToDisplayWhenNoEmail { get; set; } = true;
-    
-    /// <summary>
-    /// How long the QR code should be displayed on the display device (in seconds)
-    /// </summary>
-    public int DisplayDurationSeconds { get; set; } = 60;
-    
-    /// <summary>
-    /// How far back to look for unclaimed rewards on the display page (in minutes)
-    /// </summary>
-    public int DisplayTimeframeMinutes { get; set; } = 60;
-    
-    /// <summary>
-    /// How often the display page auto-refreshes (in seconds)
-    /// </summary>
-    public int DisplayAutoRefreshSeconds { get; set; } = 10;
 }
 
 public class ShopifyApiCredentials
