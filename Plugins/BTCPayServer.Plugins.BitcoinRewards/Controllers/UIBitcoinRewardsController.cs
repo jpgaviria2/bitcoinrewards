@@ -94,16 +94,25 @@ public class UIBitcoinRewardsController : Controller
             var enableBtcpayValues = Request.Form["EnableBtcpay"];
             vm.EnableBtcpay = enableBtcpayValues.Count > 0 && enableBtcpayValues.Contains("true");
             
+            // Display mode checkboxes
+            var enableDisplayModeValues = Request.Form["EnableDisplayMode"];
+            vm.EnableDisplayMode = enableDisplayModeValues.Count > 0 && enableDisplayModeValues.Contains("true");
+            
+            var fallbackToDisplayValues = Request.Form["FallbackToDisplayWhenNoEmail"];
+            vm.FallbackToDisplayWhenNoEmail = fallbackToDisplayValues.Count > 0 && fallbackToDisplayValues.Contains("true");
+            
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
             ModelState.Remove(nameof(vm.EnableShopify));
             ModelState.Remove(nameof(vm.EnableSquare));
             ModelState.Remove(nameof(vm.EnableBtcpay));
+            ModelState.Remove(nameof(vm.EnableDisplayMode));
+            ModelState.Remove(nameof(vm.FallbackToDisplayWhenNoEmail));
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
-            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}, EnableBtcpay={EnableBtcpay}", 
-                storeId, vm.Enabled, enabledValuesStr, vm.ExternalRewardPercentage, vm.BtcpayRewardPercentage, vm.EnableShopify, vm.EnableSquare, vm.EnableBtcpay);
+            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}, EnableBtcpay={EnableBtcpay}, EnableDisplayMode={EnableDisplayMode}, FallbackToDisplay={FallbackToDisplay}, DisplayDuration={DisplayDuration}", 
+                storeId, vm.Enabled, enabledValuesStr, vm.ExternalRewardPercentage, vm.BtcpayRewardPercentage, vm.EnableShopify, vm.EnableSquare, vm.EnableBtcpay, vm.EnableDisplayMode, vm.FallbackToDisplayWhenNoEmail, vm.DisplayDurationSeconds);
             
             if (!ModelState.IsValid)
             {
