@@ -1,64 +1,131 @@
-# BTCPayServer Bitcoin Rewards Plugin
+# Bitcoin Rewards Plugin for BTCPay Server
 
-Bitcoin-backed rewards for BTCPay Server merchants with Square and BTCPay invoice support. Shopify is temporarily disabled (toggle locked off, "coming soon").
+Automatically reward your customers with Bitcoin! This BTCPay Server plugin integrates with Square POS and native BTCPay invoices to issue Lightning rewards via pull payments.
 
 ## Features
-- Reward creation for BTCPay invoices (with buyer email) and Square payments
-- Lightning pull-payments for reward redemption
-- Email notifications for reward claims
-- Configurable reward percentages, minimums, and caps per platform
-- **Physical store display mode**: Real-time QR code display for rewards when email is unavailable (perfect for in-store Square transactions)
 
-## Build
-From repo root:
-```bash
-dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj -c Release
-cp Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll BTCPayServer.Plugins.BitcoinRewards.btcpay
-```
+- **Multi-Platform Support**: Square POS and BTCPay native invoices
+- **Lightning Pull Payments**: Instant LNURL-based reward claims
+- **Customizable Display Page**: Built-in QR code display with HTML template editor
+- **Email Notifications**: Automatic reward emails with claim links
+- **Flexible Configuration**: Set reward percentages per platform, minimum amounts, and caps
+- **Automatic Payouts**: Integrate with BTCPay payout processors for automated reward distribution
+- **Physical Store Ready**: Display QR codes in-store for instant mobile wallet claims
 
-## Install (docker example)
+## Installation
+
+### Using BTCPay Plugin Builder (Recommended)
+
+1. Visit [BTCPay Plugin Builder](https://github.com/btcpayserver/btcpayserver-plugin-builder)
+2. Point to this repository: `https://github.com/jpgaviria2/bitcoinrewards`
+3. Download the generated `.btcpay` file
+4. Upload via BTCPay Server → Settings → Plugins → Upload Plugin
+
+### Manual Installation (Docker)
+
 ```bash
+# Copy plugin to BTCPay container
 docker exec generated_btcpayserver_1 mkdir -p /datadir/plugins
 docker cp BTCPayServer.Plugins.BitcoinRewards.btcpay generated_btcpayserver_1:/datadir/plugins/
 docker restart generated_btcpayserver_1
 ```
+
 Enable via BTCPay Server Settings → Plugins.
 
-## Configuration Notes
-- Set reward percentages and enabled platforms (Shopify locked off)
-- Square: configure Application ID, Access Token, Location ID, environment, and webhook signature key (used to verify incoming webhooks)
-- BTCPay: rewards require buyer email on invoices
-- Email delivery: ensure SMTP is configured in BTCPay
-- Rates: plugin fetches BTC/fiat rates via CoinGecko; ensure outbound HTTPS allowed
+## Configuration
 
-## Physical Store Display Mode
+### Basic Setup
 
-For physical stores where customer email/phone is not collected (common with Square POS), enable **Display Mode** to broadcast rewards to a nearby display device via SignalR. Customers can scan the QR code with their Lightning wallet to claim rewards immediately.
+1. Navigate to your store → **Plugins → Bitcoin Rewards**
+2. Enable the plugin
+3. Set reward percentages:
+   - **Square/Shopify**: Percentage for external platform payments
+   - **BTCPay**: Percentage for direct BTCPay invoice payments
+4. Configure minimum transaction amount (optional)
+5. Set maximum reward cap in satoshis (optional)
 
-### Quick Setup
-1. Enable "Fallback to Display When No Email" in plugin settings
-2. Set up display device with the provided display app (see `display-app/` folder)
-3. Configure display with your BTCPay Server URL and Store ID
-4. Display automatically shows QR codes when payments are received without email
+### Square Integration
 
-### Documentation
-- **[Physical Store Display Setup Guide](DISPLAY_SETUP_GUIDE.md)** - Complete setup instructions
-- **[Display Testing Guide](DISPLAY_TESTING_GUIDE.md)** - Testing procedures
-- **[Display App README](display-app/README.md)** - Display application documentation
+Required fields:
+- Application ID
+- Access Token
+- Location ID
+- Environment (production/sandbox)
+- Webhook Signature Key
 
-### Features
-- Real-time SignalR broadcasting from plugin to display devices
-- Configurable display duration (default: 60 seconds)
-- Auto-reconnect on network interruption
-- Latest-only display mode (shows most recent reward)
-- Fullscreen/kiosk mode support for tablets and monitors
+### BTCPay Invoice Rewards
 
-## Development tips
-- Repo includes BTCPay Server as a submodule; `Directory.Build.targets` restores/builds dependencies automatically during `dotnet build`.
-- For local debug with BTCPay, point `DEBUG_PLUGINS` to the built DLL if needed.
+- Rewards are automatically created when invoices are paid
+- Works with or without buyer email
+- Email rewards sent if email provided
+- Display mode shows QR for walk-in customers
 
-## Repository info
-- Target: .NET 8
-- Plugin output: `.btcpay` package built from `BTCPayServer.Plugins.BitcoinRewards.dll`
-- License: MIT
-- Migrations: plugin migrations auto-apply on startup via `BitcoinRewardsMigrationRunner`.
+### Payout Processors
+
+Configure a payout processor in **Store Settings → Payout Processors** to enable automated reward payments. The plugin creates pull payments that can be automatically processed.
+
+### Display Page
+
+Access your rewards display at:
+```
+https://your-btcpay-server/stores/{storeId}/plugins/bitcoin-rewards/display
+```
+
+**Customization:**
+- Edit HTML template in plugin settings
+- Use tokens: `{AMOUNT_SATS}`, `{QR_CODE}`, `{COUNTDOWN_TIMER}`, `{DONE_BUTTON}`
+- Live preview available in settings
+- Perfect for tablets, kiosks, or customer-facing displays
+
+### Email Templates
+
+Customize reward notification emails:
+- Subject line template
+- HTML email body with tokens
+- Preview before saving
+
+## Display Page Tokens
+
+Available tokens for custom templates:
+
+| Token | Description |
+|-------|-------------|
+| `{AMOUNT_BTC}` | Reward amount in BTC (e.g., 0.00123456) |
+| `{AMOUNT_SATS}` | Reward amount in satoshis (e.g., 123,456) |
+| `{QR_CODE}` | LNURL QR code image |
+| `{CLAIM_LINK}` | Full HTTPS claim URL |
+| `{LNURL}` | LNURL Bech32 string |
+| `{COUNTDOWN_TIMER}` | Auto-hiding countdown timer |
+| `{DONE_BUTTON}` | Manual dismiss button |
+
+## Building from Source
+
+See [docs/BUILD_INSTRUCTIONS.md](docs/BUILD_INSTRUCTIONS.md) for detailed build instructions.
+
+Quick build:
+```bash
+dotnet publish Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --output /tmp/plugin-build
+cd /tmp/plugin-build && zip -r BTCPayServer.Plugins.BitcoinRewards.btcpay .
+```
+
+## Requirements
+
+- BTCPay Server >= 2.3.0
+- .NET 8.0
+- SMTP configured (for email notifications)
+- Outbound HTTPS access (for BTC rate fetching via CoinGecko)
+
+## Documentation
+
+- [Build Instructions](docs/BUILD_INSTRUCTIONS.md)
+- [Plugin Compliance](docs/PLUGIN_COMPLIANCE.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## Support & Contributions
+
+- **Issues**: [GitHub Issues](https://github.com/jpgaviria2/bitcoinrewards/issues)
+- **Source**: [GitHub Repository](https://github.com/jpgaviria2/bitcoinrewards)
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
