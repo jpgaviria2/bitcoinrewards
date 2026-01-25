@@ -258,4 +258,110 @@ public class SquareWebhookController : Controller
             return string.Empty;
         }
     }
+
+    /// <summary>
+    /// Test endpoint that bypasses signature validation - FOR TESTING ONLY
+    /// POST /plugins/bitcoin-rewards/{storeId}/webhooks/square/test
+    /// </summary>
+    [HttpPost("test")]
+    public async Task<IActionResult> HandleTestWebhook(string storeId)
+    {
+        try
+        {
+            _logger.LogInformation("🧪 TEST: Square webhook test endpoint called for store {StoreId}", storeId);
+
+            // Read request body
+            string requestBody;
+            using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+
+            _logger.LogInformation("🧪 TEST: Request body: {Body}", requestBody);
+
+            // Parse Square webhook
+            var jsonDoc = JsonDocument.Parse(requestBody);
+            var root = jsonDoc.RootElement;
+
+            if (!root.TryGetProperty("type", out var typeProp))
+            {
+                return BadRequest("Missing 'type' field");
+            }
+
+            var eventType = typeProp.GetString();
+            _logger.LogInformation("🧪 TEST: Event type: {EventType}", eventType);
+
+            if (eventType != "payment.updated")
+            {
+                _logger.LogInformation("🧪 TEST: Ignoring event type {EventType}", eventType);
+                return Ok("Event ignored");
+            }
+
+            if (root.TryGetProperty("data", out var data) &&
+                data.TryGetProperty("object", out var obj) &&
+                obj.TryGetProperty("payment", out var payment))
+            {
+                var paymentId = payment.TryGetProperty("id", out var idProp) 
+                    ? idProp.GetString() ?? "unknown" 
+                    : "unknown";
+                var status = payment.TryGetProperty("status", out var statusProp) 
+                    ? statusProp.GetString() ?? ""
+                    : "";
+
+                _logger.LogInformation("🧪 TEST: Payment ID: {PaymentId}, Status: {Status}", paymentId, status);
+
+                if (status == "COMPLETED" && payment.TryGetProperty("amount_money", out var amountMoney))
+                {
+                    var amount = amountMoney.TryGetProperty("amount", out var amountProp)
+                        ? amountProp.GetInt64() / 100.0m
+                        : 0;
+                    var currency = amountMoney.TryGetProperty("currency", out var currencyProp)
+                        ? currencyProp.GetString() ?? "USD"
+                        : "USD";
+
+                    var receiptEmail = payment.TryGetProperty("receipt_email", out var emailProp) 
+                        ? emailProp.GetString() 
+                        : null;
+                    var orderId = payment.TryGetProperty("order_id", out var orderIdProp) 
+                        ? orderIdProp.GetString() 
+                        : null;
+
+                    _logger.LogInformation("🧪 TEST: Amount: {Amount} {Currency}, Email: {Email}", 
+                        amount, currency, receiptEmail ?? "none");
+
+                    var transaction = new TransactionData
+                    {
+                        TransactionId = paymentId,
+                        OrderId = orderId,
+                        Amount = (decimal)amount,
+                        Currency = currency ?? "USD",
+                        CustomerEmail = receiptEmail,
+                        Platform = TransactionPlatform.Square,
+                        TransactionDate = DateTime.UtcNow
+                    };
+
+                    _logger.LogInformation("🧪 TEST: Calling ProcessRewardAsync...");
+                    var result = await _rewardsService.ProcessRewardAsync(storeId, transaction);
+                    _logger.LogInformation("🧪 TEST: ProcessRewardAsync returned: {Result}", result);
+
+                    return Ok(new
+                    {
+                        success = true,
+                        processed = result,
+                        transactionId = paymentId,
+                        amount,
+                        currency,
+                        message = "Test webhook processed (signature check bypassed)"
+                    });
+                }
+            }
+
+            return Ok("Test webhook received");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "🧪 TEST: Error processing test Square webhook for store {StoreId}", storeId);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
 }

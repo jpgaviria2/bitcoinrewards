@@ -7,13 +7,11 @@ using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Models;
 using BTCPayServer.Services.Stores;
 using Microsoft.Extensions.Logging;
-using System.Net.Http;
 using System.Text.Json;
 using BTCPayServer.Data;
 using System.Linq;
 using BTCPayServer.Services.Rates;
 using BTCPayServer.Rating;
-using BTCPayServer.Services.Invoices;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -268,53 +266,101 @@ public class BitcoinRewardsService
 
     private async Task<decimal?> GetBtcRateAsync(string fromCurrency, string storeId)
     {
+        _logger.LogInformation("[RATE FETCH] ENTRY: Currency={Currency}, StoreId={StoreId}", fromCurrency, storeId);
+        
         if (string.IsNullOrWhiteSpace(fromCurrency))
+        {
+            _logger.LogWarning("[RATE FETCH] Currency is null or whitespace");
             return null;
+        }
 
         try
         {
             var currency = fromCurrency.Trim().ToUpperInvariant();
+            _logger.LogInformation("[RATE FETCH] Normalized currency: {Currency}", currency);
             
             // BTC to BTC is always 1
             if (currency == "BTC")
                 return 1.0m;
             
-            // Use BTCPay Server's rate fetcher with store's configured rate providers
-            var pair = new CurrencyPair("BTC", currency);
-            
-            // Get the store's configured rate rules (respects user's rate provider settings)
+            // Get store to access rate configuration
             var store = await _storeRepository.FindStore(storeId);
             if (store == null)
             {
                 _logger.LogWarning("Store {StoreId} not found for rate fetch", storeId);
                 return null;
             }
-            
+
             var storeBlob = store.GetStoreBlob();
-            var rateRulesCollection = storeBlob.GetRateRules(_defaultRules);
+            var rulesCollection = storeBlob.GetRateRules(_defaultRules);
             
-            var rateResult = await _rateFetcher.FetchRate(pair, rateRulesCollection, new StoreIdRateContext(storeId), CancellationToken.None);
+            // Fetch rate for BTC to target currency pair
+            var currencyPair = new CurrencyPair("BTC", currency);
             
+            _logger.LogInformation("[RATE FETCH] Store {StoreId}: Fetching {CurrencyPair}", storeId, currencyPair);
+            _logger.LogInformation("[RATE FETCH] Primary rules: {Primary}", rulesCollection.Primary?.ToString() ?? "NULL");
+            _logger.LogInformation("[RATE FETCH] Fallback rules: {Fallback}", rulesCollection.Fallback?.ToString() ?? "NULL");
+            _logger.LogInformation("[RATE FETCH] Spread: {Spread}%", storeBlob.Spread);
+
+            var rateResult = await _rateFetcher.FetchRate(
+                currencyPair,
+                rulesCollection,
+                new StoreIdRateContext(storeId),
+                CancellationToken.None
+            );
+            
+            _logger.LogInformation("[RATE FETCH] Result received: BidAsk={BidAsk}, ErrorCount={ErrorCount}, ExceptionCount={ExceptionCount}",
+                rateResult?.BidAsk?.Bid, rateResult?.Errors?.Count ?? 0, rateResult?.ExchangeExceptions?.Count ?? 0);
+
             if (rateResult?.BidAsk?.Bid != null && rateResult.BidAsk.Bid > 0)
             {
+                _logger.LogInformation("[RATE FETCH] ✅ SUCCESS: {CurrencyPair} = {Rate} (Rule: {Rule})",
+                    currencyPair, rateResult.BidAsk.Bid, rateResult.EvaluatedRule);
                 return rateResult.BidAsk.Bid;
             }
 
-            if (rateResult?.ExchangeExceptions?.Any() == true)
-            {
-                foreach (var ex in rateResult.ExchangeExceptions)
-                {
-                    _logger.LogWarning("Rate fetch failed for {Currency} from {Exchange}: {Error}", 
-                        currency, ex.ExchangeName, ex.Exception?.Message ?? "Unknown error");
-                }
-            }
+            // Log detailed error information
+            _logger.LogWarning("[RATE FETCH] ❌ FAILED for {CurrencyPair}", currencyPair);
             
-            _logger.LogWarning("No BTC rate available for currency {Currency}", currency);
+            if (rateResult != null)
+            {
+                if (rateResult.Errors?.Count > 0)
+                {
+                    var errors = string.Join(", ", rateResult.Errors);
+                    _logger.LogWarning("[RATE FETCH] Errors: {Errors}", errors);
+                }
+                else
+                {
+                    _logger.LogWarning("[RATE FETCH] No errors reported but BidAsk is null or zero");
+                }
+                
+                if (rateResult.ExchangeExceptions?.Count > 0)
+                {
+                    _logger.LogWarning("[RATE FETCH] Exchange exceptions count: {Count}", rateResult.ExchangeExceptions.Count);
+                    foreach (var exc in rateResult.ExchangeExceptions)
+                    {
+                        _logger.LogWarning("[RATE FETCH] Exchange '{Exchange}': {Message}",
+                            exc.ExchangeName, exc.Exception?.Message ?? "Unknown error");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("[RATE FETCH] No exchange exceptions reported");
+                }
+                
+                _logger.LogWarning("[RATE FETCH] Rule used: {Rule}", rateResult.Rule ?? "NULL");
+                _logger.LogWarning("[RATE FETCH] Evaluated rule: {EvaluatedRule}", rateResult.EvaluatedRule ?? "NULL");
+            }
+            else
+            {
+                _logger.LogWarning("[RATE FETCH] RateResult is completely NULL - RateFetcher may not be working!");
+            }
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching rate for {Currency}", fromCurrency);
+            _logger.LogError(ex, "Error fetching BTC rate for {Currency} in store {StoreId}", 
+                fromCurrency, storeId);
             return null;
         }
     }
