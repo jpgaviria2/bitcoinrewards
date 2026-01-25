@@ -13,6 +13,7 @@ using BTCPayServer.Data;
 using System.Linq;
 using BTCPayServer.Services.Rates;
 using BTCPayServer.Rating;
+using BTCPayServer.Services.Invoices;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -86,7 +87,7 @@ public class BitcoinRewardsService
 
             // Check minimum transaction amount
             // Convert transaction amount to store currency for min check
-            var txAmountInStoreCurrency = await ConvertToStoreCurrencyAsync(transaction.Amount, transaction.Currency, storeCurrency);
+            var txAmountInStoreCurrency = await ConvertToStoreCurrencyAsync(transaction.Amount, transaction.Currency, storeCurrency, storeId);
 
             if (settings.MinimumTransactionAmount.HasValue && 
                 txAmountInStoreCurrency < settings.MinimumTransactionAmount.Value)
@@ -153,7 +154,7 @@ public class BitcoinRewardsService
                 rewardSatoshis = settings.MaximumRewardSatoshis.Value;
                 // Recalculate rewardAmount in original currency based on capped satoshis
                 var btcAmount = rewardSatoshis / 100_000_000m;
-                var btcRate = await GetBtcRateAsync(transaction.Currency);
+                var btcRate = await GetBtcRateAsync(transaction.Currency, storeId);
                 if (btcRate.HasValue)
                 {
                     var cappedBtc = rewardSatoshis / 100_000_000m;
@@ -262,7 +263,7 @@ public class BitcoinRewardsService
         return transactionAmount * (percentage / 100m);
     }
 
-    private async Task<decimal?> GetBtcRateAsync(string fromCurrency)
+    private async Task<decimal?> GetBtcRateAsync(string fromCurrency, string storeId)
     {
         if (string.IsNullOrWhiteSpace(fromCurrency))
             return null;
@@ -275,19 +276,21 @@ public class BitcoinRewardsService
             if (currency == "BTC")
                 return 1.0m;
             
-            // Use BTCPay Server's rate fetcher with configured rate providers
+            // Use BTCPay Server's rate fetcher with store's configured rate providers
             var pair = new CurrencyPair("BTC", currency);
             
-            // Try multiple rate providers: kraken, coinbase, bitpay as fallbacks
-            // Format: X_X = provider1(X_X), provider2(X_X), provider3(X_X);
-            RateRules rules;
-            if (!RateRules.TryParse($"X_X = kraken(X_X), coinbasepro(X_X), bitpay(X_X);", out rules))
+            // Get the store's configured rate rules (respects user's rate provider settings)
+            var store = await _storeRepository.FindStore(storeId);
+            if (store == null)
             {
-                _logger.LogWarning("Failed to parse rate rules for {Currency}", currency);
+                _logger.LogWarning("Store {StoreId} not found for rate fetch", storeId);
                 return null;
             }
             
-            var rateResult = await _rateFetcher.FetchRate(pair, rules, null, CancellationToken.None);
+            var storeBlob = store.GetStoreBlob();
+            var rateRulesCollection = storeBlob.GetRateRules(new DefaultRulesCollection(Array.Empty<DefaultRules>()));
+            
+            var rateResult = await _rateFetcher.FetchRate(pair, rateRulesCollection, new StoreIdRateContext(storeId), CancellationToken.None);
             
             if (rateResult?.BidAsk?.Bid != null && rateResult.BidAsk.Bid > 0)
             {
@@ -344,7 +347,7 @@ public class BitcoinRewardsService
                 return satoshis;
             }
 
-            var rate = await GetBtcRateAsync(currency);
+            var rate = await GetBtcRateAsync(currency, storeId);
             if (!rate.HasValue || rate.Value <= 0)
             {
                 _logger.LogWarning("No BTC rate available for currency {Currency}", currency);
@@ -369,7 +372,7 @@ public class BitcoinRewardsService
         }
     }
 
-    private async Task<decimal> ConvertToStoreCurrencyAsync(decimal amount, string fromCurrency, string storeCurrency)
+    private async Task<decimal> ConvertToStoreCurrencyAsync(decimal amount, string fromCurrency, string storeCurrency, string storeId)
     {
         var fromCur = string.IsNullOrWhiteSpace(fromCurrency) ? "BTC" : fromCurrency.Trim().ToUpperInvariant();
         var toCur = string.IsNullOrWhiteSpace(storeCurrency) ? "BTC" : storeCurrency.Trim().ToUpperInvariant();
@@ -383,7 +386,7 @@ public class BitcoinRewardsService
             if (toCur is "SAT" or "SATS" or "SATOSHI" or "SATOSHIS")
             {
                 // Convert from to BTC then to sats
-                var rateFrom = await GetBtcRateAsync(fromCur);
+                var rateFrom = await GetBtcRateAsync(fromCur, storeId);
                 if (!rateFrom.HasValue || rateFrom.Value <= 0)
                     return 0m;
                 var btcAmount = amount / rateFrom.Value;
@@ -391,8 +394,8 @@ public class BitcoinRewardsService
             }
 
             // Convert via BTC bridge for fiat->fiat or fiat->BTC/BTC->fiat
-            var rateFromFiatPerBtc = await GetBtcRateAsync(fromCur);
-            var rateToFiatPerBtc = await GetBtcRateAsync(toCur);
+            var rateFromFiatPerBtc = await GetBtcRateAsync(fromCur, storeId);
+            var rateToFiatPerBtc = await GetBtcRateAsync(toCur, storeId);
             if (!rateFromFiatPerBtc.HasValue || rateFromFiatPerBtc.Value <= 0 || !rateToFiatPerBtc.HasValue || rateToFiatPerBtc.Value <= 0)
             {
                 _logger.LogWarning("Missing rate to convert {Amount} {From} to {To}", amount, fromCur, toCur);
