@@ -1,4 +1,5 @@
 #nullable enable
+#if DEBUG
 using System;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
@@ -101,3 +102,4 @@ public class TestRewardsController : Controller
         });
     }
 }
+#endif

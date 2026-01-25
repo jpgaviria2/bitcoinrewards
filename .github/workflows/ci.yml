@@ -1,0 +1,45 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build BTCPay Server submodule
+      run: |
+        cd submodules
+        dotnet build BTCPayServer/BTCPayServer.csproj -c Release --no-restore
+        
+    - name: Build Bitcoin Rewards Plugin
+      run: |
+        export BTCPayServerPath="$(pwd)/submodules/BTCPayServer/bin/Release/net8.0"
+        dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj -c Release --no-restore
+        
+    - name: Run tests
+      run: dotnet test --no-build --verbosity normal -c Release
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: plugin-dll
+        path: Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll
+        retention-days: 7

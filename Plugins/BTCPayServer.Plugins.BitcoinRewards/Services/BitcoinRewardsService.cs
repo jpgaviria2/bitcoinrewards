@@ -17,6 +17,11 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
 public class BitcoinRewardsService
 {
+    // Constants
+    private const decimal SATS_PER_BTC = 100_000_000m;
+    private const decimal MSATS_PER_SAT = 1000m;
+    private const long MIN_SATOSHIS = 1L;
+    
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _repository;
     private readonly IEmailNotificationService _emailService;
@@ -266,7 +271,7 @@ public class BitcoinRewardsService
 
     private async Task<decimal?> GetBtcRateAsync(string fromCurrency, string storeId)
     {
-        _logger.LogInformation("[RATE FETCH] ENTRY: Currency={Currency}, StoreId={StoreId}", fromCurrency, storeId);
+        _logger.LogDebug("[RATE FETCH] ENTRY: Currency={Currency}, StoreId={StoreId}", fromCurrency, storeId);
         
         if (string.IsNullOrWhiteSpace(fromCurrency))
         {
@@ -277,7 +282,7 @@ public class BitcoinRewardsService
         try
         {
             var currency = fromCurrency.Trim().ToUpperInvariant();
-            _logger.LogInformation("[RATE FETCH] Normalized currency: {Currency}", currency);
+            _logger.LogDebug("[RATE FETCH] Normalized currency: {Currency}", currency);
             
             // BTC to BTC is always 1
             if (currency == "BTC")
@@ -297,10 +302,10 @@ public class BitcoinRewardsService
             // Fetch rate for BTC to target currency pair
             var currencyPair = new CurrencyPair("BTC", currency);
             
-            _logger.LogInformation("[RATE FETCH] Store {StoreId}: Fetching {CurrencyPair}", storeId, currencyPair);
-            _logger.LogInformation("[RATE FETCH] Primary rules: {Primary}", rulesCollection.Primary?.ToString() ?? "NULL");
-            _logger.LogInformation("[RATE FETCH] Fallback rules: {Fallback}", rulesCollection.Fallback?.ToString() ?? "NULL");
-            _logger.LogInformation("[RATE FETCH] Spread: {Spread}%", storeBlob.Spread);
+            _logger.LogDebug("[RATE FETCH] Store {StoreId}: Fetching {CurrencyPair}", storeId, currencyPair);
+            _logger.LogDebug("[RATE FETCH] Primary rules: {Primary}", rulesCollection.Primary?.ToString() ?? "NULL");
+            _logger.LogDebug("[RATE FETCH] Fallback rules: {Fallback}", rulesCollection.Fallback?.ToString() ?? "NULL");
+            _logger.LogDebug("[RATE FETCH] Spread: {Spread}%", storeBlob.Spread);
 
             var rateResult = await _rateFetcher.FetchRate(
                 currencyPair,
@@ -309,7 +314,7 @@ public class BitcoinRewardsService
                 CancellationToken.None
             );
             
-            _logger.LogInformation("[RATE FETCH] Result received: BidAsk={BidAsk}, ErrorCount={ErrorCount}, ExceptionCount={ExceptionCount}",
+            _logger.LogDebug("[RATE FETCH] Result received: BidAsk={BidAsk}, ErrorCount={ErrorCount}, ExceptionCount={ExceptionCount}",
                 rateResult?.BidAsk?.Bid, rateResult?.Errors?.Count ?? 0, rateResult?.ExchangeExceptions?.Count ?? 0);
 
             if (rateResult?.BidAsk?.Bid != null && rateResult.BidAsk.Bid > 0)
@@ -386,13 +391,16 @@ public class BitcoinRewardsService
 
             if (currency is "MSAT" or "MSATS")
             {
-                satoshis = EnsureNonNegative((long)Math.Round(amount / 1000m, MidpointRounding.AwayFromZero));
+                satoshis = EnsureNonNegative((long)Math.Round(amount / MSATS_PER_SAT, MidpointRounding.AwayFromZero));
                 return satoshis;
             }
 
             if (currency == "BTC")
             {
-                satoshis = EnsureNonNegative((long)Math.Round(amount * 100_000_000m, MidpointRounding.AwayFromZero));
+                checked
+                {
+                    satoshis = EnsureNonNegative((long)Math.Round(amount * SATS_PER_BTC, MidpointRounding.AwayFromZero));
+                }
                 return satoshis;
             }
 
@@ -404,12 +412,15 @@ public class BitcoinRewardsService
             }
 
             var btcAmount = amount / rate.Value;
-            satoshis = EnsureNonNegative((long)Math.Round(btcAmount * 100_000_000m, MidpointRounding.AwayFromZero));
+            checked
+            {
+                satoshis = EnsureNonNegative((long)Math.Round(btcAmount * SATS_PER_BTC, MidpointRounding.AwayFromZero));
+            }
 
             // Enforce minimum 1 sat when amount > 0 to avoid zeroed rewards
             if (satoshis == 0 && amount > 0)
             {
-                satoshis = 1;
+                satoshis = MIN_SATOSHIS;
             }
 
             return satoshis;

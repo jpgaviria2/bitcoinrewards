@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build BTCPay Server submodule
+      run: |
+        cd submodules
+        dotnet build BTCPayServer/BTCPayServer.csproj -c Release --no-restore
+        
+    - name: Build Bitcoin Rewards Plugin
+      run: |
+        export BTCPayServerPath="$(pwd)/submodules/BTCPayServer/bin/Release/net8.0"
+        dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj -c Release --no-restore
+        
+    - name: Run tests
+      run: dotnet test --no-build --verbosity normal -c Release
+      
+    - name: Create plugin package
+      run: |
+        cd Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0
+        zip -r ../../../../../BTCPayServer.Plugins.BitcoinRewards-${{ steps.get_version.outputs.VERSION }}.btcpay \
+          BTCPayServer.Plugins.BitcoinRewards.dll \
+          BTCPayServer.Plugins.BitcoinRewards.pdb \
+          BTCPayServer.Plugins.BitcoinRewards.json
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          BTCPayServer.Plugins.BitcoinRewards-${{ steps.get_version.outputs.VERSION }}.btcpay
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

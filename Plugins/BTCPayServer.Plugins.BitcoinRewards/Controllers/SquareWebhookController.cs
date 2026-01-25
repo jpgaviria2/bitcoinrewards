@@ -36,6 +36,14 @@ public class SquareWebhookController : Controller
         _logger = logger;
     }
 
+    // Helper to mask sensitive URL parts
+    private static string MaskUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return "***";
+        var uri = new Uri(url);
+        return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
+    }
+
     [HttpPost]
     public async Task<IActionResult> HandleWebhook(string storeId)
     {
@@ -100,8 +108,14 @@ public class SquareWebhookController : Controller
 
             if (!verified)
             {
-                _logger.LogWarning("Square webhook signature verification failed for store {StoreId} (sig={Sig}, urls tried: {Urls}, computedSha1={Sha1}, computedSha256={Sha256})",
-                    storeId, signature, string.Join(", ", candidateUrls), firstComputedSha1 ?? "n/a", firstComputedSha256 ?? "n/a");
+                // Mask sensitive data in production logs
+                var maskedSignature = signature?.Length > 8 ? signature.Substring(0, 4) + "..." + signature.Substring(signature.Length - 4) : "***";
+                var maskedUrls = candidateUrls.Select(u => MaskUrl(u)).ToList();
+                var maskedSha1 = firstComputedSha1?.Length > 8 ? firstComputedSha1.Substring(0, 4) + "..." : "n/a";
+                var maskedSha256 = firstComputedSha256?.Length > 8 ? firstComputedSha256.Substring(0, 4) + "..." : "n/a";
+                
+                _logger.LogWarning("Square webhook signature verification failed for store {StoreId} (sig={Sig}, urls tried: {Count}, computedSha1={Sha1}, computedSha256={Sha256})",
+                    storeId, maskedSignature, candidateUrls.Count, maskedSha1, maskedSha256);
                 return Unauthorized();
             }
 
