@@ -25,6 +25,7 @@ public class BitcoinRewardsService
     private readonly RewardPullPaymentService _pullPaymentService;
     private readonly ILogger<BitcoinRewardsService> _logger;
     private readonly RateFetcher _rateFetcher;
+    private readonly DefaultRulesCollection _defaultRules;
 
     public BitcoinRewardsService(
         StoreRepository storeRepository,
@@ -32,7 +33,8 @@ public class BitcoinRewardsService
         IEmailNotificationService emailService,
         ILogger<BitcoinRewardsService> logger,
         RewardPullPaymentService pullPaymentService,
-        RateFetcher rateFetcher)
+        RateFetcher rateFetcher,
+        DefaultRulesCollection defaultRules)
     {
         _storeRepository = storeRepository;
         _repository = repository;
@@ -40,6 +42,7 @@ public class BitcoinRewardsService
         _pullPaymentService = pullPaymentService;
         _logger = logger;
         _rateFetcher = rateFetcher;
+        _defaultRules = defaultRules;
     }
 
     public async Task<bool> ProcessRewardAsync(string storeId, TransactionData transaction)
@@ -288,7 +291,7 @@ public class BitcoinRewardsService
             }
             
             var storeBlob = store.GetStoreBlob();
-            var rateRulesCollection = storeBlob.GetRateRules(new DefaultRulesCollection(Array.Empty<DefaultRules>()));
+            var rateRulesCollection = storeBlob.GetRateRules(_defaultRules);
             
             var rateResult = await _rateFetcher.FetchRate(pair, rateRulesCollection, new StoreIdRateContext(storeId), CancellationToken.None);
             
