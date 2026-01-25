@@ -278,9 +278,10 @@ public class BitcoinRewardsService
             // Use BTCPay Server's rate fetcher with configured rate providers
             var pair = new CurrencyPair("BTC", currency);
             
-            // Get the store's default rate rules (using coingecko as fallback)
+            // Try multiple rate providers: kraken, coinbase, bitpay as fallbacks
+            // Format: X_X = provider1(X_X), provider2(X_X), provider3(X_X);
             RateRules rules;
-            if (!RateRules.TryParse($"X_X = coingecko(X_X);", out rules))
+            if (!RateRules.TryParse($"X_X = kraken(X_X), coinbasepro(X_X), bitpay(X_X);", out rules))
             {
                 _logger.LogWarning("Failed to parse rate rules for {Currency}", currency);
                 return null;
