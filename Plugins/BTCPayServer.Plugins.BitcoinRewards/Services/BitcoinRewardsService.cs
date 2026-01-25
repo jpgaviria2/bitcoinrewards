@@ -11,6 +11,8 @@ using System.Net.Http;
 using System.Text.Json;
 using BTCPayServer.Data;
 using System.Linq;
+using BTCPayServer.Services.Rates;
+using BTCPayServer.Rating;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
@@ -21,23 +23,22 @@ public class BitcoinRewardsService
     private readonly IEmailNotificationService _emailService;
     private readonly RewardPullPaymentService _pullPaymentService;
     private readonly ILogger<BitcoinRewardsService> _logger;
-    private static readonly HttpClient _httpClient = new HttpClient
-    {
-        Timeout = TimeSpan.FromSeconds(5)
-    };
+    private readonly RateFetcher _rateFetcher;
 
     public BitcoinRewardsService(
         StoreRepository storeRepository,
         BitcoinRewardsRepository repository,
         IEmailNotificationService emailService,
         ILogger<BitcoinRewardsService> logger,
-        RewardPullPaymentService pullPaymentService)
+        RewardPullPaymentService pullPaymentService,
+        RateFetcher rateFetcher)
     {
         _storeRepository = storeRepository;
         _repository = repository;
         _emailService = emailService;
         _pullPaymentService = pullPaymentService;
         _logger = logger;
+        _rateFetcher = rateFetcher;
     }
 
     public async Task<bool> ProcessRewardAsync(string storeId, TransactionData transaction)
@@ -125,11 +126,14 @@ public class BitcoinRewardsService
                     ? settings.BtcpayRewardPercentage
                     : settings.ExternalRewardPercentage > 0 ? settings.ExternalRewardPercentage : settings.RewardPercentage;
                 rewardAmount = CalculateRewardAmount(transaction.Amount, percentage);
+                _logger.LogInformation("Reward calculation for {Platform} transaction {TransactionId}: Amount={Amount} {Currency}, Percentage={Percentage}%, RewardAmount={RewardAmount}",
+                    transaction.Platform, transaction.TransactionId, transaction.Amount, transaction.Currency, percentage, rewardAmount);
             }
 
             if (rewardAmount <= 0)
             {
-                _logger.LogWarning("Calculated reward amount is zero or negative for transaction {TransactionId} in store {StoreId}; aborting reward creation", transaction.TransactionId, storeId);
+                _logger.LogWarning("Calculated reward amount is zero or negative ({RewardAmount}) for transaction {TransactionId} in store {StoreId}; aborting reward creation",
+                    rewardAmount, transaction.TransactionId, storeId);
                 return false;
             }
             
@@ -199,6 +203,9 @@ public class BitcoinRewardsService
 
                 var hasEmailOrPhone = !string.IsNullOrEmpty(deliveryTarget);
 
+                _logger.LogInformation("Reward created for store {StoreId}, transaction {TransactionId}, order {OrderId} - HasEmailOrPhone: {HasEmailOrPhone}, DeliveryTarget: '{DeliveryTarget}', DeliveryMethod: {DeliveryMethod}",
+                    storeId, transaction.TransactionId, transaction.OrderId ?? transaction.TransactionId, hasEmailOrPhone, deliveryTarget, settings.DeliveryMethod);
+
                 if (hasEmailOrPhone)
                 {
                     var rewardAmountBtc = rewardSatoshis / 100_000_000m;
@@ -213,11 +220,17 @@ public class BitcoinRewardsService
                         settings.EmailTemplate,
                         settings.EmailSubject);
 
+                    _logger.LogInformation("Email notification result for store {StoreId}, transaction {TransactionId} - Sent: {Sent}", storeId, transaction.TransactionId, sent);
+
                     if (!sent)
                     {
                         reward.ErrorMessage = "Reward created but email notification failed (email plugin not available or send error)";
                         await _repository.UpdateRewardAsync(reward);
                     }
+                }
+                else
+                {
+                    _logger.LogInformation("Skipping email notification for store {StoreId}, transaction {TransactionId} - no delivery target available", storeId, transaction.TransactionId);
                 }
 
                 _logger.LogInformation("Reward pull payment created for store {StoreId} with pull payment {PullPaymentId}", storeId, pullPaymentResult.PullPaymentId);
@@ -256,26 +269,40 @@ public class BitcoinRewardsService
 
         try
         {
-            var currency = fromCurrency.Trim().ToLowerInvariant();
-            // Use CoinGecko simple price API as a lightweight rate source
-            var url = $"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={currency}";
-            var response = await _httpClient.GetAsync(url);
-            if (!response.IsSuccessStatusCode)
+            var currency = fromCurrency.Trim().ToUpperInvariant();
+            
+            // BTC to BTC is always 1
+            if (currency == "BTC")
+                return 1.0m;
+            
+            // Use BTCPay Server's rate fetcher with configured rate providers
+            var pair = new CurrencyPair("BTC", currency);
+            
+            // Get the store's default rate rules (using coingecko as fallback)
+            RateRules rules;
+            if (!RateRules.TryParse($"X_X = coingecko(X_X);", out rules))
             {
-                _logger.LogWarning("Rate fetch failed for {Currency}: {Status} {Reason}", currency, response.StatusCode, response.ReasonPhrase);
+                _logger.LogWarning("Failed to parse rate rules for {Currency}", currency);
                 return null;
             }
-
-            await using var stream = await response.Content.ReadAsStreamAsync();
-            var doc = await JsonDocument.ParseAsync(stream);
-            if (doc.RootElement.TryGetProperty("bitcoin", out var btcObj) &&
-                btcObj.TryGetProperty(currency, out var rateProp) &&
-                rateProp.TryGetDecimal(out var rate))
+            
+            var rateResult = await _rateFetcher.FetchRate(pair, rules, null, CancellationToken.None);
+            
+            if (rateResult?.BidAsk?.Bid != null && rateResult.BidAsk.Bid > 0)
             {
-                return rate;
+                return rateResult.BidAsk.Bid;
             }
 
-            _logger.LogWarning("Rate response missing currency {Currency}", currency);
+            if (rateResult?.ExchangeExceptions?.Any() == true)
+            {
+                foreach (var ex in rateResult.ExchangeExceptions)
+                {
+                    _logger.LogWarning("Rate fetch failed for {Currency} from {Exchange}: {Error}", 
+                        currency, ex.ExchangeName, ex.Exception?.Message ?? "Unknown error");
+                }
+            }
+            
+            _logger.LogWarning("No BTC rate available for currency {Currency}", currency);
             return null;
         }
         catch (Exception ex)
