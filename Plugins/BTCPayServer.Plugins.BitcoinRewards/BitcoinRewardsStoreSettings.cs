@@ -87,6 +87,12 @@ public class BitcoinRewardsStoreSettings
     public long? MaximumRewardSatoshis { get; set; }
     
     /// <summary>
+    /// Maximum single reward transaction cap (in sats) - security limit to prevent large fraudulent rewards
+    /// Default: 1,000,000 sats (0.01 BTC)
+    /// </summary>
+    public long MaximumSingleRewardSatoshis { get; set; } = 1_000_000;
+    
+    /// <summary>
     /// Selected payout processor ID for rewards (format: "{Processor}:{PayoutMethodId}")
     /// </summary>
     public string? SelectedPayoutProcessorId { get; set; }

@@ -65,11 +65,14 @@ public class BitcoinRewardsService
                 return false;
             }
 
-            var isTestReward = transaction.TransactionId.StartsWith("TEST_", StringComparison.OrdinalIgnoreCase);
-
-            // Check if platform is enabled (skip for test rewards)
-            // For manual test rewards, skip platform validation if no platform flags are set
-            if (!isTestReward && settings.EnabledPlatforms != PlatformFlags.None)
+            // Check if platform is enabled - fail-secure: reject if no platforms are explicitly enabled
+            if (settings.EnabledPlatforms == PlatformFlags.None)
+            {
+                _logger.LogWarning("No platforms enabled for store {StoreId}, rejecting transaction", storeId);
+                return false;
+            }
+            
+            if (settings.EnabledPlatforms != PlatformFlags.None)
             {
                 var platform = transaction.Platform switch
                 {
@@ -119,23 +122,14 @@ public class BitcoinRewardsService
                 return false;
             }
 
-            // Calculate reward amount
+            // Calculate reward amount using configured percentages
             decimal rewardAmount;
-            if (isTestReward)
-            {
-                // Test rewards always pay 100% of the entered amount (ignore store percentage)
-                rewardAmount = transaction.Amount > 0 ? transaction.Amount : 1m;
-                _logger.LogInformation("Test reward using full transaction amount {Amount} {Currency}", transaction.Amount, transaction.Currency);
-            }
-            else
-            {
-                var percentage = transaction.Platform == TransactionPlatform.Btcpay
-                    ? settings.BtcpayRewardPercentage
-                    : settings.ExternalRewardPercentage > 0 ? settings.ExternalRewardPercentage : settings.RewardPercentage;
-                rewardAmount = CalculateRewardAmount(transaction.Amount, percentage);
-                _logger.LogInformation("Reward calculation for {Platform} transaction {TransactionId}: Amount={Amount} {Currency}, Percentage={Percentage}%, RewardAmount={RewardAmount}",
-                    transaction.Platform, transaction.TransactionId, transaction.Amount, transaction.Currency, percentage, rewardAmount);
-            }
+            var percentage = transaction.Platform == TransactionPlatform.Btcpay
+                ? settings.BtcpayRewardPercentage
+                : settings.ExternalRewardPercentage > 0 ? settings.ExternalRewardPercentage : settings.RewardPercentage;
+            rewardAmount = CalculateRewardAmount(transaction.Amount, percentage);
+            _logger.LogInformation("Reward calculation for {Platform} transaction {TransactionId}: Amount={Amount} {Currency}, Percentage={Percentage}%, RewardAmount={RewardAmount}",
+                transaction.Platform, transaction.TransactionId, transaction.Amount, transaction.Currency, percentage, rewardAmount);
 
             if (rewardAmount <= 0)
             {
@@ -153,7 +147,15 @@ public class BitcoinRewardsService
                 return false;
             }
 
-            // Apply maximum reward cap if set
+            // Security: Enforce maximum single reward cap to prevent fraudulent large rewards
+            if (rewardSatoshis > settings.MaximumSingleRewardSatoshis)
+            {
+                _logger.LogWarning("🚨 SECURITY: Reward {RewardSats} sats exceeds maximum single reward cap {MaxSats} for store {StoreId}, transaction {TxId}. Rejecting reward.",
+                    rewardSatoshis, settings.MaximumSingleRewardSatoshis, storeId, transaction.TransactionId);
+                return false;
+            }
+
+            // Apply maximum reward cap if set (for backward compatibility)
             if (settings.MaximumRewardSatoshis.HasValue && 
                 rewardSatoshis > settings.MaximumRewardSatoshis.Value)
             {

@@ -60,7 +60,8 @@ public class SquareWebhookController : Controller
             var signature = Request.Headers["X-Square-Signature"].ToString()?.Trim();
             if (string.IsNullOrEmpty(signature))
             {
-                _logger.LogWarning("Square webhook missing signature");
+                _logger.LogWarning("🚨 SECURITY: Square webhook missing signature from IP {RemoteIP} for store {StoreId}", 
+                    HttpContext.Connection.RemoteIpAddress, storeId);
                 return BadRequest("Missing signature");
             }
 
@@ -73,7 +74,8 @@ public class SquareWebhookController : Controller
 
             if (string.IsNullOrWhiteSpace(signatureKey))
             {
-                _logger.LogWarning("Square webhook signature key not configured for store {StoreId}", storeId);
+                _logger.LogWarning("🚨 SECURITY: Square webhook signature key not configured for store {StoreId}, rejecting webhook from IP {RemoteIP}", 
+                    storeId, HttpContext.Connection.RemoteIpAddress);
                 return Unauthorized();
             }
 
@@ -114,8 +116,8 @@ public class SquareWebhookController : Controller
                 var maskedSha1 = firstComputedSha1?.Length > 8 ? firstComputedSha1.Substring(0, 4) + "..." : "n/a";
                 var maskedSha256 = firstComputedSha256?.Length > 8 ? firstComputedSha256.Substring(0, 4) + "..." : "n/a";
                 
-                _logger.LogWarning("Square webhook signature verification failed for store {StoreId} (sig={Sig}, urls tried: {Count}, computedSha1={Sha1}, computedSha256={Sha256})",
-                    storeId, maskedSignature, candidateUrls.Count, maskedSha1, maskedSha256);
+                _logger.LogWarning("🚨 SECURITY: Square webhook signature verification failed for store {StoreId} from IP {RemoteIP} (sig={Sig}, urls tried: {Count}, computedSha1={Sha1}, computedSha256={Sha256})",
+                    storeId, HttpContext.Connection.RemoteIpAddress, maskedSignature, candidateUrls.Count, maskedSha1, maskedSha256);
                 return Unauthorized();
             }
 
@@ -175,6 +177,13 @@ public class SquareWebhookController : Controller
                             Platform = TransactionPlatform.Square,
                             TransactionDate = DateTime.UtcNow
                         };
+
+                        // Log high-value transactions for monitoring
+                        if (amount > 1000) // > $1000
+                        {
+                            _logger.LogInformation("⚠️ High-value Square transaction detected: {Amount} {Currency} for store {StoreId}, payment {PaymentId}",
+                                amount, currency, storeId, paymentId);
+                        }
 
                         await _rewardsService.ProcessRewardAsync(storeId, transaction);
                         _logger.LogInformation("Processed Square webhook for payment {PaymentId}", paymentId);
@@ -273,6 +282,7 @@ public class SquareWebhookController : Controller
         }
     }
 
+#if DEBUG
     /// <summary>
     /// Test endpoint that bypasses signature validation - FOR TESTING ONLY
     /// POST /plugins/bitcoin-rewards/{storeId}/webhooks/square/test
@@ -378,4 +388,5 @@ public class SquareWebhookController : Controller
             return StatusCode(500, new { error = ex.Message });
         }
     }
+#endif
 }
