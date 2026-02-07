@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
@@ -15,6 +16,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     public override string Description => "Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.";
     
     public const string PluginNavKey = nameof(BitcoinRewardsPlugin) + "Nav";
+    
+    // Rate limiting: max 100 concurrent webhook requests
+    public static readonly SemaphoreSlim WebhookProcessingLock = new(100, 100);
 
     public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
     {

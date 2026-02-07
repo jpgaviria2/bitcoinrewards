@@ -45,15 +45,43 @@ public class SquareWebhookController : Controller
     }
 
     [HttpPost]
+    [RequestSizeLimit(1_048_576)] // Security: 1 MB limit
     public async Task<IActionResult> HandleWebhook(string storeId)
     {
+        // Security: Rate limiting - prevent webhook flooding
+        if (!await BitcoinRewardsPlugin.WebhookProcessingLock.WaitAsync(TimeSpan.FromSeconds(2)))
+        {
+            var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+            _logger.LogWarning("🚨 SECURITY: Webhook processing capacity exceeded from IP {IP} for store {StoreId}", 
+                clientIp, storeId);
+            return StatusCode(429, "Too many requests - please try again later");
+        }
+        
         try
         {
-            // Read request body
+            // Security: Read request body with size validation
             string requestBody;
             using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
             {
-                requestBody = await reader.ReadToEndAsync();
+                const int maxSize = 1_048_576; // 1 MB
+                var buffer = new char[8192];
+                var sb = new StringBuilder();
+                int totalRead = 0;
+                int read;
+                
+                while ((read = await reader.ReadAsync(buffer, 0, Math.Min(buffer.Length, maxSize - totalRead))) > 0)
+                {
+                    totalRead += read;
+                    if (totalRead > maxSize)
+                    {
+                        _logger.LogWarning("🚨 SECURITY: Oversized webhook payload from IP {IP}", 
+                            HttpContext.Connection.RemoteIpAddress);
+                        return BadRequest("Payload too large");
+                    }
+                    sb.Append(buffer, 0, read);
+                }
+                
+                requestBody = sb.ToString();
             }
 
             // Get webhook signature from headers
@@ -79,34 +107,33 @@ public class SquareWebhookController : Controller
                 return Unauthorized();
             }
 
+            // Security: Check ALL candidates in constant time to prevent timing attacks
             var verified = false;
             string? firstComputedSha1 = null;
             string? firstComputedSha256 = null;
-            foreach (var url in candidateUrls)
+            bool[] results = new bool[candidateUrls.Count];
+            
+            for (int i = 0; i < candidateUrls.Count; i++)
             {
+                var url = candidateUrls[i];
                 var computedSha1 = ComputeSignatureSha1(url, requestBody, signatureKey);
                 var computedSha256 = ComputeSignatureSha256(url, requestBody, signatureKey);
                 firstComputedSha1 ??= computedSha1;
                 firstComputedSha256 ??= computedSha256;
 
-                if (!string.IsNullOrEmpty(computedSha1) &&
-                    CryptographicOperations.FixedTimeEquals(
-                        Encoding.UTF8.GetBytes(computedSha1),
-                        Encoding.UTF8.GetBytes(signature)))
-                {
-                    verified = true;
-                    break;
-                }
-
-                if (!string.IsNullOrEmpty(computedSha256) &&
-                    CryptographicOperations.FixedTimeEquals(
-                        Encoding.UTF8.GetBytes(computedSha256),
-                        Encoding.UTF8.GetBytes(signature)))
-                {
-                    verified = true;
-                    break;
-                }
+                results[i] = 
+                    (!string.IsNullOrEmpty(computedSha1) &&
+                     CryptographicOperations.FixedTimeEquals(
+                         Encoding.UTF8.GetBytes(computedSha1),
+                         Encoding.UTF8.GetBytes(signature))) ||
+                    (!string.IsNullOrEmpty(computedSha256) &&
+                     CryptographicOperations.FixedTimeEquals(
+                         Encoding.UTF8.GetBytes(computedSha256),
+                         Encoding.UTF8.GetBytes(signature)));
             }
+            
+            // Check results after all computations complete
+            verified = results.Any(r => r);
 
             if (!verified)
             {
@@ -198,6 +225,11 @@ public class SquareWebhookController : Controller
             _logger.LogError(ex, "Error processing Square webhook for store {StoreId}", storeId);
             return StatusCode(500);
         }
+        finally
+        {
+            // Security: Always release rate limiting lock
+            BitcoinRewardsPlugin.WebhookProcessingLock.Release();
+        }
     }
 
     private static List<string> BuildSignatureUrls(string primaryUrl)
@@ -288,10 +320,26 @@ public class SquareWebhookController : Controller
     /// POST /plugins/bitcoin-rewards/{storeId}/webhooks/square/test
     /// </summary>
     [HttpPost("test")]
+    [Authorize(Policy = BTCPayServer.Client.Policies.CanModifyStoreSettings)]
     public async Task<IActionResult> HandleTestWebhook(string storeId)
     {
         try
         {
+            // Security: Validate store exists and user has access
+            var store = await _storeRepository.FindStore(storeId);
+            if (store == null)
+            {
+                _logger.LogWarning("🚨 SECURITY: Test webhook attempted on non-existent store {StoreId}", storeId);
+                return NotFound($"Store {storeId} not found");
+            }
+            
+            // Security: Verify user has access to this store
+            if (!string.IsNullOrEmpty(User.Identity?.Name))
+            {
+                _logger.LogWarning("⚠️ TEST WEBHOOK USED in store {StoreId} by user {User} - signature validation bypassed", 
+                    storeId, User.Identity.Name);
+            }
+            
             _logger.LogInformation("🧪 TEST: Square webhook test endpoint called for store {StoreId}", storeId);
 
             // Read request body

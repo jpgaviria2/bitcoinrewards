@@ -22,6 +22,12 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.StoreId);
             entity.HasIndex(e => new { e.StoreId, e.TransactionId, e.Platform });
+            
+            // Security: Unique constraint to prevent duplicate rewards at database level
+            entity.HasIndex(e => new { e.StoreId, e.TransactionId, e.Platform })
+                .IsUnique()
+                .HasDatabaseName("IX_BitcoinRewardRecords_StoreId_TransactionId_Platform_Unique");
+            
             entity.HasIndex(e => e.Status);
         });
     }

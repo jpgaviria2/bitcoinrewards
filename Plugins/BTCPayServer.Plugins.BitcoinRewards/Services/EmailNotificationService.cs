@@ -46,6 +46,41 @@ public class EmailNotificationService : IEmailNotificationService
         _httpContextAccessor = httpContextAccessor;
     }
 
+    // Security: Email validation to prevent header injection
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+        
+        // Reject emails with CRLF characters (header injection attack)
+        if (email.Contains('\r') || email.Contains('\n') || email.Contains('\0'))
+            return false;
+        
+        // Basic email validation
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email && email.Length <= 320; // RFC 5321
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    
+    // Security: Sanitize email headers to prevent injection
+    private static string SanitizeEmailHeader(string? header)
+    {
+        if (string.IsNullOrEmpty(header))
+            return string.Empty;
+        
+        return header
+            .Replace("\r", "")
+            .Replace("\n", "")
+            .Replace("\0", "")
+            .Trim();
+    }
+
     public async Task<bool> SendRewardNotificationAsync(
         string recipient,
         DeliveryMethod deliveryMethod,
@@ -116,7 +151,15 @@ public class EmailNotificationService : IEmailNotificationService
                 return false;
             }
 
-            var subject = BuildSubject(rewardAmountSatoshis, emailSubjectOverride);
+            // Security: Validate and sanitize email
+            if (!IsValidEmail(recipient))
+            {
+                _logger.LogWarning("🚨 SECURITY: Invalid email format rejected: {Email}", 
+                    recipient?.Replace("\r", "").Replace("\n", "").Replace("\0", ""));
+                return false;
+            }
+            
+            var subject = SanitizeEmailHeader(BuildSubject(rewardAmountSatoshis, emailSubjectOverride));
             var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, normalizedClaimLink, lnurlBech32, emailTemplateOverride);
             var mailboxAddress = MailboxAddress.Parse(recipient);
             using var message = smtpSettings.CreateMailMessage(mailboxAddress, subject, body, true);
@@ -135,7 +178,15 @@ public class EmailNotificationService : IEmailNotificationService
 
     private async Task<bool> SendViaEmailSender(object emailSender, string recipient, long rewardAmountSatoshis, decimal rewardAmountBtc, string orderId, string? pullPaymentLink, string? lnurlBech32, string? emailTemplateOverride, string? emailSubjectOverride)
     {
-        var subject = BuildSubject(rewardAmountSatoshis, emailSubjectOverride);
+        // Security: Validate email before sending
+        if (!IsValidEmail(recipient))
+        {
+            _logger.LogWarning("🚨 SECURITY: Invalid email format rejected: {Email}", 
+                recipient?.Replace("\r", "").Replace("\n", "").Replace("\0", ""));
+            return false;
+        }
+        
+        var subject = SanitizeEmailHeader(BuildSubject(rewardAmountSatoshis, emailSubjectOverride));
         var body = BuildBody(orderId, rewardAmountBtc, rewardAmountSatoshis, pullPaymentLink, lnurlBech32, emailTemplateOverride);
         var mailboxAddress = MailboxAddress.Parse(recipient);
 

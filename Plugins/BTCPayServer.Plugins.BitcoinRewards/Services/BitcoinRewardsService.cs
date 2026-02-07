@@ -21,6 +21,33 @@ public class BitcoinRewardsService
     private const decimal SATS_PER_BTC = 100_000_000m;
     private const decimal MSATS_PER_SAT = 1000m;
     private const long MIN_SATOSHIS = 1L;
+
+    // Security: PII masking for logs
+    private static string MaskEmail(string? email)
+    {
+        if (string.IsNullOrEmpty(email))
+            return "***";
+        
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 0)
+            return "***";
+        
+        var localPart = email.Substring(0, atIndex);
+        var domain = email.Substring(atIndex);
+        
+        if (localPart.Length <= 2)
+            return $"**{domain}";
+        
+        return $"{localPart[0]}***{localPart[^1]}{domain}";
+    }
+    
+    private static string MaskPhone(string? phone)
+    {
+        if (string.IsNullOrEmpty(phone) || phone.Length < 4)
+            return "***";
+        
+        return $"***{phone.Substring(phone.Length - 4)}";
+    }
     
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _repository;
@@ -187,7 +214,19 @@ public class BitcoinRewardsService
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Attempt to create a native pull payment first
+            // Security: Save reward to database - unique constraint will prevent duplicates
+            try
+            {
+                await _repository.AddRewardAsync(reward);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) 
+                when (ex.InnerException?.Message?.Contains("duplicate key") == true ||
+                      ex.InnerException?.Message?.Contains("UNIQUE constraint") == true)
+            {
+                _logger.LogWarning("🚨 SECURITY: Duplicate transaction {TransactionId} blocked by database constraint for store {StoreId} (concurrent request)",
+                    transaction.TransactionId, storeId);
+                return false;
+            }
             var pullPaymentResult = await _pullPaymentService.CreatePullPaymentAsync(
                 storeId,
                 rewardSatoshis,
@@ -212,8 +251,13 @@ public class BitcoinRewardsService
 
                 var hasEmailOrPhone = !string.IsNullOrEmpty(deliveryTarget);
 
-                _logger.LogInformation("Reward created for store {StoreId}, transaction {TransactionId}, order {OrderId} - HasEmailOrPhone: {HasEmailOrPhone}, DeliveryTarget: '{DeliveryTarget}', DeliveryMethod: {DeliveryMethod}",
-                    storeId, transaction.TransactionId, transaction.OrderId ?? transaction.TransactionId, hasEmailOrPhone, deliveryTarget, settings.DeliveryMethod);
+                // Security: Mask PII in logs
+                var maskedTarget = settings.DeliveryMethod == DeliveryMethod.Email 
+                    ? MaskEmail(deliveryTarget) 
+                    : MaskPhone(deliveryTarget);
+                
+                _logger.LogInformation("Reward created for store {StoreId}, transaction {TransactionId}, order {OrderId} - HasEmailOrPhone: {HasEmailOrPhone}, DeliveryTarget: '{MaskedTarget}', DeliveryMethod: {DeliveryMethod}",
+                    storeId, transaction.TransactionId, transaction.OrderId ?? transaction.TransactionId, hasEmailOrPhone, maskedTarget, settings.DeliveryMethod);
 
                 if (hasEmailOrPhone)
                 {
@@ -376,6 +420,17 @@ public class BitcoinRewardsService
     {
         try
         {
+            // Security: Validate input range before conversion to prevent integer overflow
+            const decimal MAX_BTC_AMOUNT = 21_000_000m; // Total BTC supply
+            const decimal MAX_SATS_DECIMAL = 2_100_000_000_000_000m; // 21M BTC in sats
+            
+            if (amount < 0)
+            {
+                _logger.LogWarning("🚨 SECURITY: Negative amount {Amount} {Currency} rejected for store {StoreId}", 
+                    amount, fromCurrency, storeId);
+                return 0L;
+            }
+            
             var currency = string.IsNullOrWhiteSpace(fromCurrency)
                 ? "BTC"
                 : fromCurrency.Trim().ToUpperInvariant();
@@ -387,6 +442,12 @@ public class BitcoinRewardsService
             // Native sat and btc handling (no fiat conversion needed)
             if (currency is "SAT" or "SATS" or "SATOSHI" or "SATOSHIS")
             {
+                if (amount > MAX_SATS_DECIMAL)
+                {
+                    _logger.LogWarning("🚨 SECURITY: Excessive satoshi amount {Amount} rejected for store {StoreId}", 
+                        amount, storeId);
+                    return 0L;
+                }
                 satoshis = EnsureNonNegative((long)Math.Round(amount, MidpointRounding.AwayFromZero));
                 return satoshis;
             }
@@ -399,9 +460,26 @@ public class BitcoinRewardsService
 
             if (currency == "BTC")
             {
+                if (amount > MAX_BTC_AMOUNT)
+                {
+                    _logger.LogWarning("🚨 SECURITY: Excessive BTC amount {Amount} rejected for store {StoreId}", 
+                        amount, storeId);
+                    return 0L;
+                }
+                
+                var satsDecimal = amount * SATS_PER_BTC;
+                
+                // Check before casting to long to prevent overflow
+                if (satsDecimal > long.MaxValue || satsDecimal < 0)
+                {
+                    _logger.LogWarning("🚨 SECURITY: Satoshi overflow detected for {Amount} BTC in store {StoreId}", 
+                        amount, storeId);
+                    return 0L;
+                }
+                
                 checked
                 {
-                    satoshis = EnsureNonNegative((long)Math.Round(amount * SATS_PER_BTC, MidpointRounding.AwayFromZero));
+                    satoshis = EnsureNonNegative((long)Math.Round(satsDecimal, MidpointRounding.AwayFromZero));
                 }
                 return satoshis;
             }
@@ -414,9 +492,27 @@ public class BitcoinRewardsService
             }
 
             var btcAmount = amount / rate.Value;
+            
+            // Security: Validate BTC amount before conversion
+            if (btcAmount > MAX_BTC_AMOUNT)
+            {
+                _logger.LogWarning("🚨 SECURITY: Fiat conversion resulted in excessive BTC amount {Amount} for store {StoreId}", 
+                    btcAmount, storeId);
+                return 0L;
+            }
+            
+            var fiatSatsDecimal = btcAmount * SATS_PER_BTC;
+            
+            if (fiatSatsDecimal > long.MaxValue || fiatSatsDecimal < 0)
+            {
+                _logger.LogWarning("🚨 SECURITY: Satoshi overflow in fiat conversion for {Amount} {Currency} in store {StoreId}", 
+                    amount, currency, storeId);
+                return 0L;
+            }
+            
             checked
             {
-                satoshis = EnsureNonNegative((long)Math.Round(btcAmount * SATS_PER_BTC, MidpointRounding.AwayFromZero));
+                satoshis = EnsureNonNegative((long)Math.Round(fiatSatsDecimal, MidpointRounding.AwayFromZero));
             }
 
             // Enforce minimum 1 sat when amount > 0 to avoid zeroed rewards
@@ -426,6 +522,12 @@ public class BitcoinRewardsService
             }
 
             return satoshis;
+        }
+        catch (OverflowException ex)
+        {
+            _logger.LogError(ex, "🚨 SECURITY: Integer overflow in satoshi conversion for {Amount} {Currency}", 
+                amount, fromCurrency);
+            return 0L;
         }
         catch (Exception ex)
         {
