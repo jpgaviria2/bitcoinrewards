@@ -110,6 +110,34 @@ public class BitcoinRewardsRepository
                           r.Platform == platform);
     }
     
+    /// <summary>
+    /// Returns orphaned reward records that have an OrderId but are missing ClaimLink/PullPaymentId.
+    /// These are records where the DB insert succeeded but the pull payment info was never persisted.
+    /// </summary>
+    public async Task<List<BitcoinRewardRecord>> GetOrphanedRewardsAsync(string storeId)
+    {
+        await using var context = _dbContextFactory.CreateContext();
+        return await context.BitcoinRewardRecords
+            .Where(r => r.StoreId == storeId &&
+                       r.Status == RewardStatus.Pending &&
+                       !string.IsNullOrEmpty(r.OrderId) &&
+                       (r.ClaimLink == null || r.PullPaymentId == null))
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get a reward record by transaction ID and platform (for duplicate/recovery lookup).
+    /// </summary>
+    public async Task<BitcoinRewardRecord?> GetRewardByTransactionAsync(string storeId, string transactionId, RewardPlatform platform)
+    {
+        await using var context = _dbContextFactory.CreateContext();
+        return await context.BitcoinRewardRecords
+            .FirstOrDefaultAsync(r => r.StoreId == storeId &&
+                                     r.TransactionId == transactionId &&
+                                     r.Platform == platform);
+    }
+
     public async Task<BitcoinRewardRecord?> GetLatestUnclaimedRewardAsync(string storeId, int timeframeMinutes, int displayTimeoutSeconds)
     {
         await using var context = _dbContextFactory.CreateContext();

@@ -393,6 +393,40 @@ public class UIBitcoinRewardsController : Controller
         return RedirectToAction(nameof(RewardsHistory), new { storeId });
     }
 
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/recover-orphaned")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> RecoverOrphanedRewards(string storeId)
+    {
+        try
+        {
+            var rewardsService = HttpContext.RequestServices.GetRequiredService<BitcoinRewardsService>();
+            var recovered = await rewardsService.RecoverOrphanedRewardsAsync(storeId);
+
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = recovered > 0
+                    ? $"Recovered {recovered} orphaned reward(s)"
+                    : "No orphaned rewards found to recover",
+                Severity = recovered > 0
+                    ? StatusMessageModel.StatusSeverity.Success
+                    : StatusMessageModel.StatusSeverity.Info
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error recovering orphaned rewards for store {StoreId}", storeId);
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = $"Error recovering rewards: {ex.Message}",
+                Severity = StatusMessageModel.StatusSeverity.Error
+            });
+        }
+
+        return RedirectToAction(nameof(RewardsHistory), new { storeId });
+    }
+
     [HttpGet]
     [Route("plugins/bitcoin-rewards/{storeId}/display")]
     [Authorize(Policy = Policies.CanViewStoreSettings)]

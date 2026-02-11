@@ -247,7 +247,7 @@ public class BitcoinRewardsService
                     ? transaction.CustomerEmail
                     : transaction.CustomerPhone;
 
-                await _repository.AddRewardAsync(reward);
+                await _repository.UpdateRewardAsync(reward);
 
                 var hasEmailOrPhone = !string.IsNullOrEmpty(deliveryTarget);
 
@@ -295,9 +295,9 @@ public class BitcoinRewardsService
                 _logger.LogWarning("Pull payment creation failed for store {StoreId}: {Error}", storeId, pullPaymentResult.Error);
             }
 
-            // Pull payment failed: persist record with pending status and error for visibility
+            // Pull payment failed: update existing record with pending status and error for visibility
             reward.Status = RewardStatus.Pending;
-            await _repository.AddRewardAsync(reward);
+            await _repository.UpdateRewardAsync(reward);
             _logger.LogWarning("Reward stored as pending due to pull payment failure for transaction {TransactionId} in store {StoreId}", 
                 transaction.TransactionId, storeId);
             return false;
@@ -308,6 +308,65 @@ public class BitcoinRewardsService
                 transaction.TransactionId, storeId);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Recovers orphaned reward records by re-creating pull payments for records
+    /// that have an OrderId but are missing ClaimLink/PullPaymentId.
+    /// Returns the number of records recovered.
+    /// </summary>
+    public async Task<int> RecoverOrphanedRewardsAsync(string storeId)
+    {
+        var orphaned = await _repository.GetOrphanedRewardsAsync(storeId);
+        if (orphaned.Count == 0)
+            return 0;
+
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+            storeId, BitcoinRewardsStoreSettings.SettingsName);
+        if (settings == null)
+            return 0;
+
+        int recovered = 0;
+        foreach (var reward in orphaned)
+        {
+            try
+            {
+                var pullPaymentResult = await _pullPaymentService.CreatePullPaymentAsync(
+                    storeId,
+                    reward.RewardAmountSatoshis,
+                    settings.SelectedPayoutProcessorId,
+                    reward.OrderId ?? reward.TransactionId,
+                    CancellationToken.None);
+
+                if (pullPaymentResult.Success && !string.IsNullOrEmpty(pullPaymentResult.PullPaymentId))
+                {
+                    reward.PullPaymentId = pullPaymentResult.PullPaymentId;
+                    reward.PayoutProcessor = pullPaymentResult.PayoutProcessor;
+                    reward.PayoutMethod = pullPaymentResult.PayoutMethod;
+                    reward.ClaimLink = pullPaymentResult.ClaimLink;
+                    reward.Status = RewardStatus.Sent;
+                    reward.SentAt = DateTime.UtcNow;
+                    reward.ErrorMessage = null;
+
+                    await _repository.UpdateRewardAsync(reward);
+                    recovered++;
+
+                    _logger.LogInformation("Recovered orphaned reward {RewardId} for order {OrderId} in store {StoreId} with pull payment {PullPaymentId}",
+                        reward.Id, reward.OrderId, storeId, pullPaymentResult.PullPaymentId);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to recover orphaned reward {RewardId}: {Error}",
+                        reward.Id, pullPaymentResult.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error recovering orphaned reward {RewardId}", reward.Id);
+            }
+        }
+
+        return recovered;
     }
 
     public decimal CalculateRewardAmount(decimal transactionAmount, decimal percentage)
