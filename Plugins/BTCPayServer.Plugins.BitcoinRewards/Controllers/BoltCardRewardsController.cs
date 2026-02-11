@@ -231,6 +231,36 @@ public class BoltCardRewardsController : Controller
         public string RewardId { get; set; } = string.Empty;
     }
 
+    /// <summary>
+    /// Dismiss a reward from the display page (marks as Redeemed).
+    /// Anonymous endpoint — no auth required since the display page may be on a kiosk.
+    /// </summary>
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/dismiss-reward")]
+    public async Task<IActionResult> DismissReward(string storeId, [FromBody] DismissRewardRequest? request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.RewardId))
+            return BadRequest(new { error = "rewardId required" });
+
+        if (!Guid.TryParse(request.RewardId, out var rewardGuid))
+            return BadRequest(new { error = "invalid rewardId" });
+
+        var reward = await _rewardsRepository.GetRewardAsync(rewardGuid, storeId);
+        if (reward == null)
+            return NotFound(new { error = "reward not found" });
+
+        reward.Status = RewardStatus.Redeemed;
+        await _rewardsRepository.UpdateRewardAsync(reward);
+
+        _logger.LogInformation("DismissReward: Reward {RewardId} dismissed for store {StoreId}", request.RewardId, storeId);
+        return Ok(new { success = true });
+    }
+
+    public class DismissRewardRequest
+    {
+        public string? RewardId { get; set; }
+    }
+
     public class BoltCardTapResponse
     {
         public bool Success { get; set; }

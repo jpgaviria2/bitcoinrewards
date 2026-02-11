@@ -318,7 +318,7 @@ else
                 
                 @if (Model.BoltCardEnabled)
                 {
-                <div id="nfc-section" style="margin-top: 30px; display: none;">
+                <div id="nfc-section" style="margin-top: 30px;">
                     <div style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 10px;">
                         <p style="color: #667eea; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
                             — OR —
@@ -448,9 +448,14 @@ else
             let nfcReader = null;
             let nfcProcessing = false;
             
-            // Show NFC section only if Web NFC is available (Android Chrome)
-            if ('NDEFReader' in window) {
-                nfcSection.style.display = 'block';
+            // Show NFC unavailable message if Web NFC is not supported
+            if (!('NDEFReader' in window)) {
+                const btn = document.getElementById('nfc-tap-btn');
+                if (btn) {
+                    btn.textContent = '📱 NFC not available on this browser';
+                    btn.style.opacity = '0.5';
+                    btn.disabled = true;
+                }
             }
             
             async function startNfcRead() {

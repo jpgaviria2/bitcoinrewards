@@ -431,30 +431,6 @@ public class UIBitcoinRewardsController : Controller
         return RedirectToAction(nameof(RewardsHistory), new { storeId });
     }
 
-    [HttpPost]
-    [Route("plugins/bitcoin-rewards/{storeId}/dismiss-reward")]
-    [AllowAnonymous]
-    [IgnoreAntiforgeryToken]
-    public async Task<IActionResult> DismissReward(string storeId, [FromBody] DismissRewardRequest? request)
-    {
-        if (request == null || string.IsNullOrEmpty(request.RewardId))
-            return BadRequest(new { error = "rewardId required" });
-            
-        if (!Guid.TryParse(request.RewardId, out var rewardGuid))
-            return BadRequest(new { error = "invalid rewardId" });
-            
-        var reward = await _rewardsRepository.GetRewardAsync(rewardGuid, storeId);
-        if (reward == null)
-            return NotFound(new { error = "reward not found" });
-        
-        // Mark as redeemed so it no longer shows on display
-        reward.Status = RewardStatus.Redeemed;
-        await _rewardsRepository.UpdateRewardAsync(reward);
-        
-        _logger.LogInformation("DismissReward: Reward {RewardId} dismissed for store {StoreId}", request.RewardId, storeId);
-        return Ok(new { success = true });
-    }
-
     [HttpGet]
     [Route("plugins/bitcoin-rewards/{storeId}/display")]
     [Authorize(Policy = Policies.CanViewStoreSettings)]
