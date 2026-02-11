@@ -117,6 +117,17 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Display Template Override (Optional)")]
     public string? DisplayTemplateOverride { get; set; }
     
+    // Bolt Card Settings
+    [Display(Name = "Enable Bolt Card NFC Rewards")]
+    public bool BoltCardEnabled { get; set; }
+    
+    [Display(Name = "Boltcard Factory App ID (optional)")]
+    public string? BoltcardFactoryAppId { get; set; }
+    
+    [Display(Name = "Default Card Balance (sats)")]
+    [Range(0, 1_000_000, ErrorMessage = "Default card balance must be between 0 and 1,000,000 sats")]
+    public long DefaultCardBalanceSats { get; set; } = 100;
+    
     public PlatformFlags GetEnabledPlatforms()
     {
         PlatformFlags flags = PlatformFlags.None;
@@ -184,6 +195,10 @@ public class BitcoinRewardsSettingsViewModel
         DisplayAutoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
         DisplayTimeframeMinutes = settings.DisplayTimeframeMinutes;
         DisplayTemplateOverride = settings.DisplayTemplateOverride;
+        
+        BoltCardEnabled = settings.BoltCardEnabled;
+        BoltcardFactoryAppId = settings.BoltcardFactoryAppId;
+        DefaultCardBalanceSats = settings.DefaultCardBalanceSats;
     }
     
     public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
@@ -207,6 +222,10 @@ public class BitcoinRewardsSettingsViewModel
         settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
         settings.DisplayTimeframeMinutes = DisplayTimeframeMinutes;
         settings.DisplayTemplateOverride = DisplayTemplateOverride;
+        
+        settings.BoltCardEnabled = BoltCardEnabled;
+        settings.BoltcardFactoryAppId = BoltcardFactoryAppId;
+        settings.DefaultCardBalanceSats = DefaultCardBalanceSats;
         
         if (EnableShopify)
         {

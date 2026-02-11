@@ -498,7 +498,9 @@ public class UIBitcoinRewardsController : Controller
             RemainingSeconds = remainingSeconds,
             PullPaymentId = latestReward.PullPaymentId,
             CustomTemplate = settings.DisplayTemplateOverride,
-            LnurlString = lnurlBech32
+            LnurlString = lnurlBech32,
+            BoltCardEnabled = settings.BoltCardEnabled,
+            RewardId = latestReward.Id.ToString()
         };
         
         ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");

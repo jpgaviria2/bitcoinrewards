@@ -102,6 +102,23 @@ public class BitcoinRewardsStoreSettings
     /// </summary>
     public string? ServerBaseUrl { get; set; }
     
+    // ── Bolt Card Settings ──
+
+    /// <summary>
+    /// Whether Bolt Card NFC tap-to-collect is enabled on the rewards display page.
+    /// </summary>
+    public bool BoltCardEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Optional reference to a BoltcardFactory app used for mass card issuance.
+    /// </summary>
+    public string? BoltcardFactoryAppId { get; set; }
+
+    /// <summary>
+    /// Default initial balance (in sats) loaded onto each new card's pull payment.
+    /// </summary>
+    public long DefaultCardBalanceSats { get; set; } = 100;
+
     /// <summary>
     /// How long the QR code should be displayed before automatically hiding (in seconds)
     /// </summary>

@@ -121,6 +121,43 @@ cd /tmp/plugin-build && zip -r BTCPayServer.Plugins.BitcoinRewards.btcpay .
 - [Plugin Compliance](docs/PLUGIN_COMPLIANCE.md)
 - [Roadmap](docs/ROADMAP.md)
 
+## Bolt Card NFC Rewards
+
+Customers with NTAG 424 DNA bolt cards can collect rewards by tapping their card on the rewards display device (Android with Chrome).
+
+### Prerequisites
+
+- **BTCPay Server >= 2.1.0** with the **[Boltcards Plugin](https://plugin-builder.btcpayserver.org/public/plugins/boltcards-plugin)** installed (by NicolasDorier)
+- This provides: BoltcardFactory (card issuance), BoltcardBalance (balance page), and the NFC tap-to-pay infrastructure
+- **Physical NTAG 424 DNA NFC cards** (regular NFC cards won't work)
+- **Android device with Chrome** for the rewards display (Web NFC is Android Chrome only)
+
+### Setup
+
+1. **Install the Boltcards plugin** on your BTCPay Server (Settings → Plugins → search "Boltcards")
+2. **Create a BoltcardFactory app** in your store (Apps → Create → Boltcard Factory) — configure with SATS currency and your desired initial balance (e.g. 100 sats)
+3. **Issue cards** using the Factory page + Bolt Card Creator Android app — each card gets a pull payment
+4. **Enable Bolt Card rewards** in Bitcoin Rewards settings → set "Enable Bolt Card NFC Rewards" to ON, enter your Factory App ID
+5. **Get balance URLs** from `GET /plugins/bitcoin-rewards/{storeId}/boltcard/cards` to print QR codes on physical cards
+
+### How It Works
+
+1. Customer makes a purchase → reward is calculated (existing flow)
+2. Rewards display page shows both a QR code (LNURL-withdraw) AND an NFC tap button
+3. **QR code flow** (existing): customer scans with any Lightning wallet → one-time claim
+4. **NFC tap flow** (new): customer taps bolt card on the display device → reward is added to card's pull payment balance → card can be spent at POS or any Lightning merchant
+5. Cards are anonymous — no customer account needed
+
+### Card Balance
+
+Each card's balance can be checked at its pull payment URL. Print a QR code with the balance URL on the physical card so customers can check their balance anytime.
+
+### API Endpoints
+
+- `POST /plugins/bitcoin-rewards/boltcard/tap` — NFC tap collection (anonymous, CMAC-verified)
+- `GET /plugins/bitcoin-rewards/{storeId}/boltcard/cards` — Admin: list all cards with balance URLs
+- `GET /plugins/bitcoin-rewards/boltcard/balance/{pullPaymentId}` — Redirect to balance page
+
 ## Support & Contributions
 
 - **Issues**: [GitHub Issues](https://github.com/jpgaviria2/bitcoinrewards/issues)

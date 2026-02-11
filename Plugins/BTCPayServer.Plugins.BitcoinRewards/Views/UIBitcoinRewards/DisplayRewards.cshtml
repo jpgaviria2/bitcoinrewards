@@ -311,6 +311,47 @@ else
                     Trails Coffee Rewards Wallet
                 </div>
                 
+                @if (Model.BoltCardEnabled)
+                {
+                <div id="nfc-section" style="margin-top: 30px; display: none;">
+                    <div style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 10px;">
+                        <p style="color: #667eea; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
+                            — OR —
+                        </p>
+                        <button id="nfc-tap-btn" onclick="startNfcRead()" style="
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            border: none;
+                            padding: 20px 40px;
+                            font-size: 1.4rem;
+                            border-radius: 16px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+                            transition: all 0.3s ease;
+                        ">
+                            📱 Tap Your Rewards Card
+                        </button>
+                        <p style="color: #888; font-size: 0.95rem; margin-top: 10px;">
+                            Hold your NFC card to the back of this device
+                        </p>
+                    </div>
+                    <div id="nfc-status" style="margin-top: 15px; font-size: 1.2rem; color: #333; display: none;"></div>
+                    <div id="nfc-success" style="margin-top: 15px; display: none;">
+                        <div style="background: #d4edda; border: 2px solid #28a745; border-radius: 12px; padding: 20px; color: #155724;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
+                            <div style="font-size: 1.4rem; font-weight: 700;" id="nfc-success-amount"></div>
+                            <div style="font-size: 1.1rem; margin-top: 8px;" id="nfc-success-balance"></div>
+                        </div>
+                    </div>
+                    <div id="nfc-error" style="margin-top: 15px; display: none;">
+                        <div style="background: #f8d7da; border: 2px solid #dc3545; border-radius: 12px; padding: 20px; color: #721c24;">
+                            <div style="font-size: 1.2rem;" id="nfc-error-msg"></div>
+                        </div>
+                    </div>
+                </div>
+                }
+                
                 <div class="countdown-timer" id="countdown-timer">
                     Time remaining: <span id="countdown-seconds">@Model.RemainingSeconds</span>s
                 </div>
@@ -390,6 +431,148 @@ else
                 hideReward();
             }
         </script>
+        
+        @if (Model.BoltCardEnabled)
+        {
+        <script>
+            // Web NFC support for Bolt Card tap-to-collect
+            const nfcSection = document.getElementById('nfc-section');
+            const nfcStatus = document.getElementById('nfc-status');
+            const nfcSuccess = document.getElementById('nfc-success');
+            const nfcError = document.getElementById('nfc-error');
+            const rewardId = '@Model.RewardId';
+            let nfcReader = null;
+            let nfcProcessing = false;
+            
+            // Show NFC section only if Web NFC is available (Android Chrome)
+            if ('NDEFReader' in window) {
+                nfcSection.style.display = 'block';
+            }
+            
+            async function startNfcRead() {
+                if (nfcProcessing) return;
+                if (!('NDEFReader' in window)) {
+                    showNfcError('NFC not supported on this device. Use the QR code instead.');
+                    return;
+                }
+                
+                try {
+                    nfcReader = new NDEFReader();
+                    nfcStatus.style.display = 'block';
+                    nfcStatus.innerHTML = '<span style="color: #667eea;">📡 Ready — tap your card now...</span>';
+                    nfcError.style.display = 'none';
+                    nfcSuccess.style.display = 'none';
+                    
+                    document.getElementById('nfc-tap-btn').disabled = true;
+                    document.getElementById('nfc-tap-btn').textContent = '📡 Waiting for card...';
+                    
+                    await nfcReader.scan();
+                    
+                    nfcReader.addEventListener('reading', async ({ message }) => {
+                        if (nfcProcessing) return;
+                        nfcProcessing = true;
+                        
+                        // Extract the NDEF URL record
+                        let cardUrl = null;
+                        for (const record of message.records) {
+                            if (record.recordType === 'url') {
+                                const decoder = new TextDecoder();
+                                cardUrl = decoder.decode(record.data);
+                                break;
+                            }
+                        }
+                        
+                        if (!cardUrl) {
+                            showNfcError('No URL found on card. Is this a valid Bolt Card?');
+                            nfcProcessing = false;
+                            return;
+                        }
+                        
+                        // Extract p and c parameters from the card's URL
+                        try {
+                            const url = new URL(cardUrl);
+                            const p = url.searchParams.get('p');
+                            const c = url.searchParams.get('c');
+                            
+                            if (!p || !c) {
+                                // Try k1 format (p-c combined)
+                                const k1 = url.searchParams.get('k1');
+                                if (k1 && k1.includes('-')) {
+                                    const parts = k1.split('-');
+                                    await submitTap(parts[0], parts[1]);
+                                } else {
+                                    showNfcError('Card URL missing required parameters.');
+                                    nfcProcessing = false;
+                                }
+                                return;
+                            }
+                            
+                            await submitTap(p, c);
+                        } catch (e) {
+                            showNfcError('Error reading card: ' + e.message);
+                            nfcProcessing = false;
+                        }
+                    });
+                    
+                    nfcReader.addEventListener('readingerror', () => {
+                        showNfcError('Error reading NFC card. Try again.');
+                        nfcProcessing = false;
+                    });
+                } catch (err) {
+                    showNfcError('NFC error: ' + err.message);
+                }
+            }
+            
+            async function submitTap(p, c) {
+                nfcStatus.innerHTML = '<span style="color: #667eea;">⏳ Verifying card...</span>';
+                
+                try {
+                    const response = await fetch('/plugins/bitcoin-rewards/boltcard/tap', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ p: p, c: c, rewardId: rewardId })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        nfcStatus.style.display = 'none';
+                        nfcSuccess.style.display = 'block';
+                        document.getElementById('nfc-success-amount').textContent =
+                            data.rewardSats.toLocaleString() + ' sats added to your card!';
+                        document.getElementById('nfc-success-balance').textContent =
+                            'Card balance: ' + data.newBalanceSats.toLocaleString() + ' sats';
+                        
+                        // Hide the QR code section since the reward is claimed
+                        const qrSection = document.querySelector('.qr-code');
+                        if (qrSection) qrSection.style.display = 'none';
+                        
+                        // Auto-refresh after 5 seconds
+                        setTimeout(() => window.location.reload(), 5000);
+                    } else {
+                        showNfcError(data.error || 'Failed to collect reward');
+                        nfcProcessing = false;
+                    }
+                } catch (err) {
+                    showNfcError('Network error: ' + err.message);
+                    nfcProcessing = false;
+                }
+            }
+            
+            function showNfcError(msg) {
+                nfcStatus.style.display = 'none';
+                nfcError.style.display = 'block';
+                document.getElementById('nfc-error-msg').textContent = msg;
+                
+                // Reset button
+                const btn = document.getElementById('nfc-tap-btn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '📱 Tap Your Rewards Card';
+                }
+            }
+        </script>
+        }
     }
 </body>
 </html>

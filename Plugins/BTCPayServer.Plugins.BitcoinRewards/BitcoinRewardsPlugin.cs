@@ -36,6 +36,7 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.RewardPullPaymentService>();
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.TryAddScoped<Services.PullPaymentStatusService>();
+        services.TryAddScoped<Services.BoltCardRewardService>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
         // BTCPay invoice listener

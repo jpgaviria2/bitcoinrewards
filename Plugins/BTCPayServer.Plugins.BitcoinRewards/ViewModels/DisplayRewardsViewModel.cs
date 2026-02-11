@@ -20,5 +20,9 @@ public class DisplayRewardsViewModel
     public string? PullPaymentId { get; set; }
     public string? CustomTemplate { get; set; }
     public string? LnurlString { get; set; }
+    
+    // Bolt Card NFC tap support
+    public bool BoltCardEnabled { get; set; }
+    public string? RewardId { get; set; }
 }
 
