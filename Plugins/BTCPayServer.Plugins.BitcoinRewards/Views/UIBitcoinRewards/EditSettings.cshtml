@@ -336,6 +336,38 @@
                 </div>
             }
 
+            <h4 class="mt-5 mb-3">⚡ Bolt Card NFC Rewards</h4>
+            <div class="alert alert-info mb-3">
+                <strong>Prerequisites:</strong> Requires the <a href="https://plugin-builder.btcpayserver.org/public/plugins/boltcards-plugin" target="_blank">Boltcards Plugin</a> 
+                installed on this BTCPay Server, with a BoltcardFactory app configured for card issuance.
+                Cards must be NTAG 424 DNA. NFC tap only works on Android Chrome.
+            </div>
+            
+            <div class="form-check mb-3">
+                <input asp-for="BoltCardEnabled" class="form-check-input" type="checkbox" />
+                <label asp-for="BoltCardEnabled" class="form-check-label">Enable Bolt Card NFC Rewards</label>
+                <small class="form-text text-muted d-block">
+                    When enabled, the rewards display page will show an NFC tap button alongside the QR code.
+                    Customers can tap their Bolt Card to collect rewards directly onto their card balance.
+                </small>
+            </div>
+            
+            <div class="mb-3">
+                <label asp-for="BoltcardFactoryAppId" class="form-label">Boltcard Factory App ID</label>
+                <input asp-for="BoltcardFactoryAppId" class="form-control" placeholder="e.g. 3Jma9xYhSEKZ..." />
+                <small class="form-text text-muted">
+                    The App ID of your BoltcardFactory app (found in Apps → your Boltcard Factory app URL).
+                </small>
+            </div>
+            
+            <div class="mb-3">
+                <label asp-for="DefaultCardBalanceSats" class="form-label">Default New Card Balance (sats)</label>
+                <input asp-for="DefaultCardBalanceSats" class="form-control" type="number" min="0" />
+                <small class="form-text text-muted">
+                    Initial balance in satoshis for newly issued cards. Default: 100 sats.
+                </small>
+            </div>
+
             <button name="command" type="submit" class="btn btn-primary" value="Save">Save Settings</button>
         </form>
     </div>

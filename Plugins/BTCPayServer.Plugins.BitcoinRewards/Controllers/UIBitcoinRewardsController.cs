@@ -97,12 +97,16 @@ public class UIBitcoinRewardsController : Controller
 
             var enableBtcpayValues = Request.Form["EnableBtcpay"];
             vm.EnableBtcpay = enableBtcpayValues.Count > 0 && enableBtcpayValues.Contains("true");
+
+            var boltCardValues = Request.Form["BoltCardEnabled"];
+            vm.BoltCardEnabled = boltCardValues.Count > 0 && boltCardValues.Contains("true");
             
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
             ModelState.Remove(nameof(vm.EnableShopify));
             ModelState.Remove(nameof(vm.EnableSquare));
             ModelState.Remove(nameof(vm.EnableBtcpay));
+            ModelState.Remove(nameof(vm.BoltCardEnabled));
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
@@ -425,6 +429,30 @@ public class UIBitcoinRewardsController : Controller
         }
 
         return RedirectToAction(nameof(RewardsHistory), new { storeId });
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/dismiss-reward")]
+    [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> DismissReward(string storeId, [FromBody] DismissRewardRequest? request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.RewardId))
+            return BadRequest(new { error = "rewardId required" });
+            
+        if (!Guid.TryParse(request.RewardId, out var rewardGuid))
+            return BadRequest(new { error = "invalid rewardId" });
+            
+        var reward = await _rewardsRepository.GetRewardAsync(rewardGuid, storeId);
+        if (reward == null)
+            return NotFound(new { error = "reward not found" });
+        
+        // Mark as redeemed so it no longer shows on display
+        reward.Status = RewardStatus.Redeemed;
+        await _rewardsRepository.UpdateRewardAsync(reward);
+        
+        _logger.LogInformation("DismissReward: Reward {RewardId} dismissed for store {StoreId}", request.RewardId, storeId);
+        return Ok(new { success = true });
     }
 
     [HttpGet]

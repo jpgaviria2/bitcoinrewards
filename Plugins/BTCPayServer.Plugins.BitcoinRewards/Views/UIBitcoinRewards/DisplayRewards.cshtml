@@ -36,8 +36,13 @@
         const countdownTimer = document.getElementById('countdown-timer');
         
         function hideReward() {
-            // For custom templates, we'll hide the body or reload
-            window.location.reload();
+            fetch('/plugins/bitcoin-rewards/@Model.StoreId/dismiss-reward', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rewardId: '@Model.RewardId' })
+            }).finally(() => {
+                window.location.reload();
+            });
         }
         
         function updateCountdown() {
@@ -389,15 +394,14 @@ else
             const countdownTimer = document.getElementById('countdown-timer');
             
             function hideReward() {
-                const rewardDisplay = document.querySelector('.reward-display:not(.waiting)');
-                const waitingDisplay = document.getElementById('waiting-display');
-                
-                if (rewardDisplay) {
-                    rewardDisplay.style.display = 'none';
-                }
-                if (waitingDisplay) {
-                    waitingDisplay.style.display = 'block';
-                }
+                // Mark reward as dismissed on the server, then reload to show waiting state
+                fetch('/plugins/bitcoin-rewards/@Model.StoreId/dismiss-reward', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rewardId: '@Model.RewardId' })
+                }).finally(() => {
+                    window.location.reload();
+                });
             }
             
             function updateCountdown() {
