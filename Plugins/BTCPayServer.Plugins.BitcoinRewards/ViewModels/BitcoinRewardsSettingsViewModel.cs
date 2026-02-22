@@ -127,6 +127,16 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Default Card Balance (sats)")]
     [Range(0, 1_000_000, ErrorMessage = "Default card balance must be between 0 and 1,000,000 sats")]
     public long DefaultCardBalanceSats { get; set; } = 100;
+
+    // Dual Balance Settings
+    [Display(Name = "Default Auto-Convert to CAD")]
+    public bool DefaultAutoConvertToCad { get; set; } = true;
+
+    [Display(Name = "Enable Swaps")]
+    public bool SwapEnabled { get; set; } = true;
+
+    [Display(Name = "Enable CAD Spending")]
+    public bool CadSpendingEnabled { get; set; } = false;
     
     public PlatformFlags GetEnabledPlatforms()
     {
@@ -199,6 +209,10 @@ public class BitcoinRewardsSettingsViewModel
         BoltCardEnabled = settings.BoltCardEnabled;
         BoltcardFactoryAppId = settings.BoltcardFactoryAppId;
         DefaultCardBalanceSats = settings.DefaultCardBalanceSats;
+
+        DefaultAutoConvertToCad = settings.DefaultAutoConvertToCad;
+        SwapEnabled = settings.SwapEnabled;
+        CadSpendingEnabled = settings.CadSpendingEnabled;
     }
     
     public BitcoinRewardsStoreSettings ToSettings(BitcoinRewardsStoreSettings? existing = null)
@@ -226,6 +240,10 @@ public class BitcoinRewardsSettingsViewModel
         settings.BoltCardEnabled = BoltCardEnabled;
         settings.BoltcardFactoryAppId = BoltcardFactoryAppId;
         settings.DefaultCardBalanceSats = DefaultCardBalanceSats;
+
+        settings.DefaultAutoConvertToCad = DefaultAutoConvertToCad;
+        settings.SwapEnabled = SwapEnabled;
+        settings.CadSpendingEnabled = CadSpendingEnabled;
         
         if (EnableShopify)
         {

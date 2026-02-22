@@ -1,0 +1,62 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@model AdjustBalanceViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Adjust Balance", "BitcoinRewards");
+    Layout = "_Layout";
+}
+
+<div class="row">
+    <div class="sticky-header">
+        <h2 class="my-1">Adjust Balance: <code>@(Model.CardUid ?? "Unlinked")</code></h2>
+        <div class="d-flex gap-2">
+            <a asp-action="WalletDetail" asp-route-storeId="@Model.StoreId" asp-route-walletId="@Model.WalletId" class="btn btn-secondary">← Back</a>
+        </div>
+    </div>
+    <partial name="_StatusMessage"/>
+
+    <div class="col-xxl-constrain col-xl-8">
+        <!-- Current Balances -->
+        <div class="alert alert-info mb-4">
+            <strong>Current Balances:</strong>
+            CAD: <strong>@Model.CurrentCadFormatted</strong> |
+            Sats: <strong>@Model.CurrentSatsBalance.ToString("N0")</strong>
+        </div>
+
+        <form method="post">
+            <input type="hidden" asp-for="StoreId" />
+            <input type="hidden" asp-for="WalletId" />
+
+            <div class="form-group mb-3">
+                <label asp-for="BalanceType" class="form-label"></label>
+                <select asp-for="BalanceType" class="form-select">
+                    <option value="cad">CAD (cents)</option>
+                    <option value="sats">Sats</option>
+                </select>
+                <small class="form-text text-muted">For CAD, enter amount in cents (e.g. 150 = CA$1.50). For sats, enter satoshis.</small>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="Direction" class="form-label"></label>
+                <select asp-for="Direction" class="form-select">
+                    <option value="credit">Credit (add)</option>
+                    <option value="debit">Debit (subtract)</option>
+                </select>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="Amount" class="form-label"></label>
+                <input asp-for="Amount" class="form-control" type="number" min="1" />
+                <span asp-validation-for="Amount" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="Reason" class="form-label"></label>
+                <input asp-for="Reason" class="form-control" placeholder="Reason for adjustment" />
+                <span asp-validation-for="Reason" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Confirm balance adjustment?')">Apply Adjustment</button>
+        </form>
+    </div>
+</div>

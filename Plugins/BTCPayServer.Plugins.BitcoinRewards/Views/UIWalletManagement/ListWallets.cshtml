@@ -1,0 +1,100 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@model CustomerWalletListViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Customer Wallets", "BitcoinRewards");
+    Layout = "_Layout";
+}
+
+<div class="row">
+    <div class="sticky-header">
+        <h2 class="my-1">Customer Wallets</h2>
+        <div class="d-flex gap-2">
+            <a asp-controller="UIBitcoinRewards" asp-action="EditSettings" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
+                ← Settings
+            </a>
+        </div>
+    </div>
+    <partial name="_StatusMessage"/>
+
+    @if (Model.Wallets.Count == 0)
+    {
+        <div class="col-12">
+            <div class="alert alert-info">
+                No customer wallets yet. Wallets are created automatically when customers tap their bolt cards.
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Card UID</th>
+                            <th class="text-end">CAD Balance</th>
+                            <th class="text-end">Sats Balance</th>
+                            <th>Auto-Convert</th>
+                            <th class="text-end">Total Rewarded</th>
+                            <th>Last Rewarded</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var w in Model.Wallets)
+                        {
+                            <tr>
+                                <td>
+                                    <code>@w.CardUidDisplay</code>
+                                </td>
+                                <td class="text-end fw-semibold">@w.CadBalanceFormatted</td>
+                                <td class="text-end">@w.SatsBalance.ToString("N0") sats</td>
+                                <td>
+                                    @if (w.AutoConvertToCad)
+                                    {
+                                        <span class="badge bg-success">ON</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">OFF</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <small>@w.TotalRewardedCadFormatted + @w.TotalRewardedSatoshis.ToString("N0") sats</small>
+                                </td>
+                                <td>
+                                    @if (w.LastRewardedAt.HasValue)
+                                    {
+                                        <small>@w.LastRewardedAt.Value.ToString("yyyy-MM-dd HH:mm")</small>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted">Never</small>
+                                    }
+                                </td>
+                                <td>
+                                    @if (w.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a asp-action="WalletDetail" asp-route-storeId="@Model.StoreId" asp-route-walletId="@w.Id" class="btn btn-sm btn-primary">View</a>
+                                        <a asp-action="AdjustBalance" asp-route-storeId="@Model.StoreId" asp-route-walletId="@w.Id" class="btn btn-sm btn-outline-secondary">Adjust</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

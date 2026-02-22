@@ -1,0 +1,1 @@
+{"Identifier":"BTCPayServer.Plugins.BitcoinRewards","Name":"Bitcoin Rewards","Version":"1.2.0.0","Description":"Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.","SystemPlugin":false,"Dependencies":[{"Identifier":"BTCPayServer","Condition":"\u003E=2.3.0"}]}

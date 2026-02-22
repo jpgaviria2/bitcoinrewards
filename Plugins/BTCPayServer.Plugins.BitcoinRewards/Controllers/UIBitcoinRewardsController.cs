@@ -100,6 +100,13 @@ public class UIBitcoinRewardsController : Controller
 
             var boltCardValues = Request.Form["BoltCardEnabled"];
             vm.BoltCardEnabled = boltCardValues.Count > 0 && boltCardValues.Contains("true");
+
+            var defaultAutoConvertValues = Request.Form["DefaultAutoConvertToCad"];
+            vm.DefaultAutoConvertToCad = defaultAutoConvertValues.Count > 0 && defaultAutoConvertValues.Contains("true");
+            var swapEnabledValues = Request.Form["SwapEnabled"];
+            vm.SwapEnabled = swapEnabledValues.Count > 0 && swapEnabledValues.Contains("true");
+            var cadSpendingValues = Request.Form["CadSpendingEnabled"];
+            vm.CadSpendingEnabled = cadSpendingValues.Count > 0 && cadSpendingValues.Contains("true");
             
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
@@ -107,6 +114,9 @@ public class UIBitcoinRewardsController : Controller
             ModelState.Remove(nameof(vm.EnableSquare));
             ModelState.Remove(nameof(vm.EnableBtcpay));
             ModelState.Remove(nameof(vm.BoltCardEnabled));
+            ModelState.Remove(nameof(vm.DefaultAutoConvertToCad));
+            ModelState.Remove(nameof(vm.SwapEnabled));
+            ModelState.Remove(nameof(vm.CadSpendingEnabled));
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";

@@ -368,6 +368,41 @@
                 </small>
             </div>
 
+            <h3 class="mt-5 mb-3">💰 Dual Balance Wallet Settings</h3>
+            <p class="text-muted mb-4">
+                Configure dual-balance (CAD + Sats) wallet behavior for bolt card holders.
+                <a asp-controller="UIWalletManagement" asp-action="ListWallets" asp-route-storeId="@Model.StoreId" class="btn btn-sm btn-outline-primary ms-2">
+                    Manage Customer Wallets →
+                </a>
+            </p>
+
+            <div class="form-group mb-3">
+                <div class="form-check form-switch">
+                    <input type="hidden" name="DefaultAutoConvertToCad" value="false">
+                    <input name="DefaultAutoConvertToCad" class="form-check-input" type="checkbox" id="DefaultAutoConvertToCad" value="true" @(Model.DefaultAutoConvertToCad ? "checked" : "")>
+                    <label class="form-check-label" for="DefaultAutoConvertToCad">Default Auto-Convert to CAD</label>
+                </div>
+                <small class="form-text text-muted">When enabled, new wallets will auto-convert sats rewards to CAD at the current exchange rate.</small>
+            </div>
+
+            <div class="form-group mb-3">
+                <div class="form-check form-switch">
+                    <input type="hidden" name="SwapEnabled" value="false">
+                    <input name="SwapEnabled" class="form-check-input" type="checkbox" id="SwapEnabled" value="true" @(Model.SwapEnabled ? "checked" : "")>
+                    <label class="form-check-label" for="SwapEnabled">Enable Swaps (CAD ↔ Sats)</label>
+                </div>
+                <small class="form-text text-muted">Allow customers to swap between CAD and sats balances via the PWA.</small>
+            </div>
+
+            <div class="form-group mb-4">
+                <div class="form-check form-switch">
+                    <input type="hidden" name="CadSpendingEnabled" value="false">
+                    <input name="CadSpendingEnabled" class="form-check-input" type="checkbox" id="CadSpendingEnabled" value="true" @(Model.CadSpendingEnabled ? "checked" : "")>
+                    <label class="form-check-label" for="CadSpendingEnabled">Enable CAD Spending</label>
+                </div>
+                <small class="form-text text-muted">Allow CAD balance to be debited at POS (in-store spending).</small>
+            </div>
+
             <button name="command" type="submit" class="btn btn-primary" value="Save">Save Settings</button>
         </form>
     </div>

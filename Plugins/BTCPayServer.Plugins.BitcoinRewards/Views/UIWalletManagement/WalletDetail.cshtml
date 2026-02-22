@@ -1,0 +1,182 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@model CustomerWalletDetailViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Wallet Detail", "BitcoinRewards");
+    Layout = "_Layout";
+}
+
+<div class="row">
+    <div class="sticky-header">
+        <h2 class="my-1">Wallet: <code>@Model.CardUidDisplay</code></h2>
+        <div class="d-flex gap-2">
+            <a asp-action="ListWallets" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">← Wallets</a>
+            <a asp-action="AdjustBalance" asp-route-storeId="@Model.StoreId" asp-route-walletId="@Model.WalletId" class="btn btn-outline-primary">Adjust Balance</a>
+        </div>
+    </div>
+    <partial name="_StatusMessage"/>
+
+    <div class="col-xxl-constrain col-xl-8">
+        <!-- Balance Cards -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <h6 class="card-subtitle mb-2 text-muted">CAD Balance</h6>
+                        <h2 class="card-title text-success mb-0">@Model.CadBalanceFormatted</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <h6 class="card-subtitle mb-2 text-muted">Sats Balance</h6>
+                        <h2 class="card-title text-warning mb-0">@Model.SatsBalance.ToString("N0") sats</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wallet Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Wallet Info</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Card UID</dt>
+                    <dd class="col-sm-8"><code>@Model.CardUidDisplay</code></dd>
+
+                    <dt class="col-sm-4">Boltcard ID</dt>
+                    <dd class="col-sm-8"><code>@(Model.BoltcardId ?? "N/A")</code></dd>
+
+                    <dt class="col-sm-4">Pull Payment ID</dt>
+                    <dd class="col-sm-8"><code class="small">@Model.PullPaymentId</code></dd>
+
+                    <dt class="col-sm-4">Auto-Convert to CAD</dt>
+                    <dd class="col-sm-8">
+                        <form method="post" asp-action="ToggleAutoConvert" asp-route-storeId="@Model.StoreId" asp-route-walletId="@Model.WalletId" class="d-inline">
+                            <input type="hidden" name="autoConvert" value="@(!Model.AutoConvertToCad ? "true" : "false")" />
+                            <button type="submit" class="btn btn-sm @(Model.AutoConvertToCad ? "btn-success" : "btn-outline-secondary")">
+                                @(Model.AutoConvertToCad ? "ON — Click to Disable" : "OFF — Click to Enable")
+                            </button>
+                        </form>
+                    </dd>
+
+                    <dt class="col-sm-4">Wallet Token</dt>
+                    <dd class="col-sm-8">
+                        <code>@Model.TokenMasked</code>
+                        <form method="post" asp-action="RegenerateToken" asp-route-storeId="@Model.StoreId" asp-route-walletId="@Model.WalletId" class="d-inline ms-2">
+                            <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Regenerate token? The old token will stop working.')">
+                                Regenerate
+                            </button>
+                        </form>
+                    </dd>
+
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8">
+                        @if (Model.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Inactive</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-4">Total Rewarded</dt>
+                    <dd class="col-sm-8">@Model.TotalRewardedCadFormatted + @Model.TotalRewardedSatoshis.ToString("N0") sats</dd>
+
+                    <dt class="col-sm-4">Created</dt>
+                    <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</dd>
+
+                    <dt class="col-sm-4">Last Rewarded</dt>
+                    <dd class="col-sm-8">@(Model.LastRewardedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never")</dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Spend CAD Quick Action -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Spend CAD Balance</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-action="SpendCad" asp-route-storeId="@Model.StoreId" asp-route-walletId="@Model.WalletId" class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label class="form-label">Amount (CAD)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="AmountCad" class="form-control" step="0.01" min="0.01" placeholder="0.00" required style="max-width:120px" />
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label">Reference</label>
+                        <input type="text" name="Reference" class="form-control" placeholder="Order #" style="max-width:180px" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-warning" onclick="return confirm('Debit CAD balance?')">Spend</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Transaction History</h5>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Transactions.Count == 0)
+                {
+                    <div class="p-3 text-muted">No transactions yet.</div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Sats</th>
+                                    <th class="text-end">CAD</th>
+                                    <th class="text-end">Rate</th>
+                                    <th>Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var tx in Model.Transactions)
+                                {
+                                    <tr>
+                                        <td><small>@tx.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small></td>
+                                        <td><span class="badge @tx.TypeBadgeClass">@tx.TypeLabel</span></td>
+                                        <td class="text-end">
+                                            @if (tx.SatsAmount != 0)
+                                            {
+                                                <span class="@(tx.SatsAmount > 0 ? "text-success" : "text-danger")">
+                                                    @(tx.SatsAmount > 0 ? "+" : "")@tx.SatsAmount.ToString("N0")
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (tx.CadCentsAmount != 0)
+                                            {
+                                                <span class="@(tx.CadCentsAmount > 0 ? "text-success" : "text-danger")">
+                                                    @(tx.CadCentsAmount > 0 ? "+" : "")@tx.CadFormatted
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end"><small>@(tx.ExchangeRate != 0 ? tx.ExchangeRate.ToString("F2") : "—")</small></td>
+                                        <td><small class="text-muted">@(tx.Reference ?? "—")</small></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
