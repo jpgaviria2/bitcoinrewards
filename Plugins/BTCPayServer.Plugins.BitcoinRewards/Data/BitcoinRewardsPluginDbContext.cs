@@ -11,6 +11,8 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
 
     public DbSet<BitcoinRewardRecord> BitcoinRewardRecords { get; set; } = null!;
     public DbSet<BoltCardLink> BoltCardLinks { get; set; } = null!;
+    public DbSet<CustomerWallet> CustomerWallets { get; set; } = null!;
+    public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +45,41 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
             entity.HasIndex(e => new { e.StoreId, e.PullPaymentId })
                 .IsUnique()
                 .HasDatabaseName("IX_BoltCardLinks_StoreId_PullPaymentId_Unique");
+        });
+
+        // Configure CustomerWallet entity
+        modelBuilder.Entity<CustomerWallet>(entity =>
+        {
+            entity.ToTable("CustomerWallets");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.StoreId);
+            entity.HasIndex(e => e.PullPaymentId);
+            entity.HasIndex(e => e.BoltcardId);
+            entity.HasIndex(e => e.CardUid);
+            entity.HasIndex(e => e.ApiTokenHash);
+            entity.HasIndex(e => new { e.StoreId, e.PullPaymentId })
+                .IsUnique()
+                .HasDatabaseName("IX_CustomerWallets_StoreId_PullPaymentId_Unique");
+            entity.Property(e => e.CadBalanceCents).HasDefaultValue(0L);
+            entity.Property(e => e.AutoConvertToCad).HasDefaultValue(true);
+            entity.Property(e => e.TotalRewardedSatoshis).HasDefaultValue(0L);
+            entity.Property(e => e.TotalRewardedCadCents).HasDefaultValue(0L);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
+
+        // Configure WalletTransaction entity
+        modelBuilder.Entity<WalletTransaction>(entity =>
+        {
+            entity.ToTable("WalletTransactions");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CustomerWalletId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.SatsAmount).HasDefaultValue(0L);
+            entity.Property(e => e.CadCentsAmount).HasDefaultValue(0L);
+            entity.HasOne<CustomerWallet>()
+                .WithMany()
+                .HasForeignKey(e => e.CustomerWalletId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

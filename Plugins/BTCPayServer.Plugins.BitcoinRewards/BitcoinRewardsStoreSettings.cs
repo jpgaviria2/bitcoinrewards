@@ -138,6 +138,17 @@ public class BitcoinRewardsStoreSettings
     /// Custom HTML template for the rewards display page (optional)
     /// </summary>
     public string? DisplayTemplateOverride { get; set; }
+
+    // ── Dual Balance Settings ──
+
+    /// <summary>Default auto-convert setting for new wallets.</summary>
+    public bool DefaultAutoConvertToCad { get; set; } = true;
+
+    /// <summary>CAD spending enabled (allows POS debit of CAD balance).</summary>
+    public bool CadSpendingEnabled { get; set; } = false;
+
+    /// <summary>Allow customers to swap between CAD and sats.</summary>
+    public bool SwapEnabled { get; set; } = true;
 }
 
 public class ShopifyApiCredentials

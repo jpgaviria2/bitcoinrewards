@@ -21,17 +21,23 @@ public class BoltCardRewardsController : Controller
     private readonly BoltCardRewardService _boltCardService;
     private readonly BitcoinRewardsRepository _rewardsRepository;
     private readonly StoreRepository _storeRepository;
+    private readonly CustomerWalletService _walletService;
+    private readonly ExchangeRateService _exchangeRateService;
     private readonly ILogger<BoltCardRewardsController> _logger;
 
     public BoltCardRewardsController(
         BoltCardRewardService boltCardService,
         BitcoinRewardsRepository rewardsRepository,
         StoreRepository storeRepository,
+        CustomerWalletService walletService,
+        ExchangeRateService exchangeRateService,
         ILogger<BoltCardRewardsController> logger)
     {
         _boltCardService = boltCardService;
         _rewardsRepository = rewardsRepository;
         _storeRepository = storeRepository;
+        _walletService = walletService;
+        _exchangeRateService = exchangeRateService;
         _logger = logger;
     }
 
@@ -131,20 +137,54 @@ public class BoltCardRewardsController : Controller
             });
         }
 
-        // Top up the card's pull payment
-        var (topUpSuccess, newLimitSats, topUpError) = await _boltCardService.TopUpPullPaymentAsync(
-            cardResult.PullPaymentId!,
-            reward.RewardAmountSatoshis,
-            reward.StoreId,
-            cardResult.BoltcardId);
+        // Check if wallet exists and has auto-convert enabled
+        var wallet = await _walletService.FindByPullPaymentIdAsync(reward.StoreId, cardResult.PullPaymentId!);
+        bool autoConverted = false;
+        long cadCentsCredited = 0;
 
-        if (!topUpSuccess)
+        if (wallet != null && wallet.AutoConvertToCad)
         {
-            return StatusCode(500, new BoltCardTapResponse
+            // Convert reward sats to CAD cents and credit wallet instead of topping up pull payment
+            try
             {
-                Success = false,
-                Error = topUpError ?? "Failed to add reward to card"
-            });
+                var (cadCents, exchangeRate) = await _exchangeRateService.SatsToCadCentsAsync(
+                    reward.RewardAmountSatoshis, reward.StoreId);
+
+                if (cadCents > 0)
+                {
+                    await _walletService.CreditCadAsync(wallet.Id, cadCents, reward.RewardAmountSatoshis,
+                        exchangeRate, $"reward-{reward.Id}");
+                    autoConverted = true;
+                    cadCentsCredited = cadCents;
+
+                    _logger.LogInformation(
+                        "BoltCard tap: auto-converted {Sats} sats → {CadCents} CAD cents for wallet {WalletId}",
+                        reward.RewardAmountSatoshis, cadCents, wallet.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Auto-convert failed, falling back to sats top-up");
+            }
+        }
+
+        if (!autoConverted)
+        {
+            // Top up the card's pull payment (original behavior)
+            var (topUpSuccess, newLimitSats, topUpError) = await _boltCardService.TopUpPullPaymentAsync(
+                cardResult.PullPaymentId!,
+                reward.RewardAmountSatoshis,
+                reward.StoreId,
+                cardResult.BoltcardId);
+
+            if (!topUpSuccess)
+            {
+                return StatusCode(500, new BoltCardTapResponse
+                {
+                    Success = false,
+                    Error = topUpError ?? "Failed to add reward to card"
+                });
+            }
         }
 
         // Mark the reward as redeemed (claimed via bolt card)
@@ -159,24 +199,25 @@ public class BoltCardRewardsController : Controller
         {
             _logger.LogError(ex, "BoltCard tap: reward topped up but failed to update reward record {RewardId}",
                 reward.Id);
-            // Don't fail the response — the top-up succeeded
         }
 
         // Get current balance
         var balance = await _boltCardService.GetCardBalanceAsync(cardResult.PullPaymentId!);
 
         _logger.LogInformation(
-            "BoltCard tap: reward {RewardId} ({Sats} sats) collected on card {BoltcardId} → PP {PpId}. New balance: {Balance} sats",
+            "BoltCard tap: reward {RewardId} ({Sats} sats) collected on card {BoltcardId} → PP {PpId}. AutoConverted: {AutoConverted}, Balance: {Balance} sats",
             reward.Id, reward.RewardAmountSatoshis, cardResult.BoltcardId, cardResult.PullPaymentId,
-            balance?.BalanceSats);
+            autoConverted, balance?.BalanceSats);
 
         return Ok(new BoltCardTapResponse
         {
             Success = true,
             RewardSats = reward.RewardAmountSatoshis,
-            NewBalanceSats = balance?.BalanceSats ?? newLimitSats,
+            NewBalanceSats = balance?.BalanceSats ?? 0,
             TotalRewardedSats = balance?.TotalRewardedSats ?? reward.RewardAmountSatoshis,
-            PullPaymentId = cardResult.PullPaymentId
+            PullPaymentId = cardResult.PullPaymentId,
+            AutoConverted = autoConverted,
+            CadCentsCredited = cadCentsCredited
         });
     }
 
@@ -269,5 +310,7 @@ public class BoltCardRewardsController : Controller
         public long NewBalanceSats { get; set; }
         public long TotalRewardedSats { get; set; }
         public string? PullPaymentId { get; set; }
+        public bool AutoConverted { get; set; }
+        public long CadCentsCredited { get; set; }
     }
 }
