@@ -146,9 +146,8 @@ public class CustomerWalletService
         if (wallet == null) return (false, "Wallet not found");
 
         // Debit sats from pull payment (reduce limit)
-        // We use negative top-up to reduce the pull payment limit
-        var (success, _, error) = await _boltCardService.TopUpPullPaymentAsync(
-            wallet.PullPaymentId, -satsAmount, wallet.StoreId);
+        var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
+            wallet.PullPaymentId, satsAmount, wallet.StoreId);
         if (!success) return (false, error ?? "Failed to debit sats from pull payment");
 
         // Credit CAD

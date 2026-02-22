@@ -204,6 +204,64 @@ public class BoltCardRewardService
     }
 
     /// <summary>
+    /// Debit (reduce) the pull payment limit by the given sats amount.
+    /// Used for swap-to-CAD operations.
+    /// </summary>
+    public async Task<(bool Success, long NewLimitSats, string? Error)> DebitPullPaymentAsync(
+        string pullPaymentId, long satoshis, string storeId)
+    {
+        if (satoshis <= 0)
+            return (false, 0, "Debit amount must be positive");
+
+        try
+        {
+            await using var appCtx = _appDbContextFactory.CreateContext();
+            var conn = appCtx.Database.GetDbConnection();
+
+            var pp = await conn.QueryFirstOrDefaultAsync<dynamic>(
+                "SELECT \"Id\", \"Limit\", \"Currency\" FROM \"PullPayments\" WHERE \"Id\" = @id AND \"Archived\" = false",
+                new { id = pullPaymentId });
+
+            if (pp is null)
+                return (false, 0, "Pull payment not found or archived");
+
+            string currency = pp.Currency;
+            decimal debitAmount = currency switch
+            {
+                "SATS" => satoshis,
+                "BTC" => satoshis / 100_000_000m,
+                _ => 0m
+            };
+
+            if (debitAmount <= 0)
+                return (false, 0, $"Unsupported pull payment currency: {currency}");
+
+            var newLimit = await conn.QueryFirstOrDefaultAsync<decimal>(
+                "UPDATE \"PullPayments\" SET \"Limit\" = \"Limit\" - @amount WHERE \"Id\" = @id AND \"Limit\" >= @amount RETURNING \"Limit\"",
+                new { id = pullPaymentId, amount = debitAmount });
+
+            // If no rows returned, insufficient balance
+            if (newLimit == default)
+                return (false, 0, "Insufficient pull payment balance");
+
+            long newLimitSats = currency == "SATS"
+                ? (long)newLimit
+                : (long)(newLimit * 100_000_000m);
+
+            _logger.LogInformation(
+                "BoltCard debit: PP {PullPaymentId} -= {Sats} sats → new limit {NewLimit} {Currency}",
+                pullPaymentId, satoshis, newLimit, currency);
+
+            return (true, newLimitSats, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BoltCard debit failed for PP {PullPaymentId}", pullPaymentId);
+            return (false, 0, "Database error during debit");
+        }
+    }
+
+    /// <summary>
     /// Get the current balance (limit minus payouts) for a pull payment.
     /// </summary>
     public async Task<(long BalanceSats, long TotalRewardedSats)?> GetCardBalanceAsync(string pullPaymentId)

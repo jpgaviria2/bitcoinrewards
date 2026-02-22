@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
@@ -11,6 +12,8 @@ using BTCPayServer.Payments;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
+using BTCPayServer.Services;
+using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -34,6 +37,8 @@ public class WalletApiController : ControllerBase
     private readonly PullPaymentHostedService _pullPaymentHostedService;
     private readonly PayoutMethodHandlerDictionary _payoutHandlers;
     private readonly BTCPayNetworkProvider _networkProvider;
+    private readonly StoreRepository _storeRepository;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
@@ -43,6 +48,8 @@ public class WalletApiController : ControllerBase
         PullPaymentHostedService pullPaymentHostedService,
         PayoutMethodHandlerDictionary payoutHandlers,
         BTCPayNetworkProvider networkProvider,
+        StoreRepository storeRepository,
+        IHttpClientFactory httpClientFactory,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
@@ -51,6 +58,8 @@ public class WalletApiController : ControllerBase
         _pullPaymentHostedService = pullPaymentHostedService;
         _payoutHandlers = payoutHandlers;
         _networkProvider = networkProvider;
+        _storeRepository = storeRepository;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -277,6 +286,12 @@ public class WalletApiController : ControllerBase
         });
     }
 
+    // ── LNURL-withdraw claim endpoint ──
+    // TODO: Implement claim-lnurl — requires Lightning client access which needs
+    // a different approach (Greenfield API or service layer) since plugin can't
+    // directly access BTCPay's internal LightningClientFactoryService.
+    // For now, LNURL-withdraw earning works via the existing bolt card tap flow.
+
     // ── NFC tap endpoint ──
 
     [HttpPost("plugins/bitcoin-rewards/wallet/tap")]
@@ -411,4 +426,5 @@ public class WalletApiController : ControllerBase
     {
         public string Invoice { get; set; } = string.Empty;
     }
+
 }
