@@ -1,15 +1,22 @@
 #nullable enable
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
+using BTCPayServer.HostedServices;
+using BTCPayServer.Lightning;
+using BTCPayServer.Payments;
+using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using NBitcoin;
 using NBitcoin.DataEncoders;
+using Newtonsoft.Json.Linq;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -24,17 +31,26 @@ public class WalletApiController : ControllerBase
     private readonly CustomerWalletService _walletService;
     private readonly BoltCardRewardService _boltCardService;
     private readonly ExchangeRateService _exchangeRateService;
+    private readonly PullPaymentHostedService _pullPaymentHostedService;
+    private readonly PayoutMethodHandlerDictionary _payoutHandlers;
+    private readonly BTCPayNetworkProvider _networkProvider;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
         CustomerWalletService walletService,
         BoltCardRewardService boltCardService,
         ExchangeRateService exchangeRateService,
+        PullPaymentHostedService pullPaymentHostedService,
+        PayoutMethodHandlerDictionary payoutHandlers,
+        BTCPayNetworkProvider networkProvider,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
         _boltCardService = boltCardService;
         _exchangeRateService = exchangeRateService;
+        _pullPaymentHostedService = pullPaymentHostedService;
+        _payoutHandlers = payoutHandlers;
+        _networkProvider = networkProvider;
         _logger = logger;
     }
 
@@ -155,6 +171,110 @@ public class WalletApiController : ControllerBase
             reference = t.Reference,
             createdAt = t.CreatedAt
         }));
+    }
+
+    // ── Pay Lightning invoice from CAD balance ──
+
+    [HttpPost("plugins/bitcoin-rewards/wallet/{walletId}/pay-invoice")]
+    [AllowAnonymous]
+    public async Task<IActionResult> PayInvoice(Guid walletId, [FromBody] PayInvoiceRequest request)
+    {
+        var (wallet, err) = await AuthAndFindWalletAsync(walletId);
+        if (err != null) return err;
+
+        if (string.IsNullOrWhiteSpace(request.Invoice))
+            return BadRequest(new { error = "Invoice is required" });
+
+        var invoice = request.Invoice.Trim();
+
+        // Strip lightning: URI prefix if present
+        if (invoice.StartsWith("lightning:", StringComparison.OrdinalIgnoreCase))
+            invoice = invoice["lightning:".Length..];
+
+        // 1. Decode the BOLT11 invoice to get the sats amount
+        var network = _networkProvider.GetNetwork<BTCPayNetwork>("BTC");
+        if (network == null)
+            return StatusCode(500, new { error = "BTC network not configured" });
+
+        if (!BOLT11PaymentRequest.TryParse(invoice, out var bolt11, network.NBitcoinNetwork) || bolt11 == null)
+            return BadRequest(new { error = "Invalid BOLT11 Lightning invoice" });
+
+        if (bolt11.ExpiryDate.UtcDateTime < DateTime.UtcNow)
+            return BadRequest(new { error = "Invoice has expired" });
+
+        if (bolt11.MinimumAmount == LightMoney.Zero || bolt11.MinimumAmount == null)
+            return BadRequest(new { error = "Invoice has no amount specified" });
+
+        var satsAmount = bolt11.MinimumAmount.ToUnit(LightMoneyUnit.Satoshi);
+        var sats = (long)satsAmount;
+        if (sats <= 0)
+            return BadRequest(new { error = "Invoice amount must be positive" });
+
+        // 2. Convert sats → CAD cents at current exchange rate
+        var (cadCents, exchangeRate) = await _exchangeRateService.SatsToCadCentsAsync(sats, wallet!.StoreId);
+        if (cadCents <= 0)
+            return BadRequest(new { error = "Conversion resulted in zero CAD" });
+
+        // 3. Check sufficient CAD balance
+        var balance = await _walletService.GetBalanceAsync(walletId);
+        if (balance == null)
+            return NotFound(new { error = "Wallet not found" });
+        if (balance.CadBalanceCents < cadCents)
+            return BadRequest(new { error = "Insufficient CAD balance", required = cadCents, available = balance.CadBalanceCents });
+
+        // 4. Create a payout (claim) against the pull payment with the Lightning invoice
+        var lnPayoutMethodId = PayoutMethodId.Parse("BTC-LN");
+        var handler = _payoutHandlers.TryGet(lnPayoutMethodId);
+        if (handler == null)
+            return StatusCode(500, new { error = "Lightning payout handler not available" });
+
+        var (destination, parseError) = await handler.ParseClaimDestination(invoice, CancellationToken.None);
+        if (destination == null)
+            return BadRequest(new { error = parseError ?? "Could not parse Lightning invoice as claim destination" });
+
+        var claimResult = await _pullPaymentHostedService.Claim(new ClaimRequest
+        {
+            PullPaymentId = wallet.PullPaymentId,
+            PayoutMethodId = lnPayoutMethodId,
+            Destination = destination,
+            StoreId = wallet.StoreId,
+            PreApprove = true,
+            Metadata = JObject.FromObject(new { source = "wallet-pay-invoice", walletId = walletId.ToString() })
+        });
+
+        if (claimResult.Result != ClaimRequest.ClaimResult.Ok)
+        {
+            var errorMsg = ClaimRequest.GetErrorMessage(claimResult.Result) ?? "Payout claim failed";
+            _logger.LogWarning("Pay-invoice claim failed for wallet {WalletId}: {Result} - {Error}",
+                walletId, claimResult.Result, errorMsg);
+            return BadRequest(new { error = errorMsg });
+        }
+
+        // 5. Deduct CAD balance
+        var (spendSuccess, spendError) = await _walletService.SpendCadAsync(
+            walletId, cadCents, $"ln-invoice:{bolt11.PaymentHash}");
+        if (!spendSuccess)
+        {
+            _logger.LogError("Pay-invoice: payout created but CAD deduction failed for wallet {WalletId}: {Error}",
+                walletId, spendError);
+            return StatusCode(500, new { error = "Payment submitted but balance deduction failed: " + spendError });
+        }
+
+        // 6. Return success
+        var newBalance = await _walletService.GetBalanceAsync(walletId);
+        _logger.LogInformation("Pay-invoice: wallet {WalletId} paid {Sats} sats ({CadCents} CAD cents) via Lightning",
+            walletId, sats, cadCents);
+
+        return Ok(new
+        {
+            success = true,
+            cadCentsCharged = cadCents,
+            satsAmount = sats,
+            exchangeRate,
+            newCadBalanceCents = newBalance?.CadBalanceCents ?? 0,
+            newSatsBalance = newBalance?.SatsBalance ?? 0,
+            paymentHash = bolt11.PaymentHash?.ToString()
+        });
     }
 
     // ── NFC tap endpoint ──
@@ -285,5 +405,10 @@ public class WalletApiController : ControllerBase
     {
         public long AmountCents { get; set; }
         public string? Reference { get; set; }
+    }
+
+    public class PayInvoiceRequest
+    {
+        public string Invoice { get; set; } = string.Empty;
     }
 }
