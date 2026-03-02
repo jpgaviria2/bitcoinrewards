@@ -56,13 +56,11 @@ import java.util.regex.Pattern;
 public class MainActivity extends Activity {
     private static final String TAG = "RewardsNFC";
     private static final String BTCPAY_TAP_URL = "https://btcpay.anmore.me/plugins/bitcoin-rewards/wallet/%s/tap";
-    // Wallet ID patterns: 8-char hex or UUID-style
-    private static final Pattern WALLET_ID_HEX_PATTERN = Pattern.compile("[a-fA-F0-9]{8}");
+    // Wallet ID pattern: 8+ char hex or UUID-style
     private static final Pattern WALLET_ID_PATTERN = Pattern.compile("^[a-fA-F0-9\\-]{8,}$");
 
     private WebView webView;
     private TextView nfcTapOverlay;
-    private TextView nfcReaderOverlay;
     private TextView loadingText;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String currentLnurl = null;
@@ -96,7 +94,6 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         nfcTapOverlay = findViewById(R.id.nfc_tap_overlay);
-        nfcReaderOverlay = findViewById(R.id.nfc_reader_overlay);
         loadingText = findViewById(R.id.loading_text);
         webView = findViewById(R.id.webview);
 

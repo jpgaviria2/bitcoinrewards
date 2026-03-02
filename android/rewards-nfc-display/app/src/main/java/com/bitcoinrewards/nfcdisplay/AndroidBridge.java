@@ -29,4 +29,10 @@ public class AndroidBridge {
     public boolean isNfcAvailable() {
         return NdefHostCardEmulationService.isHceAvailable(activity);
     }
+
+    @JavascriptInterface
+    public boolean isReaderModeAvailable() {
+        android.nfc.NfcAdapter adapter = android.nfc.NfcAdapter.getDefaultAdapter(activity);
+        return adapter != null && adapter.isEnabled();
+    }
 }
