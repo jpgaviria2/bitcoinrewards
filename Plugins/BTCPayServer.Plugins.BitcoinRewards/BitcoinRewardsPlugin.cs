@@ -44,6 +44,10 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // BTCPay invoice listener
         services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<HostedServices.BtcpayInvoiceRewardHostedService>());
+
+        // LNURL claim payment watcher (polls for late Lightning payments)
+        services.AddSingleton<HostedServices.LnurlClaimWatcherService>();
+        services.AddHostedService(sp => sp.GetRequiredService<HostedServices.LnurlClaimWatcherService>());
         
         // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");

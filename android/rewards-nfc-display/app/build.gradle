@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    signingConfigs {
+        release {
+            storeFile file('../release-keystore.jks')
+            storePassword 'rewardsnfc123'
+            keyAlias 'rewards-nfc'
+            keyPassword 'rewardsnfc123'
+        }
+    }
+    namespace 'com.bitcoinrewards.nfcdisplay'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.bitcoinrewards.nfcdisplay"
+        minSdk 19
+        targetSdk 34
+        versionCode 10
+        versionName "1.9.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.material:material:1.11.0'
+}

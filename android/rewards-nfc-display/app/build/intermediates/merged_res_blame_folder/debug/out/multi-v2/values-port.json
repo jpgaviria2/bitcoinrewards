@@ -1,0 +1,34 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.bitcoinrewards.nfcdisplay.app-mergeDebugResources-29:/values-port/values-port.xml",
+            "map": [
+                {
+                    "source": "/home/ln/.gradle/caches/transforms-3/1269e761ba2b2764df14d796e474c793/transformed/appcompat-1.6.1/res/values-port/values-port.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "/home/ln/.gradle/daemon/8.5/com.bitcoinrewards.nfcdisplay.app-mergeDebugResources-29:/values-port/values-port.xml",
+            "map": [
+                {
+                    "source": "/home/ln/.gradle/caches/transforms-3/1269e761ba2b2764df14d796e474c793/transformed/appcompat-1.6.1/res/values-port/values-port.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    }
+                }
+            ]
+        }
+    ]
+}

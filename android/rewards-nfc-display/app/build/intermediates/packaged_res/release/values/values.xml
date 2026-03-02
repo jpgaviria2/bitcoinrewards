@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rewards NFC Display</string>
+    <string name="hce_service_description">NFC tag emulation for Lightning rewards</string>
+    <string name="ndef_aid_description">NDEF Tag Application</string>
+</resources>

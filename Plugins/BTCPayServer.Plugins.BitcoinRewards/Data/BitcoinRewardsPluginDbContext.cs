@@ -13,6 +13,7 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     public DbSet<BoltCardLink> BoltCardLinks { get; set; } = null!;
     public DbSet<CustomerWallet> CustomerWallets { get; set; } = null!;
     public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
+    public DbSet<PendingLnurlClaim> PendingLnurlClaims { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -65,6 +66,22 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
             entity.Property(e => e.TotalRewardedSatoshis).HasDefaultValue(0L);
             entity.Property(e => e.TotalRewardedCadCents).HasDefaultValue(0L);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
+
+        // Configure PendingLnurlClaim entity
+        modelBuilder.Entity<PendingLnurlClaim>(entity =>
+        {
+            entity.ToTable("PendingLnurlClaims");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.IsCompleted, e.IsFailed, e.ExpiresAt })
+                .HasDatabaseName("IX_PendingLnurlClaims_Status_ExpiresAt");
+            entity.HasIndex(e => e.CustomerWalletId);
+            entity.Property(e => e.StoreId).HasMaxLength(50);
+            entity.Property(e => e.LightningInvoiceId).HasMaxLength(255);
+            entity.Property(e => e.Bolt11).HasMaxLength(2000);
+            entity.Property(e => e.K1Prefix).HasMaxLength(20);
+            entity.Property(e => e.IsCompleted).HasDefaultValue(false);
+            entity.Property(e => e.IsFailed).HasDefaultValue(false);
         });
 
         // Configure WalletTransaction entity

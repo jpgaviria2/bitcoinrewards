@@ -1,0 +1,183 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.bitcoinrewards.nfcdisplay"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="19"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.NFC" />
+11-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:5:5-62
+11-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:5:22-59
+12    <uses-permission android:name="android.permission.INTERNET" />
+12-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:6:5-67
+12-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:6:22-64
+13    <uses-permission android:name="android.permission.VIBRATE" />
+13-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:7:5-66
+13-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:7:22-63
+14
+15    <uses-feature
+15-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:8:5-81
+16        android:name="android.hardware.nfc"
+16-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:8:19-54
+17        android:required="true" />
+17-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:8:55-78
+18    <uses-feature
+18-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:9:5-85
+19        android:name="android.hardware.nfc.hce"
+19-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:9:19-58
+20        android:required="true" />
+20-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:9:59-82
+21
+22    <permission
+22-->[androidx.core:core:1.9.0] /home/ln/.gradle/caches/transforms-3/75919e89ab9acfe92b320b18b5eba894/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
+23        android:name="com.bitcoinrewards.nfcdisplay.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+23-->[androidx.core:core:1.9.0] /home/ln/.gradle/caches/transforms-3/75919e89ab9acfe92b320b18b5eba894/transformed/core-1.9.0/AndroidManifest.xml:23:9-81
+24        android:protectionLevel="signature" />
+24-->[androidx.core:core:1.9.0] /home/ln/.gradle/caches/transforms-3/75919e89ab9acfe92b320b18b5eba894/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
+25
+26    <uses-permission android:name="com.bitcoinrewards.nfcdisplay.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+26-->[androidx.core:core:1.9.0] /home/ln/.gradle/caches/transforms-3/75919e89ab9acfe92b320b18b5eba894/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
+26-->[androidx.core:core:1.9.0] /home/ln/.gradle/caches/transforms-3/75919e89ab9acfe92b320b18b5eba894/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
+27
+28    <application
+28-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:11:5-45:19
+29        android:allowBackup="false"
+29-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:12:9-36
+30        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+30-->[androidx.core:core:1.9.0] /home/ln/.gradle/caches/transforms-3/75919e89ab9acfe92b320b18b5eba894/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
+31        android:debuggable="true"
+32        android:extractNativeLibs="true"
+33        android:label="@string/app_name"
+33-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:13:9-41
+34        android:theme="@style/Theme.MaterialComponents.NoActionBar" >
+34-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:14:9-68
+35        <activity
+35-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:16:9-25:20
+36            android:name="com.bitcoinrewards.nfcdisplay.MainActivity"
+36-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:17:13-41
+37            android:configChanges="orientation|screenSize|keyboardHidden"
+37-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:19:13-74
+38            android:exported="true"
+38-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:18:13-36
+39            android:screenOrientation="portrait" >
+39-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:20:13-49
+40            <intent-filter>
+40-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:21:13-24:29
+41                <action android:name="android.intent.action.MAIN" />
+41-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:22:17-69
+41-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:22:25-66
+42
+43                <category android:name="android.intent.category.LAUNCHER" />
+43-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:23:17-77
+43-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:23:27-74
+44            </intent-filter>
+45        </activity>
+46        <activity
+46-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:27:9-31:75
+47            android:name="com.bitcoinrewards.nfcdisplay.SettingsActivity"
+47-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:28:13-45
+48            android:exported="false"
+48-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:29:13-37
+49            android:screenOrientation="portrait"
+49-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:30:13-49
+50            android:theme="@style/Theme.MaterialComponents.NoActionBar" />
+50-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:31:13-72
+51
+52        <service
+52-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:33:9-44:19
+53            android:name="com.bitcoinrewards.nfcdisplay.ndef.NdefHostCardEmulationService"
+53-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:34:13-62
+54            android:exported="true"
+54-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:35:13-36
+55            android:permission="android.permission.BIND_NFC_SERVICE" >
+55-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:36:13-69
+56            <intent-filter>
+56-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:37:13-40:29
+57                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+57-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:38:17-93
+57-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:38:25-90
+58
+59                <category android:name="android.intent.category.DEFAULT" />
+59-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:39:17-76
+59-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:39:27-73
+60            </intent-filter>
+61
+62            <meta-data
+62-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:41:13-43:52
+63                android:name="android.nfc.cardemulation.host_apdu_service"
+63-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:42:17-75
+64                android:resource="@xml/aid_list" />
+64-->/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/src/main/AndroidManifest.xml:43:17-49
+65        </service>
+66
+67        <provider
+67-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+68            android:name="androidx.startup.InitializationProvider"
+68-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+69            android:authorities="com.bitcoinrewards.nfcdisplay.androidx-startup"
+69-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+70            android:exported="false" >
+70-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+71            <meta-data
+71-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+72                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+72-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+73                android:value="androidx.startup" />
+73-->[androidx.emoji2:emoji2:1.2.0] /home/ln/.gradle/caches/transforms-3/4db699d37aeb53b95d33ff3db7cc3cca/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+74            <meta-data
+74-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/ln/.gradle/caches/transforms-3/6a853b8e18009ae21a802547b22027ba/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:29:13-31:52
+75                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+75-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/ln/.gradle/caches/transforms-3/6a853b8e18009ae21a802547b22027ba/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:30:17-78
+76                android:value="androidx.startup" />
+76-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/ln/.gradle/caches/transforms-3/6a853b8e18009ae21a802547b22027ba/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:31:17-49
+77            <meta-data
+77-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
+78                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+78-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
+79                android:value="androidx.startup" />
+79-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
+80        </provider>
+81
+82        <receiver
+82-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+83            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+83-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+84            android:directBootAware="false"
+84-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+85            android:enabled="true"
+85-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+86            android:exported="true"
+86-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+87            android:permission="android.permission.DUMP" >
+87-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+88            <intent-filter>
+88-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+89                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+89-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+89-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+90            </intent-filter>
+91            <intent-filter>
+91-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+92                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+92-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+92-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+93            </intent-filter>
+94            <intent-filter>
+94-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+95                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+95-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+95-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+96            </intent-filter>
+97            <intent-filter>
+97-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+98                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+98-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+98-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/ln/.gradle/caches/transforms-3/afec4888cd7306003b24265c0b81ca00/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+99            </intent-filter>
+100        </receiver>
+101    </application>
+102
+103</manifest>

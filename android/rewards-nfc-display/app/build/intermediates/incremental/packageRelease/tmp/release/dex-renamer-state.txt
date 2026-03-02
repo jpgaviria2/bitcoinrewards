@@ -1,0 +1,4 @@
+#Sun Mar 01 18:51:11 PST 2026
+base.0=/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/android/rewards-nfc-display/app/build/intermediates/dex/release/mergeDexRelease/classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

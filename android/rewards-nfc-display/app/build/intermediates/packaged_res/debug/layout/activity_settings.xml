@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e"
+    android:padding="32dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <!-- Logo/Icon -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚡"
+            android:textSize="64sp"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rewards NFC Display"
+            android:textColor="#ffffff"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Connect to your BTCPay Server"
+            android:textColor="#aaaacc"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="32dp" />
+
+        <!-- BTCPay Server URL -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="BTCPay Server URL"
+            android:textColor="#8888aa"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/input_btcpay_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="https://your-btcpay-server.com"
+            android:inputType="textUri"
+            android:textColor="#ffffff"
+            android:textColorHint="#555577"
+            android:background="@android:color/transparent"
+            android:padding="12dp"
+            android:textSize="17sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Email -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Email"
+            android:textColor="#8888aa"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/input_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="admin@example.com"
+            android:inputType="textEmailAddress"
+            android:textColor="#ffffff"
+            android:textColorHint="#555577"
+            android:background="@android:color/transparent"
+            android:padding="12dp"
+            android:textSize="17sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Password -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Password"
+            android:textColor="#8888aa"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/input_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="••••••••"
+            android:inputType="textPassword"
+            android:textColor="#ffffff"
+            android:textColorHint="#555577"
+            android:background="@android:color/transparent"
+            android:padding="12dp"
+            android:textSize="17sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Connect Button -->
+        <Button
+            android:id="@+id/btn_connect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Connect"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="#ffffff"
+            android:background="#3F51B5"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Status -->
+        <TextView
+            android:id="@+id/status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#aaaacc"
+            android:textSize="15sp"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Store Selection (hidden until connected) -->
+        <LinearLayout
+            android:id="@+id/store_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Store"
+                android:textColor="#8888aa"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/store_info"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#ffffff"
+                    android:textSize="17sp" />
+
+                <Button
+                    android:id="@+id/btn_cycle_store"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Switch"
+                    android:textSize="14sp"
+                    android:textColor="#aaaacc"
+                    android:background="@android:color/transparent"
+                    android:padding="8dp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#333355"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Auto-refresh interval -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Auto-refresh interval (seconds)"
+            android:textColor="#8888aa"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/input_refresh_seconds"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="10"
+            android:inputType="number"
+            android:textColor="#ffffff"
+            android:textColorHint="#555577"
+            android:background="@android:color/transparent"
+            android:padding="12dp"
+            android:textSize="17sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- NFC Toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="28dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Enable NFC broadcast"
+                android:textColor="#ffffff"
+                android:textSize="17sp" />
+
+            <Switch
+                android:id="@+id/switch_nfc_enabled"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
+        </LinearLayout>
+
+        <!-- Save Button (hidden until connected) -->
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save &amp; Launch Display"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#ffffff"
+            android:background="#4CAF50"
+            android:padding="16dp"
+            android:visibility="gone"
+            android:layout_marginBottom="40dp" />
+
+    </LinearLayout>
+</ScrollView>

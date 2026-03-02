@@ -298,7 +298,20 @@ else
                 <div class="qr-code">
                     <img src="@Model.LnurlQrDataUri" alt="Reward QR Code" />
                 </div>
-                
+
+                <!-- Hidden data element for Android HCE NFC app to extract LNURL -->
+                <div id="nfc-lnurl-data" data-lnurl="@Model.LnurlString" data-reward-id="@Model.RewardId" style="display:none;"></div>
+
+                <!-- NFC HCE indicator (shown by Android app when HCE is active) -->
+                <div id="nfc-hce-indicator" style="margin-top: 20px; display: none;">
+                    <div style="border-top: 2px solid #eee; padding-top: 20px;">
+                        <div style="font-size: 2.5rem; animation: pulse 2s ease-in-out infinite;">📱</div>
+                        <p style="color: #28a745; font-size: 1.3rem; font-weight: 600; margin-top: 10px;">
+                            or tap your phone on this device to claim
+                        </p>
+                    </div>
+                </div>
+
                 <div class="reward-info">
                     <div class="amount">@Model.RewardAmountSatoshis sats</div>
                     @if (!string.IsNullOrEmpty(Model.OrderId))

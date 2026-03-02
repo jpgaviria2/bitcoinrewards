@@ -127,6 +127,41 @@ public class CustomerWalletService
         return true;
     }
 
+    public async Task<bool> CreditSatsAsync(Guid walletId, long sats, string? reference = null)
+    {
+        await using var ctx = _dbFactory.CreateContext();
+        var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
+        if (wallet == null) return false;
+
+        // Credit sats by topping up the pull payment limit
+        var (success, _, error) = await _boltCardService.TopUpPullPaymentAsync(
+            wallet.PullPaymentId, sats, wallet.StoreId, wallet.BoltcardId);
+
+        if (!success)
+        {
+            _logger.LogWarning("CreditSatsAsync failed for wallet {WalletId}: {Error}", walletId, error);
+            return false;
+        }
+
+        wallet.TotalRewardedSatoshis += sats;
+        wallet.LastRewardedAt = DateTime.UtcNow;
+
+        ctx.WalletTransactions.Add(new WalletTransaction
+        {
+            CustomerWalletId = walletId,
+            Type = WalletTransactionType.RewardEarned,
+            SatsAmount = sats,
+            CadCentsAmount = 0,
+            ExchangeRate = 0,
+            Reference = reference
+        });
+
+        await ctx.SaveChangesAsync();
+        _logger.LogInformation("Credited {Sats} sats to wallet {WalletId} (kept as sats, no CAD conversion)",
+            sats, walletId);
+        return true;
+    }
+
     public async Task<(bool Success, string? Error)> SwapToCadAsync(Guid walletId, long satsAmount, string storeId)
     {
         if (satsAmount <= 0) return (false, "Amount must be positive");
@@ -200,6 +235,38 @@ public class CustomerWalletService
 
         await ctx.SaveChangesAsync();
         _logger.LogInformation("Swapped {CadCents} CAD cents → {Sats} sats for wallet {WalletId}", cadCentsAmount, sats, walletId);
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? Error)> SpendSatsAsync(Guid walletId, long sats, string? reference = null)
+    {
+        if (sats <= 0) return (false, "Amount must be positive");
+
+        var balance = await GetBalanceAsync(walletId);
+        if (balance == null) return (false, "Wallet not found");
+        if (balance.SatsBalance < sats) return (false, "Insufficient sats balance");
+
+        await using var ctx = _dbFactory.CreateContext();
+        var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
+        if (wallet == null) return (false, "Wallet not found");
+
+        // Debit sats from pull payment (reduce limit)
+        var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
+            wallet.PullPaymentId, sats, wallet.StoreId);
+        if (!success) return (false, error ?? "Failed to debit sats from pull payment");
+
+        ctx.WalletTransactions.Add(new WalletTransaction
+        {
+            CustomerWalletId = walletId,
+            Type = WalletTransactionType.SatsSpent,
+            SatsAmount = -sats,
+            CadCentsAmount = 0,
+            ExchangeRate = 0,
+            Reference = reference
+        });
+
+        await ctx.SaveChangesAsync();
+        _logger.LogInformation("Spent {Sats} sats from wallet {WalletId}", sats, walletId);
         return (true, null);
     }
 
@@ -302,6 +369,15 @@ public class CustomerWalletService
         _logger.LogInformation("Admin adjust wallet {WalletId}: sats={Sats}, cadCents={CadCents}, reason={Reason}",
             walletId, satsAmount, cadCentsAmount, reason);
         return true;
+    }
+
+    /// <summary>Count wallets created today for a store (for rate limiting).</summary>
+    public async Task<int> CountWalletsCreatedTodayAsync(string storeId)
+    {
+        await using var ctx = _dbFactory.CreateContext();
+        var todayUtc = DateTime.UtcNow.Date;
+        return await ctx.CustomerWallets
+            .CountAsync(w => w.StoreId == storeId && w.CreatedAt >= todayUtc);
     }
 
     /// <summary>List all wallets for a store.</summary>

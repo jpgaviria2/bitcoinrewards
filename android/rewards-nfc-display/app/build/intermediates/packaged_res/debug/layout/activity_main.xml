@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Loading overlay -->
+    <TextView
+        android:id="@+id/loading_text"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:background="#1a1a2e"
+        android:textColor="#aaaacc"
+        android:textSize="20sp"
+        android:visibility="gone" />
+
+    <!-- Settings gear button (top-right corner) -->
+    <ImageButton
+        android:id="@+id/btn_settings"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="8dp"
+        android:src="@android:drawable/ic_menu_manage"
+        android:background="@android:color/transparent"
+        android:contentDescription="Settings"
+        android:alpha="0.4" />
+
+    <!-- NFC tap feedback overlay -->
+    <TextView
+        android:id="@+id/nfc_tap_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:background="#CC000000"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:text="📡 Tap detected!"
+        android:visibility="gone" />
+</FrameLayout>

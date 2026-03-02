@@ -12,7 +12,8 @@ public enum WalletTransactionType
     CadSpent = 3,
     SatsWithdrawn = 4,
     ManualAdjust = 5,
-    LnurlWithdrawClaimed = 6
+    LnurlWithdrawClaimed = 6,
+    SatsSpent = 7
 }
 
 /// <summary>

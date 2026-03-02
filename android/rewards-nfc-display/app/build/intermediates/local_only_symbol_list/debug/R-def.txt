@@ -1,0 +1,23 @@
+R_DEF: Internal format may change without notice
+local
+id btn_connect
+id btn_cycle_store
+id btn_save
+id btn_settings
+id input_btcpay_url
+id input_email
+id input_password
+id input_refresh_seconds
+id loading_text
+id nfc_tap_overlay
+id status_text
+id store_info
+id store_section
+id switch_nfc_enabled
+id webview
+layout activity_main
+layout activity_settings
+string app_name
+string hce_service_description
+string ndef_aid_description
+xml aid_list

@@ -2,21 +2,27 @@
 using System;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
+using System.Web;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
+using BTCPayServer.Configuration;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
+using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
 using BTCPayServer.Services;
+using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using Newtonsoft.Json.Linq;
@@ -36,9 +42,13 @@ public class WalletApiController : ControllerBase
     private readonly ExchangeRateService _exchangeRateService;
     private readonly PullPaymentHostedService _pullPaymentHostedService;
     private readonly PayoutMethodHandlerDictionary _payoutHandlers;
+    private readonly PaymentMethodHandlerDictionary _paymentHandlers;
     private readonly BTCPayNetworkProvider _networkProvider;
     private readonly StoreRepository _storeRepository;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly LightningClientFactoryService _lightningClientFactory;
+    private readonly IOptions<LightningNetworkOptions> _lightningOptions;
+    private readonly BitcoinRewardsPluginDbContextFactory _dbFactory;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
@@ -47,9 +57,13 @@ public class WalletApiController : ControllerBase
         ExchangeRateService exchangeRateService,
         PullPaymentHostedService pullPaymentHostedService,
         PayoutMethodHandlerDictionary payoutHandlers,
+        PaymentMethodHandlerDictionary paymentHandlers,
         BTCPayNetworkProvider networkProvider,
         StoreRepository storeRepository,
         IHttpClientFactory httpClientFactory,
+        LightningClientFactoryService lightningClientFactory,
+        IOptions<LightningNetworkOptions> lightningOptions,
+        BitcoinRewardsPluginDbContextFactory dbFactory,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
@@ -57,9 +71,13 @@ public class WalletApiController : ControllerBase
         _exchangeRateService = exchangeRateService;
         _pullPaymentHostedService = pullPaymentHostedService;
         _payoutHandlers = payoutHandlers;
+        _paymentHandlers = paymentHandlers;
         _networkProvider = networkProvider;
         _storeRepository = storeRepository;
         _httpClientFactory = httpClientFactory;
+        _lightningClientFactory = lightningClientFactory;
+        _lightningOptions = lightningOptions;
+        _dbFactory = dbFactory;
         _logger = logger;
     }
 
@@ -219,65 +237,111 @@ public class WalletApiController : ControllerBase
         if (sats <= 0)
             return BadRequest(new { error = "Invoice amount must be positive" });
 
-        // 2. Convert sats → CAD cents at current exchange rate
-        var (cadCents, exchangeRate) = await _exchangeRateService.SatsToCadCentsAsync(sats, wallet!.StoreId);
-        if (cadCents <= 0)
-            return BadRequest(new { error = "Conversion resulted in zero CAD" });
-
-        // 3. Check sufficient CAD balance
+        // 2. Check balance — try sats first, then CAD
         var balance = await _walletService.GetBalanceAsync(walletId);
         if (balance == null)
             return NotFound(new { error = "Wallet not found" });
-        if (balance.CadBalanceCents < cadCents)
-            return BadRequest(new { error = "Insufficient CAD balance", required = cadCents, available = balance.CadBalanceCents });
 
-        // 4. Create a payout (claim) against the pull payment with the Lightning invoice
-        var lnPayoutMethodId = PayoutMethodId.Parse("BTC-LN");
-        var handler = _payoutHandlers.TryGet(lnPayoutMethodId);
-        if (handler == null)
-            return StatusCode(500, new { error = "Lightning payout handler not available" });
+        bool payFromSats = balance.SatsBalance >= sats;
+        long cadCents = 0;
+        decimal exchangeRate = 0;
 
-        var (destination, parseError) = await handler.ParseClaimDestination(invoice, CancellationToken.None);
-        if (destination == null)
-            return BadRequest(new { error = parseError ?? "Could not parse Lightning invoice as claim destination" });
-
-        var claimResult = await _pullPaymentHostedService.Claim(new ClaimRequest
+        if (!payFromSats)
         {
-            PullPaymentId = wallet.PullPaymentId,
-            PayoutMethodId = lnPayoutMethodId,
-            Destination = destination,
-            StoreId = wallet.StoreId,
-            PreApprove = true,
-            Metadata = JObject.FromObject(new { source = "wallet-pay-invoice", walletId = walletId.ToString() })
-        });
-
-        if (claimResult.Result != ClaimRequest.ClaimResult.Ok)
-        {
-            var errorMsg = ClaimRequest.GetErrorMessage(claimResult.Result) ?? "Payout claim failed";
-            _logger.LogWarning("Pay-invoice claim failed for wallet {WalletId}: {Result} - {Error}",
-                walletId, claimResult.Result, errorMsg);
-            return BadRequest(new { error = errorMsg });
+            // Not enough sats — convert from CAD
+            (cadCents, exchangeRate) = await _exchangeRateService.SatsToCadCentsAsync(sats, wallet!.StoreId);
+            if (cadCents <= 0)
+                return BadRequest(new { error = "Conversion resulted in zero CAD" });
+            if (balance.CadBalanceCents < cadCents)
+                return BadRequest(new { error = "Insufficient balance", requiredCadCents = cadCents, availableCadCents = balance.CadBalanceCents, availableSats = balance.SatsBalance });
         }
 
-        // 5. Deduct CAD balance
-        var (spendSuccess, spendError) = await _walletService.SpendCadAsync(
-            walletId, cadCents, $"ln-invoice:{bolt11.PaymentHash}");
-        if (!spendSuccess)
+        // 4. Get Lightning client and pay the invoice directly
+        var store = await _storeRepository.FindStore(wallet!.StoreId);
+        if (store == null)
+            return StatusCode(500, new { error = "Store not found" });
+
+        var lnConfig = _paymentHandlers.GetLightningConfig(store, network);
+        if (lnConfig == null)
+            return StatusCode(500, new { error = "Lightning not configured for this store" });
+
+        ILightningClient? lightningClient = null;
+        var connStr = lnConfig.GetExternalLightningUrl();
+        if (!string.IsNullOrEmpty(connStr))
         {
-            _logger.LogError("Pay-invoice: payout created but CAD deduction failed for wallet {WalletId}: {Error}",
-                walletId, spendError);
-            return StatusCode(500, new { error = "Payment submitted but balance deduction failed: " + spendError });
+            lightningClient = _lightningClientFactory.Create(connStr, network);
+        }
+        else if (lnConfig.IsInternalNode &&
+                 _lightningOptions.Value.InternalLightningByCryptoCode.TryGetValue("BTC", out var internalClient))
+        {
+            lightningClient = internalClient;
         }
 
-        // 6. Return success
+        if (lightningClient == null)
+            return StatusCode(500, new { error = "No Lightning connection configured for this store" });
+
+        // 5. Pay the invoice with a timeout
+        using var payCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        PayResponse payResult;
+        try
+        {
+            payResult = await lightningClient.Pay(invoice, payCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Pay-invoice: Lightning payment timed out for wallet {WalletId}", walletId);
+            return StatusCode(504, new { error = "Lightning payment timed out. No balance was deducted." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Pay-invoice: Lightning payment failed for wallet {WalletId}", walletId);
+            return StatusCode(502, new { error = $"Lightning payment failed: {ex.Message}" });
+        }
+
+        if (payResult.Result != PayResult.Ok)
+        {
+            _logger.LogWarning("Pay-invoice: Lightning payment not OK for wallet {WalletId}: {Result} {Details}",
+                walletId, payResult.Result, payResult.ErrorDetail);
+            return BadRequest(new { error = $"Lightning payment failed: {payResult.Result} - {payResult.ErrorDetail}" });
+        }
+
+        // 6. Payment confirmed — deduct from appropriate balance
+        var reference = $"ln-invoice:{bolt11.PaymentHash}";
+
+        if (payFromSats)
+        {
+            // Deduct from sats balance (pull payment)
+            var (spendSuccess, spendError) = await _walletService.SpendSatsAsync(walletId, sats, reference);
+            if (!spendSuccess)
+            {
+                _logger.LogError("Pay-invoice: payment sent but sats deduction failed for wallet {WalletId}: {Error}. MANUAL RECONCILIATION NEEDED.",
+                    walletId, spendError);
+                return StatusCode(500, new { error = "Payment sent but balance deduction failed — contact support" });
+            }
+            _logger.LogInformation("Pay-invoice: wallet {WalletId} paid {Sats} sats from sats balance via Lightning", walletId, sats);
+        }
+        else
+        {
+            // Deduct from CAD balance
+            var (spendSuccess, spendError) = await _walletService.SpendCadAsync(walletId, cadCents, reference);
+            if (!spendSuccess)
+            {
+                _logger.LogError("Pay-invoice: payment sent but CAD deduction failed for wallet {WalletId}: {Error}. MANUAL RECONCILIATION NEEDED.",
+                    walletId, spendError);
+                return StatusCode(500, new { error = "Payment sent but balance deduction failed — contact support" });
+            }
+            _logger.LogInformation("Pay-invoice: wallet {WalletId} paid {Sats} sats ({CadCents} CAD cents) from CAD balance via Lightning",
+                walletId, sats, cadCents);
+        }
+
+        // 7. Return success
         var newBalance = await _walletService.GetBalanceAsync(walletId);
-        _logger.LogInformation("Pay-invoice: wallet {WalletId} paid {Sats} sats ({CadCents} CAD cents) via Lightning",
-            walletId, sats, cadCents);
 
         return Ok(new
         {
             success = true,
-            cadCentsCharged = cadCents,
+            paidFromSats = payFromSats,
+            cadCentsCharged = payFromSats ? 0 : cadCents,
             satsAmount = sats,
             exchangeRate,
             newCadBalanceCents = newBalance?.CadBalanceCents ?? 0,
@@ -287,10 +351,148 @@ public class WalletApiController : ControllerBase
     }
 
     // ── LNURL-withdraw claim endpoint ──
-    // TODO: Implement claim-lnurl — requires Lightning client access which needs
-    // a different approach (Greenfield API or service layer) since plugin can't
-    // directly access BTCPay's internal LightningClientFactoryService.
-    // For now, LNURL-withdraw earning works via the existing bolt card tap flow.
+
+    public class ClaimLnurlRequest
+    {
+        public string Callback { get; set; } = "";
+        public string K1 { get; set; } = "";
+        public long Amount { get; set; } // millisatoshis
+        public string? Description { get; set; }
+    }
+
+    [HttpPost("plugins/bitcoin-rewards/wallet/{walletId}/claim-lnurl")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ClaimLnurl(Guid walletId, [FromBody] ClaimLnurlRequest request)
+    {
+        var (wallet, err) = await AuthAndFindWalletAsync(walletId);
+        if (err != null) return err;
+
+        if (string.IsNullOrWhiteSpace(request.Callback) || string.IsNullOrWhiteSpace(request.K1))
+            return BadRequest(new { error = "callback and k1 are required" });
+        if (request.Amount <= 0)
+            return BadRequest(new { error = "amount must be positive (in millisatoshis)" });
+
+        var sats = request.Amount / 1000;
+        if (sats <= 0) sats = 1;
+
+        try
+        {
+            // 1. Get the store's Lightning client
+            var store = await _storeRepository.FindStore(wallet!.StoreId);
+            if (store == null)
+                return StatusCode(500, new { error = "Store not found" });
+
+            var network = _networkProvider.GetNetwork<BTCPayNetwork>("BTC");
+            if (network == null)
+                return StatusCode(500, new { error = "BTC network not configured" });
+
+            var lnConfig = _paymentHandlers.GetLightningConfig(store, network);
+            if (lnConfig == null)
+                return StatusCode(500, new { error = "Lightning not configured for this store" });
+
+            ILightningClient? lightningClient = null;
+            var connStr = lnConfig.GetExternalLightningUrl();
+            if (!string.IsNullOrEmpty(connStr))
+            {
+                lightningClient = _lightningClientFactory.Create(connStr, network);
+            }
+            else if (lnConfig.IsInternalNode &&
+                     _lightningOptions.Value.InternalLightningByCryptoCode.TryGetValue("BTC", out var internalClient))
+            {
+                lightningClient = internalClient;
+            }
+
+            if (lightningClient == null)
+                return StatusCode(500, new { error = "No Lightning connection configured for this store" });
+
+            // 2. Create a Lightning invoice for the claim amount
+            var lnInvoice = await lightningClient.CreateInvoice(
+                new LightMoney(sats, LightMoneyUnit.Satoshi),
+                request.Description ?? "LNURL-withdraw claim",
+                TimeSpan.FromMinutes(10),
+                CancellationToken.None);
+
+            if (lnInvoice == null || string.IsNullOrEmpty(lnInvoice.BOLT11))
+            {
+                _logger.LogError("Failed to create Lightning invoice for LNURL claim, wallet {WalletId}", walletId);
+                return StatusCode(500, new { error = "Failed to create Lightning invoice" });
+            }
+
+            // 3. Send the invoice to the LNURL-withdraw callback
+            var callbackUri = new UriBuilder(request.Callback);
+            var query = HttpUtility.ParseQueryString(callbackUri.Query);
+            query["k1"] = request.K1;
+            query["pr"] = lnInvoice.BOLT11;
+            callbackUri.Query = query.ToString();
+
+            var httpClient = _httpClientFactory.CreateClient("lnurl-withdraw");
+            var callbackResponse = await httpClient.GetAsync(callbackUri.Uri);
+            var callbackBody = await callbackResponse.Content.ReadAsStringAsync();
+
+            if (!callbackResponse.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("LNURL callback failed for wallet {WalletId}: {Status} {Body}",
+                    walletId, callbackResponse.StatusCode, callbackBody);
+                return BadRequest(new { error = $"LNURL callback failed: {callbackBody}" });
+            }
+
+            // Parse callback response — should be {"status":"OK"} per LUD-03
+            using var jsonDoc = JsonDocument.Parse(callbackBody);
+            var status = jsonDoc.RootElement.TryGetProperty("status", out var statusProp)
+                ? statusProp.GetString()
+                : null;
+
+            if (status != null && status.Equals("ERROR", StringComparison.OrdinalIgnoreCase))
+            {
+                var reason = jsonDoc.RootElement.TryGetProperty("reason", out var reasonProp)
+                    ? reasonProp.GetString()
+                    : "Unknown error";
+                return BadRequest(new { error = $"LNURL service rejected claim: {reason}" });
+            }
+
+            // 4. LNURL callback returned OK — the sender has committed to paying.
+            //    Per LUD-03, status:OK means the service accepted our invoice and
+            //    will pay it. We trust this and credit optimistically.
+            //    If auto-convert is ON: convert sats → CAD and credit CadBalance.
+            //    If auto-convert is OFF: leave sats as sats (no CAD conversion).
+            long cadCents = 0;
+            decimal exchangeRate = 0;
+            var reference = $"lnurl-withdraw:{request.K1[..Math.Min(8, request.K1.Length)]}";
+
+            if (wallet.AutoConvertToCad)
+            {
+                (cadCents, exchangeRate) = await _exchangeRateService.SatsToCadCentsAsync(sats, wallet.StoreId);
+                await _walletService.CreditCadAsync(walletId, cadCents, sats, exchangeRate, reference);
+                _logger.LogInformation("LNURL-withdraw claimed (auto-convert ON): wallet {WalletId} credited {Sats} sats → {CadCents} CAD cents @ {Rate}",
+                    walletId, sats, cadCents, exchangeRate);
+            }
+            else
+            {
+                await _walletService.CreditSatsAsync(walletId, sats, reference);
+                _logger.LogInformation("LNURL-withdraw claimed (auto-convert OFF): wallet {WalletId} credited {Sats} sats (kept as sats)",
+                    walletId, sats);
+            }
+
+            var newBalance = await _walletService.GetBalanceAsync(walletId);
+
+            return Ok(new
+            {
+                success = true,
+                pending = false,
+                satsReceived = sats,
+                autoConverted = wallet.AutoConvertToCad,
+                cadCentsConverted = cadCents,
+                exchangeRate,
+                newCadBalanceCents = newBalance?.CadBalanceCents ?? 0,
+                newSatsBalance = newBalance?.SatsBalance ?? 0
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LNURL claim failed for wallet {WalletId}", walletId);
+            return StatusCode(500, new { error = "Claim failed: " + ex.Message });
+        }
+    }
 
     // ── NFC tap endpoint ──
 
@@ -427,4 +629,89 @@ public class WalletApiController : ControllerBase
         public string Invoice { get; set; } = string.Empty;
     }
 
+    public class CreateWalletRequest
+    {
+        public string? StoreId { get; set; }
+    }
+
+    // ── Anonymous wallet creation (frictionless onboarding) ──
+
+    [HttpPost("plugins/bitcoin-rewards/wallet/create")]
+    [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> CreateWallet([FromBody] CreateWalletRequest? request)
+    {
+        // Resolve store ID: from request body, or fall back to finding a store with the plugin enabled
+        var storeId = request?.StoreId;
+
+        if (string.IsNullOrWhiteSpace(storeId))
+        {
+            // No storeId provided — this is expected for the simple "Get Started" flow.
+            // We need at least one store with the plugin enabled.
+            // For now, return an error asking for storeId. In production, you'd configure a default.
+            return BadRequest(new { error = "storeId is required" });
+        }
+
+        // Verify store exists
+        var store = await _storeRepository.FindStore(storeId);
+        if (store == null)
+            return BadRequest(new { error = "Store not found" });
+
+        // Rate limiting: max 100 wallets per store per day
+        var todayCount = await _walletService.CountWalletsCreatedTodayAsync(storeId);
+        if (todayCount >= 100)
+        {
+            _logger.LogWarning("Wallet creation rate limit hit for store {StoreId}: {Count} today", storeId, todayCount);
+            return StatusCode(429, new { error = "Too many wallets created today. Try again tomorrow." });
+        }
+
+        try
+        {
+            // Create a pull payment with 0 initial balance (SATS currency, LN payout method)
+            var ppRequest = new BTCPayServer.Client.Models.CreatePullPaymentRequest
+            {
+                Name = "Rewards Wallet",
+                Description = "Trails Coffee customer rewards wallet",
+                Amount = 1.0m, // 1 BTC limit — pull payment is just a container, actual balance tracked in DB
+                Currency = "BTC",
+                AutoApproveClaims = true,
+                StartsAt = DateTimeOffset.UtcNow,
+                PayoutMethods = new[] { "BTC-LN" }
+            };
+
+            var pullPaymentId = await _pullPaymentHostedService.CreatePullPayment(store, ppRequest);
+            if (string.IsNullOrEmpty(pullPaymentId))
+            {
+                _logger.LogError("Failed to create pull payment for anonymous wallet in store {StoreId}", storeId);
+                return StatusCode(500, new { error = "Failed to create wallet backing" });
+            }
+
+            // Create CustomerWallet linked to the pull payment
+            var wallet = await _walletService.GetOrCreateWalletAsync(storeId, pullPaymentId);
+
+            // Generate bearer token
+            var token = await _walletService.GenerateWalletTokenAsync(wallet.Id);
+            if (token == null)
+            {
+                _logger.LogError("Failed to generate token for wallet {WalletId}", wallet.Id);
+                return StatusCode(500, new { error = "Failed to generate wallet token" });
+            }
+
+            _logger.LogInformation("Created anonymous wallet {WalletId} for store {StoreId}, PP {PullPaymentId}",
+                wallet.Id, storeId, pullPaymentId);
+
+            return Ok(new
+            {
+                walletId = wallet.Id,
+                token,
+                satsBalance = 0,
+                cadBalanceCents = 0
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating anonymous wallet for store {StoreId}", storeId);
+            return StatusCode(500, new { error = "Internal error creating wallet" });
+        }
+    }
 }
