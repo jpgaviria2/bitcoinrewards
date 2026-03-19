@@ -101,6 +101,35 @@ public class WalletApiController : ControllerBase
 
     // ── Public endpoints (wallet token auth) ──
 
+    [HttpPost("plugins/bitcoin-rewards/wallet/create")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateWallet([FromBody] CreateWalletRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.StoreId))
+            return BadRequest(new { error = "StoreId is required" });
+
+        // Create a pull payment for this wallet (anonymous, no card UID)
+        var pullPaymentId = Guid.NewGuid().ToString();
+        
+        // Create wallet
+        var wallet = await _walletService.GetOrCreateWalletAsync(
+            request.StoreId, pullPaymentId, cardUid: null, boltcardId: null);
+
+        // Generate token
+        var token = await _walletService.GenerateWalletTokenAsync(wallet.Id);
+
+        var balance = await _walletService.GetBalanceAsync(wallet.Id);
+
+        return Ok(new
+        {
+            walletId = wallet.Id,
+            token,
+            satsBalance = balance?.SatsBalance ?? 0,
+            cadBalanceCents = balance?.CadBalanceCents ?? 0,
+            autoConvert = balance?.AutoConvertToCad ?? true
+        });
+    }
+
     [HttpGet("plugins/bitcoin-rewards/wallet/{walletId}/balance")]
     [AllowAnonymous]
     public async Task<IActionResult> GetBalance(Guid walletId)
@@ -518,6 +547,11 @@ public class WalletApiController : ControllerBase
     }
 
     // ── DTOs ──
+
+    public class CreateWalletRequest
+    {
+        public string StoreId { get; set; } = string.Empty;
+    }
 
     public class SwapRequest
     {
