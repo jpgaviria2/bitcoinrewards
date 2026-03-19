@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Configuration;
+using BTCPayServer.Data;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
@@ -233,17 +234,14 @@ public class LnurlClaimWatcherService : BackgroundService
         var store = await storeRepository.FindStore(storeId);
         if (store == null) return null;
 
-        var lnConfig = _paymentHandlers.GetLightningConfig(store, network);
-        if (lnConfig == null) return null;
+        var id = PaymentTypes.LN.GetPaymentMethodId(network.CryptoCode);
+        if (!_paymentHandlers.TryGetValue(id, out var handler) || handler is not LightningLikePaymentHandler lnHandler)
+            return null;
 
-        var connStr = lnConfig.GetExternalLightningUrl();
-        if (!string.IsNullOrEmpty(connStr))
-            return _lightningClientFactory.Create(connStr, network);
+        var existing = store.GetPaymentMethodConfig<LightningPaymentMethodConfig>(id, _paymentHandlers);
+        if (existing == null)
+            return null;
 
-        if (lnConfig.IsInternalNode &&
-            _lightningOptions.Value.InternalLightningByCryptoCode.TryGetValue("BTC", out var internalClient))
-            return internalClient;
-
-        return null;
+        return lnHandler.CreateLightningClient(existing);
     }
 }
