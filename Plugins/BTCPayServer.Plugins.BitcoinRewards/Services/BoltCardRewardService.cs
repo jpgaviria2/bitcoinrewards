@@ -281,7 +281,7 @@ public class BoltCardRewardService
 
             // Sum completed/in-progress payouts
             var totalPaid = await conn.QueryFirstOrDefaultAsync<decimal?>(
-                "SELECT SUM(\"OriginalAmount\") FROM \"Payouts\" WHERE \"PullPaymentDataId\" = @id AND \"State\" != @cancelled",
+                "SELECT SUM(\"OriginalAmount\") FROM \"Payouts\" WHERE \"PullPaymentDataId\" = @id AND CAST(\"State\" AS integer) != @cancelled",
                 new { id = pullPaymentId, cancelled = (int)BTCPayServer.Client.Models.PayoutState.Cancelled }) ?? 0m;
 
             var balance = limit - totalPaid;
