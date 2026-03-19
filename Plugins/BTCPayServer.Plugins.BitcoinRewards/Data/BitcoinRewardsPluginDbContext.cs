@@ -62,6 +62,7 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
                 .IsUnique()
                 .HasDatabaseName("IX_CustomerWallets_StoreId_PullPaymentId_Unique");
             entity.Property(e => e.CadBalanceCents).HasDefaultValue(0L);
+            entity.Property(e => e.SatsBalanceSatoshis).HasDefaultValue(0L);
             entity.Property(e => e.AutoConvertToCad).HasDefaultValue(true);
             entity.Property(e => e.TotalRewardedSatoshis).HasDefaultValue(0L);
             entity.Property(e => e.TotalRewardedCadCents).HasDefaultValue(0L);

@@ -94,10 +94,7 @@ public class CustomerWalletService
         var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
         if (wallet == null) return null;
 
-        var cardBalance = await _boltCardService.GetCardBalanceAsync(wallet.PullPaymentId);
-        var sats = cardBalance?.BalanceSats ?? 0;
-
-        return new WalletBalance(sats, wallet.CadBalanceCents, wallet.AutoConvertToCad,
+        return new WalletBalance(wallet.SatsBalanceSatoshis, wallet.CadBalanceCents, wallet.AutoConvertToCad,
             wallet.TotalRewardedSatoshis, wallet.TotalRewardedCadCents);
     }
 
@@ -143,7 +140,8 @@ public class CustomerWalletService
             return false;
         }
 
-        wallet.TotalRewardedSatoshis += sats;
+        wallet.SatsBalanceSatoshis += sats;  // Current balance
+        wallet.TotalRewardedSatoshis += sats;  // Lifetime total
         wallet.LastRewardedAt = DateTime.UtcNow;
 
         ctx.WalletTransactions.Add(new WalletTransaction
@@ -185,7 +183,8 @@ public class CustomerWalletService
             wallet.PullPaymentId, satsAmount, wallet.StoreId);
         if (!success) return (false, error ?? "Failed to debit sats from pull payment");
 
-        // Credit CAD
+        // Update balances
+        wallet.SatsBalanceSatoshis -= satsAmount;
         wallet.CadBalanceCents += cadCents;
 
         ctx.WalletTransactions.Add(new WalletTransaction
@@ -220,7 +219,8 @@ public class CustomerWalletService
             wallet.PullPaymentId, sats, wallet.StoreId);
         if (!success) return (false, error ?? "Failed to credit sats to pull payment");
 
-        // Debit CAD
+        // Update balances
+        wallet.SatsBalanceSatoshis += sats;
         wallet.CadBalanceCents -= cadCentsAmount;
 
         ctx.WalletTransactions.Add(new WalletTransaction
@@ -254,6 +254,8 @@ public class CustomerWalletService
         var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
             wallet.PullPaymentId, sats, wallet.StoreId);
         if (!success) return (false, error ?? "Failed to debit sats from pull payment");
+
+        wallet.SatsBalanceSatoshis -= sats;
 
         ctx.WalletTransactions.Add(new WalletTransaction
         {

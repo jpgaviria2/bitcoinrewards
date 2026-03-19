@@ -35,6 +35,9 @@ public class CustomerWallet
     [Required]
     public long CadBalanceCents { get; set; } = 0;
 
+    /// <summary>Current sats balance (when AutoConvert is OFF, this tracks earned sats).</summary>
+    public long SatsBalanceSatoshis { get; set; } = 0;
+
     /// <summary>When true, incoming rewards auto-convert to CAD at current rate.</summary>
     public bool AutoConvertToCad { get; set; } = true;
 
