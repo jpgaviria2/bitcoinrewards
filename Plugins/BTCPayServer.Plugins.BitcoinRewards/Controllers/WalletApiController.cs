@@ -5,12 +5,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
+using BTCPayServer.Data;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
+using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
+using BTCPayServer.Services.Invoices;
+using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -34,6 +38,8 @@ public class WalletApiController : ControllerBase
     private readonly PullPaymentHostedService _pullPaymentHostedService;
     private readonly PayoutMethodHandlerDictionary _payoutHandlers;
     private readonly BTCPayNetworkProvider _networkProvider;
+    private readonly PaymentMethodHandlerDictionary _paymentHandlers;
+    private readonly StoreRepository _storeRepository;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
@@ -43,6 +49,8 @@ public class WalletApiController : ControllerBase
         PullPaymentHostedService pullPaymentHostedService,
         PayoutMethodHandlerDictionary payoutHandlers,
         BTCPayNetworkProvider networkProvider,
+        PaymentMethodHandlerDictionary paymentHandlers,
+        StoreRepository storeRepository,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
@@ -51,6 +59,8 @@ public class WalletApiController : ControllerBase
         _pullPaymentHostedService = pullPaymentHostedService;
         _payoutHandlers = payoutHandlers;
         _networkProvider = networkProvider;
+        _paymentHandlers = paymentHandlers;
+        _storeRepository = storeRepository;
         _logger = logger;
     }
 
@@ -277,6 +287,115 @@ public class WalletApiController : ControllerBase
         });
     }
 
+    // ── LNURL claim endpoint ──
+
+    [HttpPost("plugins/bitcoin-rewards/wallet/{walletId}/claim-lnurl")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ClaimLnurl(Guid walletId, [FromBody] ClaimLnurlRequest request)
+    {
+        var (wallet, err) = await AuthAndFindWalletAsync(walletId);
+        if (err != null) return err;
+
+        // Validate request
+        if (string.IsNullOrWhiteSpace(request.Callback))
+            return BadRequest(new { error = "Callback URL is required" });
+        if (string.IsNullOrWhiteSpace(request.K1))
+            return BadRequest(new { error = "k1 is required" });
+        if (request.Amount <= 0)
+            return BadRequest(new { error = "Amount must be positive (in millisats)" });
+
+        try
+        {
+            // Get Lightning client for the store
+            var network = _networkProvider.GetNetwork<BTCPayNetwork>("BTC");
+            if (network == null)
+                return StatusCode(500, new { error = "BTC network not configured" });
+
+            var lightningClient = await GetLightningClientAsync(wallet!.StoreId, network);
+            if (lightningClient == null)
+                return StatusCode(500, new { error = "Lightning node not configured for this store" });
+
+            // Create a Lightning invoice
+            var description = request.Description ?? "LNURL Withdraw";
+            var invoice = await lightningClient.CreateInvoice(
+                new LightMoney(request.Amount, LightMoneyUnit.MilliSatoshi),
+                description,
+                TimeSpan.FromMinutes(10),
+                CancellationToken.None);
+
+            if (string.IsNullOrEmpty(invoice.BOLT11))
+                return StatusCode(500, new { error = "Lightning node returned invoice without BOLT11" });
+
+            // Call the LNURL callback with our invoice
+            using var httpClient = new System.Net.Http.HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
+            
+            var separator = request.Callback.Contains('?') ? "&" : "?";
+            var callbackUrl = $"{request.Callback}{separator}k1={Uri.EscapeDataString(request.K1)}&pr={Uri.EscapeDataString(invoice.BOLT11)}";
+
+            _logger.LogInformation("Calling LNURL callback for wallet {WalletId}: {Url}", walletId, callbackUrl);
+
+            var response = await httpClient.GetAsync(callbackUrl);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("LNURL callback returned {StatusCode}: {Body}", response.StatusCode, responseBody);
+                return BadRequest(new { error = $"LNURL callback failed: {response.StatusCode}", details = responseBody });
+            }
+
+            // Check for LNURL error response
+            try
+            {
+                var json = JObject.Parse(responseBody);
+                var status = json["status"]?.ToString();
+                if (string.Equals(status, "ERROR", StringComparison.OrdinalIgnoreCase))
+                {
+                    var reason = json["reason"]?.ToString() ?? "Unknown error";
+                    _logger.LogWarning("LNURL callback returned error: {Reason}", reason);
+                    return BadRequest(new { error = $"LNURL service error: {reason}" });
+                }
+            }
+            catch (Exception)
+            {
+                // Not JSON or not parseable, assume success
+            }
+
+            _logger.LogInformation("LNURL callback successful for wallet {WalletId}", walletId);
+
+            // Return success - the LnurlClaimWatcherService will credit the wallet when payment arrives
+            return Ok(new
+            {
+                success = true,
+                message = "Claim submitted. Your balance will update once the Lightning payment settles.",
+                invoice = invoice.BOLT11
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process LNURL claim for wallet {WalletId}", walletId);
+            return StatusCode(500, new { error = "Failed to process LNURL claim: " + ex.Message });
+        }
+    }
+
+    // Helper method to get Lightning client for a store
+    private async Task<ILightningClient?> GetLightningClientAsync(string storeId, BTCPayNetwork network)
+    {
+        var store = await _storeRepository.FindStore(storeId);
+        if (store == null)
+            return null;
+
+        var id = PaymentTypes.LN.GetPaymentMethodId(network.CryptoCode);
+        if (!_paymentHandlers.TryGetValue(id, out var handler) || handler is not LightningLikePaymentHandler lnHandler)
+            return null;
+
+        var existing = store.GetPaymentMethodConfig<LightningPaymentMethodConfig>(id, _paymentHandlers);
+        if (existing == null)
+            return null;
+
+        return lnHandler.CreateLightningClient(existing);
+    }
+
     // ── NFC tap endpoint ──
 
     [HttpPost("plugins/bitcoin-rewards/wallet/tap")]
@@ -410,5 +529,13 @@ public class WalletApiController : ControllerBase
     public class PayInvoiceRequest
     {
         public string Invoice { get; set; } = string.Empty;
+    }
+
+    public class ClaimLnurlRequest
+    {
+        public string Callback { get; set; } = string.Empty;
+        public string K1 { get; set; } = string.Empty;
+        public long Amount { get; set; }
+        public string? Description { get; set; }
     }
 }
