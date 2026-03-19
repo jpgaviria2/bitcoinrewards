@@ -40,6 +40,7 @@ public class WalletApiController : ControllerBase
     private readonly BTCPayNetworkProvider _networkProvider;
     private readonly PaymentMethodHandlerDictionary _paymentHandlers;
     private readonly StoreRepository _storeRepository;
+    private readonly BitcoinRewardsPluginDbContextFactory _dbFactory;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
@@ -51,6 +52,7 @@ public class WalletApiController : ControllerBase
         BTCPayNetworkProvider networkProvider,
         PaymentMethodHandlerDictionary paymentHandlers,
         StoreRepository storeRepository,
+        BitcoinRewardsPluginDbContextFactory dbFactory,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
@@ -61,6 +63,7 @@ public class WalletApiController : ControllerBase
         _networkProvider = networkProvider;
         _paymentHandlers = paymentHandlers;
         _storeRepository = storeRepository;
+        _dbFactory = dbFactory;
         _logger = logger;
     }
 
@@ -325,6 +328,28 @@ public class WalletApiController : ControllerBase
 
             if (string.IsNullOrEmpty(invoice.BOLT11))
                 return StatusCode(500, new { error = "Lightning node returned invoice without BOLT11" });
+
+            // Save pending claim for the watcher to track
+            await using (var db = _dbFactory.CreateContext())
+            {
+                var sats = request.Amount / 1000;
+                var pendingClaim = new PendingLnurlClaim
+                {
+                    Id = Guid.NewGuid(),
+                    CustomerWalletId = walletId,
+                    StoreId = wallet.StoreId,
+                    LightningInvoiceId = invoice.Id,
+                    Bolt11 = invoice.BOLT11,
+                    ExpectedSats = sats,
+                    K1Prefix = request.K1.Length > 8 ? request.K1[..8] : request.K1,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+                    IsCompleted = false,
+                    IsFailed = false
+                };
+                db.PendingLnurlClaims.Add(pendingClaim);
+                await db.SaveChangesAsync();
+            }
 
             // Call the LNURL callback with our invoice
             using var httpClient = new System.Net.Http.HttpClient();
