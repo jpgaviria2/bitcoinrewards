@@ -169,20 +169,55 @@ public class LnurlClaimWatcherService : BackgroundService
 
                 // Invoice is paid — credit the wallet
                 var receivedSats = invoice.Amount?.ToUnit(LightMoneyUnit.Satoshi) ?? claim.ExpectedSats;
-                var (cadCents, exchangeRate) = await exchangeRateService.SatsToCadCentsAsync(
-                    (long)receivedSats, claim.StoreId);
+                var reference = $"lnurl-withdraw:{claim.K1Prefix ?? "bg"}";
 
-                await walletService.CreditCadAsync(
-                    claim.CustomerWalletId,
-                    cadCents,
-                    (long)receivedSats,
-                    exchangeRate,
-                    $"lnurl-withdraw:{claim.K1Prefix ?? "bg"}");
+                // Look up wallet to check AutoConvertToCad setting
+                var walletBalance = await walletService.GetBalanceAsync(claim.CustomerWalletId);
+                if (walletBalance == null)
+                {
+                    _logger.LogWarning("Wallet {WalletId} not found for claim {ClaimId}, skipping",
+                        claim.CustomerWalletId, claim.Id);
+                    continue;
+                }
+
+                if (walletBalance.AutoConvertToCad)
+                {
+                    // Convert to CAD (existing behavior)
+                    var (cadCents, exchangeRate) = await exchangeRateService.SatsToCadCentsAsync(
+                        (long)receivedSats, claim.StoreId);
+
+                    await walletService.CreditCadAsync(
+                        claim.CustomerWalletId,
+                        cadCents,
+                        (long)receivedSats,
+                        exchangeRate,
+                        reference);
+
+                    _logger.LogInformation(
+                        "Background credited wallet {WalletId}: {Sats} sats → {CadCents} CAD cents from LNURL claim {ClaimId}",
+                        claim.CustomerWalletId, (long)receivedSats, cadCents, claim.Id);
+                }
+                else
+                {
+                    // Keep as sats — top up pull payment
+                    var success = await walletService.CreditSatsAsync(
+                        claim.CustomerWalletId,
+                        (long)receivedSats,
+                        reference);
+
+                    if (!success)
+                    {
+                        _logger.LogWarning("CreditSatsAsync failed for wallet {WalletId}, claim {ClaimId}",
+                            claim.CustomerWalletId, claim.Id);
+                        continue;
+                    }
+
+                    _logger.LogInformation(
+                        "Background credited wallet {WalletId}: {Sats} sats (kept as sats) from LNURL claim {ClaimId}",
+                        claim.CustomerWalletId, (long)receivedSats, claim.Id);
+                }
 
                 claim.IsCompleted = true;
-                _logger.LogInformation(
-                    "Background credited wallet {WalletId}: {Sats} sats ({CadCents} CAD cents) from LNURL claim {ClaimId}",
-                    claim.CustomerWalletId, (long)receivedSats, cadCents, claim.Id);
             }
             catch (Exception ex)
             {
