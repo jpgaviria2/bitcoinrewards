@@ -5,4 +5,5 @@ Plugins/packed
 .vs/
 monero_wallet/
 .env
-*.DotSettings.userandroid/rewards-nfc-display/release-keystore.jks
+*.DotSettings.user
+android/rewards-nfc-display/release-keystore.jks
