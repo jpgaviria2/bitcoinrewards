@@ -42,6 +42,7 @@ public class WalletApiController : ControllerBase
     private readonly PaymentMethodHandlerDictionary _paymentHandlers;
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsPluginDbContextFactory _dbFactory;
+    private readonly Services.IdempotencyService _idempotencyService;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
@@ -54,6 +55,7 @@ public class WalletApiController : ControllerBase
         PaymentMethodHandlerDictionary paymentHandlers,
         StoreRepository storeRepository,
         BitcoinRewardsPluginDbContextFactory dbFactory,
+        Services.IdempotencyService idempotencyService,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
@@ -65,6 +67,7 @@ public class WalletApiController : ControllerBase
         _paymentHandlers = paymentHandlers;
         _storeRepository = storeRepository;
         _dbFactory = dbFactory;
+        _idempotencyService = idempotencyService;
         _logger = logger;
     }
 
