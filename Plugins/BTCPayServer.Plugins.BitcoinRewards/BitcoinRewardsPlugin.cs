@@ -41,6 +41,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.CustomerWalletService>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
+        // Production hardening services (v2.0)
+        services.AddSingleton<Services.IdempotencyService>();
+        
         // BTCPay invoice listener
         services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<HostedServices.BtcpayInvoiceRewardHostedService>());
@@ -48,6 +51,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // LNURL claim payment watcher (polls for late Lightning payments)
         services.AddSingleton<HostedServices.LnurlClaimWatcherService>();
         services.AddHostedService(sp => sp.GetRequiredService<HostedServices.LnurlClaimWatcherService>());
+
+        // Maintenance service (cleanup expired cache entries)
+        services.AddHostedService<HostedServices.MaintenanceService>();
         
         // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
