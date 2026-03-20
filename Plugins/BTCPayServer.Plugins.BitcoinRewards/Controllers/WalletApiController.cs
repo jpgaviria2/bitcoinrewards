@@ -295,47 +295,89 @@ public class WalletApiController : ControllerBase
         if (balance.CadBalanceCents < cadCents)
             return BadRequest(new { error = "Insufficient CAD balance", required = cadCents, available = balance.CadBalanceCents });
 
-        // 4. Create a payout (claim) against the pull payment with the Lightning invoice
-        var lnPayoutMethodId = PayoutMethodId.Parse("BTC-LN");
-        var handler = _payoutHandlers.TryGet(lnPayoutMethodId);
-        if (handler == null)
-            return StatusCode(500, new { error = "Lightning payout handler not available" });
+        // 4. Get Lightning client and pay the invoice SYNCHRONOUSLY
+        var lightningClient = await GetLightningClientAsync(wallet.StoreId, network);
+        if (lightningClient == null)
+            return StatusCode(500, new { error = "Lightning node not configured for this store" });
 
-        var (destination, parseError) = await handler.ParseClaimDestination(invoice, CancellationToken.None);
-        if (destination == null)
-            return BadRequest(new { error = parseError ?? "Could not parse Lightning invoice as claim destination" });
-
-        var claimResult = await _pullPaymentHostedService.Claim(new ClaimRequest
+        PayResponse? paymentResult = null;
+        try
         {
-            PullPaymentId = wallet.PullPaymentId,
-            PayoutMethodId = lnPayoutMethodId,
-            Destination = destination,
-            StoreId = wallet.StoreId,
-            PreApprove = true,
-            Metadata = JObject.FromObject(new { source = "wallet-pay-invoice", walletId = walletId.ToString() })
-        });
+            // CRITICAL: Actually pay the invoice and wait for result (with 60s timeout)
+            var payTask = lightningClient.Pay(invoice);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(60));
+            var completedTask = await Task.WhenAny(payTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                _logger.LogWarning("Pay-invoice: Lightning payment timeout for wallet {WalletId} after 60s", walletId);
+                return StatusCode(504, new { error = "Lightning payment timeout after 60 seconds" });
+            }
+            
+            paymentResult = await payTask;
+            
+            if (paymentResult == null)
+            {
+                _logger.LogError("Pay-invoice: Lightning client returned null for wallet {WalletId}", walletId);
+                return StatusCode(500, new { error = "Lightning payment failed: no response from node" });
+            }
 
-        if (claimResult.Result != ClaimRequest.ClaimResult.Ok)
+            // Check payment result
+            if (paymentResult.Result != PayResult.Ok)
+            {
+                var errorDetail = paymentResult.ErrorDetail ?? paymentResult.Result.ToString();
+                _logger.LogWarning("Pay-invoice: Lightning payment failed for wallet {WalletId}: {Result} {Detail}",
+                    walletId, paymentResult.Result, errorDetail);
+                
+                return BadRequest(new 
+                { 
+                    error = $"Lightning payment failed: {paymentResult.Result}", 
+                    detail = errorDetail,
+                    code = paymentResult.Result.ToString()
+                });
+            }
+
+            // Payment succeeded!
+            _logger.LogInformation("Pay-invoice: Lightning payment OK for wallet {WalletId}, preimage: {Preimage}",
+                walletId, paymentResult.Details?.Preimage);
+        }
+        catch (Exception ex)
         {
-            var errorMsg = ClaimRequest.GetErrorMessage(claimResult.Result) ?? "Payout claim failed";
-            _logger.LogWarning("Pay-invoice claim failed for wallet {WalletId}: {Result} - {Error}",
-                walletId, claimResult.Result, errorMsg);
-            return BadRequest(new { error = errorMsg });
+            _logger.LogError(ex, "Pay-invoice: Lightning payment exception for wallet {WalletId}", walletId);
+            return StatusCode(500, new { error = "Lightning payment failed: " + ex.Message });
         }
 
-        // 5. Deduct CAD balance
+        // 5. Payment confirmed - now deduct CAD balance
         var (spendSuccess, spendError) = await _walletService.SpendCadAsync(
             walletId, cadCents, $"ln-invoice:{bolt11.PaymentHash}");
         if (!spendSuccess)
         {
-            _logger.LogError("Pay-invoice: payout created but CAD deduction failed for wallet {WalletId}: {Error}",
-                walletId, spendError);
-            return StatusCode(500, new { error = "Payment submitted but balance deduction failed: " + spendError });
+            // CRITICAL: Payment went through but we couldn't deduct CAD
+            // This is a data consistency issue - log as error for manual review
+            _logger.LogError("Pay-invoice: CRITICAL - Lightning payment succeeded but CAD deduction failed for wallet {WalletId}: {Error}. " +
+                "Preimage: {Preimage}, Amount: {CadCents} CAD cents",
+                walletId, spendError, paymentResult.Details?.Preimage, cadCents);
+            
+            // Don't return error to user since payment went through
+            // But track in response for debugging
+            var bal = await _walletService.GetBalanceAsync(walletId);
+            return Ok(new
+            {
+                success = true,
+                warning = "Payment succeeded but balance update failed - contact support",
+                cadCentsCharged = cadCents,
+                satsAmount = sats,
+                exchangeRate,
+                newCadBalanceCents = bal?.CadBalanceCents ?? 0,
+                newSatsBalance = bal?.SatsBalance ?? 0,
+                paymentHash = bolt11.PaymentHash?.ToString(),
+                preimage = paymentResult.Details?.Preimage
+            });
         }
 
-        // 6. Return success
+        // 6. Return success - payment confirmed and balance deducted
         var newBalance = await _walletService.GetBalanceAsync(walletId);
-        _logger.LogInformation("Pay-invoice: wallet {WalletId} paid {Sats} sats ({CadCents} CAD cents) via Lightning",
+        _logger.LogInformation("Pay-invoice: wallet {WalletId} successfully paid {Sats} sats ({CadCents} CAD cents) via Lightning",
             walletId, sats, cadCents);
 
         return Ok(new
@@ -346,7 +388,8 @@ public class WalletApiController : ControllerBase
             exchangeRate,
             newCadBalanceCents = newBalance?.CadBalanceCents ?? 0,
             newSatsBalance = newBalance?.SatsBalance ?? 0,
-            paymentHash = bolt11.PaymentHash?.ToString()
+            paymentHash = bolt11.PaymentHash?.ToString(),
+            preimage = paymentResult.Details?.Preimage
         });
     }
 
