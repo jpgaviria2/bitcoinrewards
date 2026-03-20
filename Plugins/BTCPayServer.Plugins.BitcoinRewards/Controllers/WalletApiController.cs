@@ -261,11 +261,24 @@ public class WalletApiController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Invoice))
             return BadRequest(new { error = "Invoice is required" });
 
+        // IDEMPOTENCY: Generate key from wallet + invoice hash if not provided
         var invoice = request.Invoice.Trim();
-
-        // Strip lightning: URI prefix if present
         if (invoice.StartsWith("lightning:", StringComparison.OrdinalIgnoreCase))
             invoice = invoice["lightning:".Length..];
+        
+        var idempotencyKey = request.IdempotencyKey 
+            ?? _idempotencyService.GenerateKey(walletId, "pay-invoice", invoice);
+        
+        // Check for duplicate request
+        var cachedResult = _idempotencyService.GetCachedResult<object>(idempotencyKey);
+        if (cachedResult != null)
+        {
+            _logger.LogInformation("Returning cached payment result for wallet {WalletId}, idempotency key {Key}", 
+                walletId, idempotencyKey);
+            return Ok(cachedResult);
+        }
+
+        // Invoice already trimmed and processed in idempotency section above
 
         // 1. Decode the BOLT11 invoice to get the sats amount
         var network = _networkProvider.GetNetwork<BTCPayNetwork>("BTC");
@@ -364,7 +377,7 @@ public class WalletApiController : ControllerBase
             // Don't return error to user since payment went through
             // But track in response for debugging
             var bal = await _walletService.GetBalanceAsync(walletId);
-            return Ok(new
+            var warningResult = new
             {
                 success = true,
                 warning = "Payment succeeded but balance update failed - contact support",
@@ -375,7 +388,12 @@ public class WalletApiController : ControllerBase
                 newSatsBalance = bal?.SatsBalance ?? 0,
                 paymentHash = bolt11.PaymentHash?.ToString(),
                 preimage = paymentResult.Details?.Preimage
-            });
+            };
+            
+            // IDEMPOTENCY: Cache this result (even though it's a warning case)
+            _idempotencyService.CacheResult(idempotencyKey, warningResult);
+            
+            return Ok(warningResult);
         }
 
         // 6. Return success - payment confirmed and balance deducted
@@ -383,7 +401,7 @@ public class WalletApiController : ControllerBase
         _logger.LogInformation("Pay-invoice: wallet {WalletId} successfully paid {Sats} sats ({CadCents} CAD cents) via Lightning",
             walletId, sats, cadCents);
 
-        return Ok(new
+        var result = new
         {
             success = true,
             cadCentsCharged = cadCents,
@@ -393,7 +411,12 @@ public class WalletApiController : ControllerBase
             newSatsBalance = newBalance?.SatsBalance ?? 0,
             paymentHash = bolt11.PaymentHash?.ToString(),
             preimage = paymentResult.Details?.Preimage
-        });
+        };
+        
+        // IDEMPOTENCY: Cache successful result
+        _idempotencyService.CacheResult(idempotencyKey, result);
+        
+        return Ok(result);
     }
 
     // ── LNURL claim endpoint ──
