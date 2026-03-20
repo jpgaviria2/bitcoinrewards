@@ -659,9 +659,15 @@ public class WalletApiController : ControllerBase
         public string? Reference { get; set; }
     }
 
-    public class PayInvoiceRequest
+    public class PayInvoiceRequest : Services.IIdempotentRequest
     {
         public string Invoice { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// Optional idempotency key to prevent duplicate payments.
+        /// If not provided, server generates one from wallet ID + invoice hash.
+        /// </summary>
+        public string? IdempotencyKey { get; set; }
     }
 
     public class ClaimLnurlRequest
