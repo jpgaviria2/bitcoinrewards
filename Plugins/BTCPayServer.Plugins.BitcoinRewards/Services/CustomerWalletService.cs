@@ -104,24 +104,35 @@ public class CustomerWalletService
         var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
         if (wallet == null) return false;
 
-        wallet.CadBalanceCents += cadCents;
-        wallet.TotalRewardedCadCents += cadCents;
-        wallet.LastRewardedAt = DateTime.UtcNow;
-
-        ctx.WalletTransactions.Add(new WalletTransaction
+        await using var transaction = await ctx.Database.BeginTransactionAsync();
+        try
         {
-            CustomerWalletId = walletId,
-            Type = WalletTransactionType.RewardEarned,
-            SatsAmount = sats,
-            CadCentsAmount = cadCents,
-            ExchangeRate = exchangeRate,
-            Reference = reference
-        });
+            wallet.CadBalanceCents += cadCents;
+            wallet.TotalRewardedCadCents += cadCents;
+            wallet.LastRewardedAt = DateTime.UtcNow;
 
-        await ctx.SaveChangesAsync();
-        _logger.LogInformation("Credited {CadCents} CAD cents to wallet {WalletId} (from {Sats} sats @ {Rate})",
-            cadCents, walletId, sats, exchangeRate);
-        return true;
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = walletId,
+                Type = WalletTransactionType.RewardEarned,
+                SatsAmount = sats,
+                CadCentsAmount = cadCents,
+                ExchangeRate = exchangeRate,
+                Reference = reference
+            });
+
+            await ctx.SaveChangesAsync();
+            await transaction.CommitAsync();
+            _logger.LogInformation("Credited {CadCents} CAD cents to wallet {WalletId} (from {Sats} sats @ {Rate})",
+                cadCents, walletId, sats, exchangeRate);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to credit CAD for wallet {WalletId}", walletId);
+            return false;
+        }
     }
 
     public async Task<bool> CreditSatsAsync(Guid walletId, long sats, string? reference = null)
@@ -130,34 +141,46 @@ public class CustomerWalletService
         var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
         if (wallet == null) return false;
 
-        // Credit sats by topping up the pull payment limit
-        var (success, _, error) = await _boltCardService.TopUpPullPaymentAsync(
-            wallet.PullPaymentId, sats, wallet.StoreId, wallet.BoltcardId);
-
-        if (!success)
+        await using var transaction = await ctx.Database.BeginTransactionAsync();
+        try
         {
-            _logger.LogWarning("CreditSatsAsync failed for wallet {WalletId}: {Error}", walletId, error);
+            // Credit sats by topping up the pull payment limit
+            var (success, _, error) = await _boltCardService.TopUpPullPaymentAsync(
+                wallet.PullPaymentId, sats, wallet.StoreId, wallet.BoltcardId);
+
+            if (!success)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogWarning("CreditSatsAsync failed for wallet {WalletId}: {Error}", walletId, error);
+                return false;
+            }
+
+            wallet.SatsBalanceSatoshis += sats;  // Current balance
+            wallet.TotalRewardedSatoshis += sats;  // Lifetime total
+            wallet.LastRewardedAt = DateTime.UtcNow;
+
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = walletId,
+                Type = WalletTransactionType.RewardEarned,
+                SatsAmount = sats,
+                CadCentsAmount = 0,
+                ExchangeRate = 0,
+                Reference = reference
+            });
+
+            await ctx.SaveChangesAsync();
+            await transaction.CommitAsync();
+            _logger.LogInformation("Credited {Sats} sats to wallet {WalletId} (kept as sats, no CAD conversion)",
+                sats, walletId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to credit sats for wallet {WalletId}", walletId);
             return false;
         }
-
-        wallet.SatsBalanceSatoshis += sats;  // Current balance
-        wallet.TotalRewardedSatoshis += sats;  // Lifetime total
-        wallet.LastRewardedAt = DateTime.UtcNow;
-
-        ctx.WalletTransactions.Add(new WalletTransaction
-        {
-            CustomerWalletId = walletId,
-            Type = WalletTransactionType.RewardEarned,
-            SatsAmount = sats,
-            CadCentsAmount = 0,
-            ExchangeRate = 0,
-            Reference = reference
-        });
-
-        await ctx.SaveChangesAsync();
-        _logger.LogInformation("Credited {Sats} sats to wallet {WalletId} (kept as sats, no CAD conversion)",
-            sats, walletId);
-        return true;
     }
 
     public async Task<(bool Success, string? Error)> SwapToCadAsync(Guid walletId, long satsAmount, string storeId)
@@ -178,28 +201,43 @@ public class CustomerWalletService
         var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
         if (wallet == null) return (false, "Wallet not found");
 
-        // Debit sats from pull payment (reduce limit)
-        var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
-            wallet.PullPaymentId, satsAmount, wallet.StoreId);
-        if (!success) return (false, error ?? "Failed to debit sats from pull payment");
-
-        // Update balances
-        wallet.SatsBalanceSatoshis -= satsAmount;
-        wallet.CadBalanceCents += cadCents;
-
-        ctx.WalletTransactions.Add(new WalletTransaction
+        await using var transaction = await ctx.Database.BeginTransactionAsync();
+        try
         {
-            CustomerWalletId = walletId,
-            Type = WalletTransactionType.SwapToCad,
-            SatsAmount = -satsAmount,
-            CadCentsAmount = cadCents,
-            ExchangeRate = rate,
-            Reference = $"swap-to-cad-{DateTime.UtcNow:yyyyMMddHHmmss}"
-        });
+            // Debit sats from pull payment (reduce limit)
+            var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
+                wallet.PullPaymentId, satsAmount, wallet.StoreId);
+            if (!success)
+            {
+                await transaction.RollbackAsync();
+                return (false, error ?? "Failed to debit sats from pull payment");
+            }
 
-        await ctx.SaveChangesAsync();
-        _logger.LogInformation("Swapped {Sats} sats → {CadCents} CAD cents for wallet {WalletId}", satsAmount, cadCents, walletId);
-        return (true, null);
+            // Update balances
+            wallet.SatsBalanceSatoshis -= satsAmount;
+            wallet.CadBalanceCents += cadCents;
+
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = walletId,
+                Type = WalletTransactionType.SwapToCad,
+                SatsAmount = -satsAmount,
+                CadCentsAmount = cadCents,
+                ExchangeRate = rate,
+                Reference = $"swap-to-cad-{DateTime.UtcNow:yyyyMMddHHmmss}"
+            });
+
+            await ctx.SaveChangesAsync();
+            await transaction.CommitAsync();
+            _logger.LogInformation("Swapped {Sats} sats → {CadCents} CAD cents for wallet {WalletId}", satsAmount, cadCents, walletId);
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to swap to CAD for wallet {WalletId}", walletId);
+            return (false, $"Database error: {ex.Message}");
+        }
     }
 
     public async Task<(bool Success, string? Error)> SwapToSatsAsync(Guid walletId, long cadCentsAmount, string storeId)
@@ -214,28 +252,43 @@ public class CustomerWalletService
         var (sats, rate) = await _exchangeRateService.CadCentsToSatsAsync(cadCentsAmount, storeId);
         if (sats <= 0) return (false, "Conversion resulted in zero sats");
 
-        // Credit sats to pull payment
-        var (success, _, error) = await _boltCardService.TopUpPullPaymentAsync(
-            wallet.PullPaymentId, sats, wallet.StoreId);
-        if (!success) return (false, error ?? "Failed to credit sats to pull payment");
-
-        // Update balances
-        wallet.SatsBalanceSatoshis += sats;
-        wallet.CadBalanceCents -= cadCentsAmount;
-
-        ctx.WalletTransactions.Add(new WalletTransaction
+        await using var transaction = await ctx.Database.BeginTransactionAsync();
+        try
         {
-            CustomerWalletId = walletId,
-            Type = WalletTransactionType.SwapToSats,
-            SatsAmount = sats,
-            CadCentsAmount = -cadCentsAmount,
-            ExchangeRate = rate,
-            Reference = $"swap-to-sats-{DateTime.UtcNow:yyyyMMddHHmmss}"
-        });
+            // Credit sats to pull payment
+            var (success, _, error) = await _boltCardService.TopUpPullPaymentAsync(
+                wallet.PullPaymentId, sats, wallet.StoreId);
+            if (!success)
+            {
+                await transaction.RollbackAsync();
+                return (false, error ?? "Failed to credit sats to pull payment");
+            }
 
-        await ctx.SaveChangesAsync();
-        _logger.LogInformation("Swapped {CadCents} CAD cents → {Sats} sats for wallet {WalletId}", cadCentsAmount, sats, walletId);
-        return (true, null);
+            // Update balances
+            wallet.SatsBalanceSatoshis += sats;
+            wallet.CadBalanceCents -= cadCentsAmount;
+
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = walletId,
+                Type = WalletTransactionType.SwapToSats,
+                SatsAmount = sats,
+                CadCentsAmount = -cadCentsAmount,
+                ExchangeRate = rate,
+                Reference = $"swap-to-sats-{DateTime.UtcNow:yyyyMMddHHmmss}"
+            });
+
+            await ctx.SaveChangesAsync();
+            await transaction.CommitAsync();
+            _logger.LogInformation("Swapped {CadCents} CAD cents → {Sats} sats for wallet {WalletId}", cadCentsAmount, sats, walletId);
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to swap to sats for wallet {WalletId}", walletId);
+            return (false, $"Database error: {ex.Message}");
+        }
     }
 
     public async Task<(bool Success, string? Error)> SpendSatsAsync(Guid walletId, long sats, string? reference = null)
@@ -250,26 +303,41 @@ public class CustomerWalletService
         var wallet = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
         if (wallet == null) return (false, "Wallet not found");
 
-        // Debit sats from pull payment (reduce limit)
-        var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
-            wallet.PullPaymentId, sats, wallet.StoreId);
-        if (!success) return (false, error ?? "Failed to debit sats from pull payment");
-
-        wallet.SatsBalanceSatoshis -= sats;
-
-        ctx.WalletTransactions.Add(new WalletTransaction
+        await using var transaction = await ctx.Database.BeginTransactionAsync();
+        try
         {
-            CustomerWalletId = walletId,
-            Type = WalletTransactionType.SatsSpent,
-            SatsAmount = -sats,
-            CadCentsAmount = 0,
-            ExchangeRate = 0,
-            Reference = reference
-        });
+            // Debit sats from pull payment (reduce limit)
+            var (success, _, error) = await _boltCardService.DebitPullPaymentAsync(
+                wallet.PullPaymentId, sats, wallet.StoreId);
+            if (!success)
+            {
+                await transaction.RollbackAsync();
+                return (false, error ?? "Failed to debit sats from pull payment");
+            }
 
-        await ctx.SaveChangesAsync();
-        _logger.LogInformation("Spent {Sats} sats from wallet {WalletId}", sats, walletId);
-        return (true, null);
+            wallet.SatsBalanceSatoshis -= sats;
+
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = walletId,
+                Type = WalletTransactionType.SatsSpent,
+                SatsAmount = -sats,
+                CadCentsAmount = 0,
+                ExchangeRate = 0,
+                Reference = reference
+            });
+
+            await ctx.SaveChangesAsync();
+            await transaction.CommitAsync();
+            _logger.LogInformation("Spent {Sats} sats from wallet {WalletId}", sats, walletId);
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to spend sats for wallet {WalletId}", walletId);
+            return (false, $"Database error: {ex.Message}");
+        }
     }
 
     public async Task<(bool Success, string? Error)> SpendCadAsync(Guid walletId, long cadCents, string? reference = null)
@@ -281,20 +349,31 @@ public class CustomerWalletService
         if (wallet == null) return (false, "Wallet not found");
         if (wallet.CadBalanceCents < cadCents) return (false, "Insufficient CAD balance");
 
-        wallet.CadBalanceCents -= cadCents;
-
-        ctx.WalletTransactions.Add(new WalletTransaction
+        await using var transaction = await ctx.Database.BeginTransactionAsync();
+        try
         {
-            CustomerWalletId = walletId,
-            Type = WalletTransactionType.CadSpent,
-            CadCentsAmount = -cadCents,
-            ExchangeRate = 0, // no conversion involved
-            Reference = reference
-        });
+            wallet.CadBalanceCents -= cadCents;
 
-        await ctx.SaveChangesAsync();
-        _logger.LogInformation("Spent {CadCents} CAD cents from wallet {WalletId}", cadCents, walletId);
-        return (true, null);
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = walletId,
+                Type = WalletTransactionType.CadSpent,
+                CadCentsAmount = -cadCents,
+                ExchangeRate = 0, // no conversion involved
+                Reference = reference
+            });
+
+            await ctx.SaveChangesAsync();
+            await transaction.CommitAsync();
+            _logger.LogInformation("Spent {CadCents} CAD cents from wallet {WalletId}", cadCents, walletId);
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to spend CAD for wallet {WalletId}", walletId);
+            return (false, $"Database error: {ex.Message}");
+        }
     }
 
     public async Task<bool> SetAutoConvertAsync(Guid walletId, bool autoConvert)
