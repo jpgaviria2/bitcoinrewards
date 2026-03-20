@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
+using BTCPayServer.Client.Models;
 using BTCPayServer.Data;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
@@ -108,26 +109,56 @@ public class WalletApiController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.StoreId))
             return BadRequest(new { error = "StoreId is required" });
 
-        // Create a pull payment for this wallet (anonymous, no card UID)
-        var pullPaymentId = Guid.NewGuid().ToString();
-        
-        // Create wallet
-        var wallet = await _walletService.GetOrCreateWalletAsync(
-            request.StoreId, pullPaymentId, cardUid: null, boltcardId: null);
-
-        // Generate token
-        var token = await _walletService.GenerateWalletTokenAsync(wallet.Id);
-
-        var balance = await _walletService.GetBalanceAsync(wallet.Id);
-
-        return Ok(new
+        try
         {
-            walletId = wallet.Id,
-            token,
-            satsBalance = balance?.SatsBalance ?? 0,
-            cadBalanceCents = balance?.CadBalanceCents ?? 0,
-            autoConvert = balance?.AutoConvertToCad ?? true
-        });
+            // Get store
+            var store = await _storeRepository.FindStore(request.StoreId);
+            if (store == null)
+                return BadRequest(new { error = "Store not found" });
+
+            // Create a pull payment for this wallet with 1 BTC limit (100M sats)
+            var network = _networkProvider.GetNetwork<BTCPayNetwork>("BTC");
+            var lnPayoutMethodId = PayoutMethodId.Parse("BTC-LN");
+            
+            var pullPaymentRequest = new CreatePullPaymentRequest
+            {
+                Name = "Wallet Pull Payment",
+                Description = "Rewards wallet",
+                Amount = 1.0m, // 1 BTC = 100,000,000 sats
+                Currency = "BTC",
+                AutoApproveClaims = true,
+                StartsAt = DateTimeOffset.UtcNow,
+                ExpiresAt = DateTimeOffset.UtcNow.AddYears(10),
+                PayoutMethods = new[] { lnPayoutMethodId.ToString() }
+            };
+
+            var pullPaymentId = await _pullPaymentHostedService.CreatePullPayment(store, pullPaymentRequest);
+            if (string.IsNullOrEmpty(pullPaymentId))
+                return StatusCode(500, new { error = "Failed to create pull payment" });
+
+            // Create wallet
+            var wallet = await _walletService.GetOrCreateWalletAsync(
+                request.StoreId, pullPaymentId, cardUid: null, boltcardId: null);
+
+            // Generate token
+            var token = await _walletService.GenerateWalletTokenAsync(wallet.Id);
+
+            var balance = await _walletService.GetBalanceAsync(wallet.Id);
+
+            return Ok(new
+            {
+                walletId = wallet.Id,
+                token,
+                satsBalance = balance?.SatsBalance ?? 0,
+                cadBalanceCents = balance?.CadBalanceCents ?? 0,
+                autoConvert = balance?.AutoConvertToCad ?? true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create wallet for store {StoreId}", request.StoreId);
+            return StatusCode(500, new { error = "Failed to create wallet: " + ex.Message });
+        }
     }
 
     [HttpGet("plugins/bitcoin-rewards/wallet/{walletId}/balance")]
