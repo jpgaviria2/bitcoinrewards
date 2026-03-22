@@ -183,6 +183,24 @@ public class WalletApiController : ControllerBase
 
             var balance = await _walletService.GetBalanceAsync(wallet.Id);
 
+            // Build lud16 (Lightning Address) if user has a username
+            string? lud16 = null;
+            if (!string.IsNullOrWhiteSpace(request.Username))
+            {
+                var host = Request.Host.Value;
+                lud16 = $"{request.Username.ToLowerInvariant()}@{host}";
+            }
+            else if (!string.IsNullOrWhiteSpace(request.Pubkey))
+            {
+                // Auto-generated username case
+                var nip05Identity = await _nip05Service.LookupByPubkey(request.Pubkey);
+                if (nip05Identity.identity != null)
+                {
+                    var host = Request.Host.Value;
+                    lud16 = $"{nip05Identity.identity.Username}@{host}";
+                }
+            }
+
             return Ok(new
             {
                 walletId = wallet.Id,
@@ -190,7 +208,8 @@ public class WalletApiController : ControllerBase
                 satsBalance = balance?.SatsBalance ?? 0,
                 cadBalanceCents = balance?.CadBalanceCents ?? 0,
                 autoConvert = balance?.AutoConvertToCad ?? true,
-                nip05
+                nip05,
+                lud16
             });
         }
         catch (Exception ex)
@@ -586,6 +605,41 @@ public class WalletApiController : ControllerBase
         return lnHandler.CreateLightningClient(existing);
     }
 
+    // ── Internal transfer endpoint ──
+
+    [HttpPost("plugins/bitcoin-rewards/wallet/transfer")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Transfer([FromBody] TransferRequest request)
+    {
+        var wallet = await AuthenticateWalletAsync();
+        if (wallet == null)
+            return Unauthorized(new { error = "Invalid or missing wallet token" });
+        if (wallet.Id != request.FromWalletId)
+            return StatusCode(403, new { error = "Token does not match wallet" });
+
+        if (string.IsNullOrWhiteSpace(request.ToUsername))
+            return BadRequest(new { error = "toUsername is required" });
+        if (request.AmountSats <= 0)
+            return BadRequest(new { error = "amountSats must be positive" });
+
+        // Sanitize memo: limit length and strip dangerous characters
+        var sanitizedMemo = SanitizeMemo(request.Memo);
+
+        var (success, error, fromSats, fromCadCents) = await _walletService.TransferAsync(
+            request.FromWalletId, request.ToUsername, request.AmountSats, sanitizedMemo, wallet.StoreId);
+
+        if (!success)
+            return BadRequest(new { error });
+
+        return Ok(new
+        {
+            success = true,
+            fromBalance = new { satsBalance = fromSats ?? 0, cadBalanceCents = fromCadCents ?? 0 },
+            toUsername = request.ToUsername,
+            amountSats = request.AmountSats
+        });
+    }
+
     // ── NFC tap endpoint ──
 
     [HttpPost("plugins/bitcoin-rewards/wallet/tap")]
@@ -682,6 +736,22 @@ public class WalletApiController : ControllerBase
         return Ok(new { success = true, newCadBalanceCents = (await _walletService.GetBalanceAsync(walletId))?.CadBalanceCents ?? 0 });
     }
 
+    // ── Helpers ──
+
+    /// <summary>Sanitize memo: limit to 255 chars, strip control characters and HTML tags.</summary>
+    private static string? SanitizeMemo(string? memo)
+    {
+        if (string.IsNullOrWhiteSpace(memo)) return null;
+        // Strip HTML tags
+        memo = System.Text.RegularExpressions.Regex.Replace(memo, "<[^>]*>", "");
+        // Strip control characters (except space)
+        memo = new string(memo.Where(c => !char.IsControl(c) || c == ' ').ToArray());
+        // Trim and limit length
+        memo = memo.Trim();
+        if (memo.Length > 255) memo = memo[..255];
+        return string.IsNullOrWhiteSpace(memo) ? null : memo;
+    }
+
     // ── DTOs ──
 
     public class CreateWalletRequest
@@ -734,6 +804,14 @@ public class WalletApiController : ControllerBase
         /// If not provided, server generates one from wallet ID + invoice hash.
         /// </summary>
         public string? IdempotencyKey { get; set; }
+    }
+
+    public class TransferRequest
+    {
+        public Guid FromWalletId { get; set; }
+        public string ToUsername { get; set; } = string.Empty;
+        public long AmountSats { get; set; }
+        public string? Memo { get; set; }
     }
 
     public class ClaimLnurlRequest

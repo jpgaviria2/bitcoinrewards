@@ -1,8 +1,8 @@
 {
   "Identifier": "BTCPayServer.Plugins.BitcoinRewards",
   "Name": "Bitcoin Rewards",
-  "Version": "1.1.0",
-  "Description": "Bitcoin-backed rewards system that integrates with Square and BTCPay invoices. Issue Lightning rewards automatically with customizable display templates.",
+  "Version": "2.2.0",
+  "Description": "Bitcoin-backed rewards system with Lightning Address support, internal transfers, and NIP-05 identity.",
   "SystemPlugin": false,
   "Dependencies": [
     {

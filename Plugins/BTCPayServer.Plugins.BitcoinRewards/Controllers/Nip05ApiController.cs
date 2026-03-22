@@ -140,8 +140,9 @@ public class Nip05ApiController : ControllerBase
 
         await _nip05.UpdateWalletUsername(wallet.Id, lower);
 
+        var host = Request.Host.Value;
         _logger.LogInformation("Updated NIP-05 username for wallet {WalletId} to {Username}", wallet.Id, lower);
-        return Ok(new { success = true, nip05 = $"{lower}@trailscoffee.com" });
+        return Ok(new { success = true, nip05 = $"{lower}@trailscoffee.com", lud16 = $"{lower}@{host}" });
     }
 
     /// <summary>Admin: revoke a NIP-05 identity.</summary>

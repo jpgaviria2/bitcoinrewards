@@ -430,6 +430,133 @@ public class CustomerWalletService
         return true;
     }
 
+    /// <summary>
+    /// Internal wallet-to-wallet transfer. Single DB transaction, no Lightning routing.
+    /// Handles auto-convert logic for both sender and recipient.
+    /// </summary>
+    public async Task<(bool Success, string? Error, long? FromSatsBalance, long? FromCadBalanceCents)> TransferAsync(
+        Guid fromWalletId, string toUsername, long amountSats, string? memo, string storeId)
+    {
+        if (amountSats <= 0) return (false, "Amount must be positive", null, null);
+
+        await using var ctx = _dbFactory.CreateContext();
+
+        // Use a transaction for atomicity
+        await using var dbTx = await ctx.Database.BeginTransactionAsync();
+        try
+        {
+            var sender = await ctx.CustomerWallets.FirstOrDefaultAsync(w => w.Id == fromWalletId);
+            if (sender == null) return (false, "Sender wallet not found", null, null);
+
+            // Find recipient by NIP-05 username
+            var recipient = await ctx.CustomerWallets
+                .FirstOrDefaultAsync(w => w.Nip05Username == toUsername.ToLowerInvariant()
+                    && !w.Nip05Revoked && w.IsActive);
+            if (recipient == null) return (false, "Recipient not found", null, null);
+            if (recipient.Id == fromWalletId) return (false, "Cannot transfer to yourself", null, null);
+
+            // Check sender balance — try sats first, then auto-swap from CAD if needed
+            if (sender.SatsBalanceSatoshis >= amountSats)
+            {
+                sender.SatsBalanceSatoshis -= amountSats;
+            }
+            else if (sender.AutoConvertToCad && sender.SatsBalanceSatoshis < amountSats)
+            {
+                // Need to auto-swap CAD → sats to cover the shortfall
+                var shortfall = amountSats - sender.SatsBalanceSatoshis;
+                var (cadNeeded, rate) = await _exchangeRateService.SatsToCadCentsAsync(shortfall, storeId);
+                if (cadNeeded <= 0) return (false, "Exchange rate conversion failed", null, null);
+                if (sender.CadBalanceCents < cadNeeded)
+                    return (false, "Insufficient balance (sats + CAD)", null, null);
+
+                sender.CadBalanceCents -= cadNeeded;
+                sender.SatsBalanceSatoshis = 0; // Used all remaining sats
+
+                // Record the auto-swap
+                ctx.WalletTransactions.Add(new WalletTransaction
+                {
+                    CustomerWalletId = fromWalletId,
+                    Type = WalletTransactionType.SwapToSats,
+                    SatsAmount = shortfall,
+                    CadCentsAmount = -cadNeeded,
+                    ExchangeRate = rate,
+                    Reference = $"auto-swap-for-transfer-to-{toUsername}"
+                });
+            }
+            else
+            {
+                return (false, "Insufficient sats balance", null, null);
+            }
+
+            // Credit recipient
+            if (recipient.AutoConvertToCad)
+            {
+                // Auto-convert received sats to CAD
+                var (cadCents, rate) = await _exchangeRateService.SatsToCadCentsAsync(amountSats, storeId);
+                if (cadCents <= 0) return (false, "Exchange rate conversion failed for recipient", null, null);
+                recipient.CadBalanceCents += cadCents;
+
+                ctx.WalletTransactions.Add(new WalletTransaction
+                {
+                    CustomerWalletId = recipient.Id,
+                    Type = WalletTransactionType.TransferReceived,
+                    SatsAmount = amountSats,
+                    CadCentsAmount = cadCents,
+                    ExchangeRate = rate,
+                    Reference = $"From: {sender.Nip05Username ?? sender.Id.ToString()}" + (memo != null ? $" — {memo}" : "")
+                });
+            }
+            else
+            {
+                recipient.SatsBalanceSatoshis += amountSats;
+
+                ctx.WalletTransactions.Add(new WalletTransaction
+                {
+                    CustomerWalletId = recipient.Id,
+                    Type = WalletTransactionType.TransferReceived,
+                    SatsAmount = amountSats,
+                    CadCentsAmount = 0,
+                    ExchangeRate = 0,
+                    Reference = $"From: {sender.Nip05Username ?? sender.Id.ToString()}" + (memo != null ? $" — {memo}" : "")
+                });
+            }
+
+            // Record sender's debit
+            ctx.WalletTransactions.Add(new WalletTransaction
+            {
+                CustomerWalletId = fromWalletId,
+                Type = WalletTransactionType.TransferSent,
+                SatsAmount = -amountSats,
+                CadCentsAmount = 0,
+                ExchangeRate = 0,
+                Reference = $"To: {toUsername}" + (memo != null ? $" — {memo}" : "")
+            });
+
+            await ctx.SaveChangesAsync();
+            await dbTx.CommitAsync();
+
+            _logger.LogInformation("Transfer {Amount} sats from wallet {From} to {To}",
+                amountSats, fromWalletId, toUsername);
+
+            return (true, null, sender.SatsBalanceSatoshis, sender.CadBalanceCents);
+        }
+        catch (Exception ex)
+        {
+            await dbTx.RollbackAsync();
+            _logger.LogError(ex, "Transfer failed from wallet {From} to {To}", fromWalletId, toUsername);
+            return (false, $"Transfer failed: {ex.Message}", null, null);
+        }
+    }
+
+    /// <summary>Find a wallet by NIP-05 username.</summary>
+    public async Task<CustomerWallet?> FindByUsernameAsync(string username)
+    {
+        await using var ctx = _dbFactory.CreateContext();
+        return await ctx.CustomerWallets
+            .FirstOrDefaultAsync(w => w.Nip05Username == username.ToLowerInvariant()
+                && !w.Nip05Revoked && w.IsActive);
+    }
+
     /// <summary>Count wallets created today for a store (for rate limiting).</summary>
     public async Task<int> CountWalletsCreatedTodayAsync(string storeId)
     {

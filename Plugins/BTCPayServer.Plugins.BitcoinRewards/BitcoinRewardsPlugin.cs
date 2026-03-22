@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
+using BTCPayServer.Abstractions.Services;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,15 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
         services.TryAddScoped<Services.Nip05Service>();
+        
+        // Lightning Address resolver — hooks into BTCPay's /.well-known/lnurlp/{username}
+        services.AddSingleton<Services.LightningAddressResolverFilter>();
+        services.AddSingleton<Abstractions.Contracts.IPluginHookFilter>(sp =>
+            sp.GetRequiredService<Services.LightningAddressResolverFilter>());
+        services.AddHttpContextAccessor();
+        
+        // Lightning Address resolution (LUD-16) — hooks into BTCPay's /.well-known/lnurlp/{username}
+        services.AddSingleton<IPluginHookFilter, Services.LightningAddressResolverFilter>();
         
         // BTCPay invoice listener
         services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();

@@ -45,6 +45,12 @@ public class RateLimitMiddleware
         
         // NIP-05: update username (per IP since wallet auth is separate)
         ("/plugins/bitcoin-rewards/nip05/update", 3, TimeSpan.FromDays(1)),
+        
+        // LNURL-pay: 30 per minute per IP (prevent invoice spam)
+        ("/plugins/bitcoin-rewards/lnurlp/", 30, TimeSpan.FromMinutes(1)),
+        
+        // Internal transfer: 10 per hour per wallet
+        ("/plugins/bitcoin-rewards/wallet/transfer", 10, TimeSpan.FromHours(1)),
     };
 
     public RateLimitMiddleware(RequestDelegate next, ILogger<RateLimitMiddleware> logger)
