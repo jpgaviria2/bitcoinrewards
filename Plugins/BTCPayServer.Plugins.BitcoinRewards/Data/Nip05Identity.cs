@@ -27,4 +27,7 @@ public class Nip05Identity
     public bool Revoked { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>When the identity was released by the user (for 7-day cooldown).</summary>
+    public DateTime? ReleasedAt { get; set; }
 }

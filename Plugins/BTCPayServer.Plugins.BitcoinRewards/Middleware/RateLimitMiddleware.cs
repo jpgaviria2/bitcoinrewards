@@ -46,6 +46,9 @@ public class RateLimitMiddleware
         // NIP-05: update username (per IP since wallet auth is separate)
         ("/plugins/bitcoin-rewards/nip05/update", 3, TimeSpan.FromDays(1)),
         
+        // NIP-05: release identity (per IP)
+        ("/plugins/bitcoin-rewards/nip05/release", 3, TimeSpan.FromDays(1)),
+        
         // LNURL-pay: 30 per minute per IP (prevent invoice spam)
         ("/plugins/bitcoin-rewards/lnurlp/", 30, TimeSpan.FromMinutes(1)),
         

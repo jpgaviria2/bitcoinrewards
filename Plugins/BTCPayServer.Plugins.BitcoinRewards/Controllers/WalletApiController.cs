@@ -21,8 +21,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.DataEncoders;
+using NBitcoin.Secp256k1;
 using Newtonsoft.Json.Linq;
 using NicolasDorier.RateLimits;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -116,15 +119,76 @@ public class WalletApiController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.StoreId))
             return BadRequest(new { error = "StoreId is required" });
+        if (string.IsNullOrWhiteSpace(request.Pubkey) || request.Pubkey.Length != 64)
+            return BadRequest(new { error = "Pubkey is required (64-char hex)" });
+        if (string.IsNullOrWhiteSpace(request.Signature) || request.Signature.Length != 128)
+            return BadRequest(new { error = "Signature is required (128-char hex)" });
+        if (request.Timestamp <= 0)
+            return BadRequest(new { error = "Timestamp is required (unix seconds)" });
+
+        // Verify timestamp within 5 minutes
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        if (Math.Abs(now - request.Timestamp) > 300)
+            return Unauthorized(new { error = "Timestamp expired or too far in the future" });
+
+        // Verify BIP-340 Schnorr signature
+        try
+        {
+            var challenge = $"wallet-auth:{request.Pubkey}:{request.Timestamp}";
+            var msgHash = SHA256.HashData(Encoding.UTF8.GetBytes(challenge));
+            var pubkey = ECXOnlyPubKey.Create(Convert.FromHexString(request.Pubkey));
+            var sig = SecpSchnorrSignature.Create(Convert.FromHexString(request.Signature));
+            if (!pubkey.SigVerifyBIP340(sig, msgHash))
+                return Unauthorized(new { error = "Invalid signature" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Schnorr signature verification failed for pubkey {Pubkey}", request.Pubkey);
+            return Unauthorized(new { error = "Invalid signature or pubkey format" });
+        }
 
         try
         {
-            // Get store
+            // Check if this is a wallet recovery (existing pubkey)
+            var (existingWallet, recoveryError) = await _nip05Service.RecoverWalletByPubkey(request.Pubkey);
+            if (recoveryError != null)
+                return StatusCode(500, new { error = recoveryError });
+
+            if (existingWallet != null)
+            {
+                // RECOVERY: Existing pubkey — return wallet with fresh token, invalidating old one
+                var token = await _walletService.GenerateWalletTokenAsync(existingWallet.Id);
+                var balance = await _walletService.GetBalanceAsync(existingWallet.Id);
+
+                string? nip05 = null;
+                string? lud16 = null;
+                if (!string.IsNullOrWhiteSpace(existingWallet.Nip05Username))
+                {
+                    nip05 = $"{existingWallet.Nip05Username}@trailscoffee.com";
+                    lud16 = $"{existingWallet.Nip05Username}@{Request.Host.Value}";
+                }
+
+                _logger.LogInformation("Wallet recovered for pubkey {Pubkey}, wallet {WalletId}",
+                    request.Pubkey, existingWallet.Id);
+
+                return Ok(new
+                {
+                    walletId = existingWallet.Id,
+                    token,
+                    satsBalance = balance?.SatsBalance ?? 0,
+                    cadBalanceCents = balance?.CadBalanceCents ?? 0,
+                    autoConvert = balance?.AutoConvertToCad ?? true,
+                    nip05,
+                    lud16,
+                    recovered = true
+                });
+            }
+
+            // NEW WALLET: pubkey not seen before
             var store = await _storeRepository.FindStore(request.StoreId);
             if (store == null)
                 return BadRequest(new { error = "Store not found" });
 
-            // Create a pull payment for this wallet with 1 BTC limit (100M sats)
             var network = _networkProvider.GetNetwork<BTCPayNetwork>("BTC");
             var lnPayoutMethodId = PayoutMethodId.Parse("BTC-LN");
             
@@ -132,7 +196,7 @@ public class WalletApiController : ControllerBase
             {
                 Name = "Wallet Pull Payment",
                 Description = "Rewards wallet",
-                Amount = 1.0m, // 1 BTC = 100,000,000 sats
+                Amount = 1.0m,
                 Currency = "BTC",
                 AutoApproveClaims = true,
                 StartsAt = DateTimeOffset.UtcNow,
@@ -144,72 +208,44 @@ public class WalletApiController : ControllerBase
             if (string.IsNullOrEmpty(pullPaymentId))
                 return StatusCode(500, new { error = "Failed to create pull payment" });
 
-            // Create wallet
             var wallet = await _walletService.GetOrCreateWalletAsync(
                 request.StoreId, pullPaymentId, cardUid: null, boltcardId: null);
 
-            // Handle NIP-05: pubkey + username
-            string? nip05 = null;
-            if (!string.IsNullOrWhiteSpace(request.Pubkey))
-            {
-                // Check pubkey not already registered
-                if (await _nip05Service.IsPubkeyRegistered(request.Pubkey))
-                    return BadRequest(new { error = "Pubkey already registered" });
-
-                // Validate or auto-generate username
-                string username;
-                if (!string.IsNullOrWhiteSpace(request.Username))
-                {
-                    var lower = request.Username.ToLowerInvariant();
-                    var (valid, validError) = _nip05Service.ValidateUsername(lower);
-                    if (!valid)
-                        return BadRequest(new { error = validError });
-                    if (!await _nip05Service.IsUsernameAvailable(lower))
-                        return BadRequest(new { error = "Username already taken" });
-                    username = lower;
-                }
-                else
-                {
-                    username = await _nip05Service.GenerateUsername();
-                }
-
-                // Store in wallet record
-                await _nip05Service.SetWalletNip05(wallet.Id, request.Pubkey, username);
-                nip05 = $"{username}@trailscoffee.com";
-            }
-
-            // Generate token
-            var token = await _walletService.GenerateWalletTokenAsync(wallet.Id);
-
-            var balance = await _walletService.GetBalanceAsync(wallet.Id);
-
-            // Build lud16 (Lightning Address) if user has a username
-            string? lud16 = null;
+            // Handle NIP-05 username
+            string? newNip05 = null;
+            string username;
             if (!string.IsNullOrWhiteSpace(request.Username))
             {
-                var host = Request.Host.Value;
-                lud16 = $"{request.Username.ToLowerInvariant()}@{host}";
+                var lower = request.Username.ToLowerInvariant();
+                var (valid, validError) = _nip05Service.ValidateUsername(lower);
+                if (!valid)
+                    return BadRequest(new { error = validError });
+                if (!await _nip05Service.IsUsernameAvailable(lower))
+                    return BadRequest(new { error = "Username already taken" });
+                username = lower;
             }
-            else if (!string.IsNullOrWhiteSpace(request.Pubkey))
+            else
             {
-                // Auto-generated username case
-                var nip05Identity = await _nip05Service.LookupByPubkey(request.Pubkey);
-                if (nip05Identity.identity != null)
-                {
-                    var host = Request.Host.Value;
-                    lud16 = $"{nip05Identity.identity.Username}@{host}";
-                }
+                username = await _nip05Service.GenerateUsername();
             }
+
+            await _nip05Service.SetWalletNip05(wallet.Id, request.Pubkey, username);
+            newNip05 = $"{username}@trailscoffee.com";
+
+            var newToken = await _walletService.GenerateWalletTokenAsync(wallet.Id);
+            var newBalance = await _walletService.GetBalanceAsync(wallet.Id);
+            var newLud16 = $"{username}@{Request.Host.Value}";
 
             return Ok(new
             {
                 walletId = wallet.Id,
-                token,
-                satsBalance = balance?.SatsBalance ?? 0,
-                cadBalanceCents = balance?.CadBalanceCents ?? 0,
-                autoConvert = balance?.AutoConvertToCad ?? true,
-                nip05,
-                lud16
+                token = newToken,
+                satsBalance = newBalance?.SatsBalance ?? 0,
+                cadBalanceCents = newBalance?.CadBalanceCents ?? 0,
+                autoConvert = newBalance?.AutoConvertToCad ?? true,
+                nip05 = newNip05,
+                lud16 = newLud16,
+                recovered = false
             });
         }
         catch (Exception ex)
@@ -757,10 +793,14 @@ public class WalletApiController : ControllerBase
     public class CreateWalletRequest
     {
         public string StoreId { get; set; } = string.Empty;
-        /// <summary>Optional Nostr public key (hex) for NIP-05 identity.</summary>
-        public string? Pubkey { get; set; }
-        /// <summary>Optional NIP-05 username. Auto-generated if pubkey provided without username.</summary>
+        /// <summary>Nostr public key (hex, 64 chars). Required.</summary>
+        public string Pubkey { get; set; } = string.Empty;
+        /// <summary>Optional NIP-05 username. Auto-generated if not provided.</summary>
         public string? Username { get; set; }
+        /// <summary>BIP-340 Schnorr signature (hex, 128 chars) over SHA256("wallet-auth:{pubkey}:{timestamp}"). Required.</summary>
+        public string Signature { get; set; } = string.Empty;
+        /// <summary>Unix timestamp (seconds). Must be within 5 minutes of server time. Required.</summary>
+        public long Timestamp { get; set; }
     }
 
     public class SwapRequest

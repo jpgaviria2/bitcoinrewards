@@ -40,8 +40,42 @@ public class Nip05Service
         var inWallets = await db.CustomerWallets.AnyAsync(w => w.Nip05Username == lower);
         if (inWallets) return false;
         
-        var inIdentities = await db.Nip05Identities.AnyAsync(i => i.Username == lower);
-        return !inIdentities;
+        // Check standalone identities — revoked+released ones in cooldown are unavailable
+        var identity = await db.Nip05Identities.FirstOrDefaultAsync(i => i.Username == lower);
+        if (identity == null) return true;
+        if (!identity.Revoked) return false; // active identity
+        // Revoked with ReleasedAt — check cooldown
+        if (identity.ReleasedAt.HasValue)
+        {
+            var cooldownEnd = identity.ReleasedAt.Value.AddDays(7);
+            if (DateTime.UtcNow < cooldownEnd) return false; // still in cooldown
+            // Cooldown expired — username is free, clean up the identity
+            return true;
+        }
+        // Revoked by admin (no ReleasedAt) — still unavailable
+        return false;
+    }
+
+    /// <summary>Check username availability with cooldown info for /nip05/check.</summary>
+    public async Task<(bool available, string? reason, DateTime? availableAfter)> CheckUsernameAvailability(string username)
+    {
+        var lower = username.ToLowerInvariant();
+        await using var db = _dbFactory.CreateContext();
+        
+        var inWallets = await db.CustomerWallets.AnyAsync(w => w.Nip05Username == lower);
+        if (inWallets) return (false, "Username already taken", null);
+        
+        var identity = await db.Nip05Identities.FirstOrDefaultAsync(i => i.Username == lower);
+        if (identity == null) return (true, null, null);
+        if (!identity.Revoked) return (false, "Username already taken", null);
+        if (identity.ReleasedAt.HasValue)
+        {
+            var cooldownEnd = identity.ReleasedAt.Value.AddDays(7);
+            if (DateTime.UtcNow < cooldownEnd)
+                return (false, $"Recently released, available after {cooldownEnd:yyyy-MM-dd}", cooldownEnd);
+            return (true, null, null); // cooldown expired
+        }
+        return (false, "Username already taken", null); // admin-revoked
     }
 
     public async Task<string> GenerateUsername()
@@ -189,6 +223,103 @@ public class Nip05Service
             });
 
         return results.OrderBy(r => r.Username).ToList();
+    }
+
+    /// <summary>Release a NIP-05 identity (user self-revoke). Returns (success, error).</summary>
+    public async Task<(bool Success, string? Error)> ReleaseNip05ForWallet(Guid walletId)
+    {
+        await using var db = _dbFactory.CreateContext();
+        var wallet = await db.CustomerWallets.FirstOrDefaultAsync(w => w.Id == walletId);
+        if (wallet == null) return (false, "Wallet not found");
+        if (string.IsNullOrEmpty(wallet.Nip05Username) || string.IsNullOrEmpty(wallet.Pubkey))
+            return (false, "Wallet has no NIP-05 identity");
+        if (wallet.Nip05Revoked)
+            return (false, "NIP-05 identity already revoked");
+
+        // Check rate limit: 3 releases per day per wallet
+        var todayUtc = DateTime.UtcNow.Date;
+        var releasesToday = await db.WalletTransactions
+            .CountAsync(t => t.CustomerWalletId == walletId
+                && t.Type == WalletTransactionType.Nip05Released
+                && t.CreatedAt >= todayUtc);
+        if (releasesToday >= 3)
+            return (false, "Rate limit: maximum 3 releases per day");
+
+        var username = wallet.Nip05Username;
+        var pubkey = wallet.Pubkey;
+
+        // Revoke on wallet
+        wallet.Nip05Revoked = true;
+        wallet.Nip05Username = null;
+
+        // Create/update standalone identity to track cooldown
+        var identity = await db.Nip05Identities.FirstOrDefaultAsync(i => i.Pubkey == pubkey);
+        if (identity != null)
+        {
+            identity.Revoked = true;
+            identity.ReleasedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            db.Nip05Identities.Add(new Nip05Identity
+            {
+                Pubkey = pubkey,
+                Username = username,
+                Revoked = true,
+                ReleasedAt = DateTime.UtcNow,
+                CreatedAt = wallet.CreatedAt
+            });
+        }
+
+        // Log transaction
+        db.WalletTransactions.Add(new WalletTransaction
+        {
+            CustomerWalletId = walletId,
+            Type = WalletTransactionType.Nip05Released,
+            Reference = $"Released NIP-05: {username}"
+        });
+
+        await db.SaveChangesAsync();
+        _logger.LogInformation("Wallet {WalletId} released NIP-05 username {Username}", walletId, username);
+        return (true, null);
+    }
+
+    /// <summary>
+    /// Recover wallet by pubkey: return existing wallet, generate fresh token, restore NIP-05 if revoked.
+    /// Returns (wallet, token, error).
+    /// </summary>
+    public async Task<(CustomerWallet? wallet, string? error)> RecoverWalletByPubkey(string pubkey)
+    {
+        await using var db = _dbFactory.CreateContext();
+        var wallet = await db.CustomerWallets.FirstOrDefaultAsync(w => w.Pubkey == pubkey);
+        if (wallet == null) return (null, null); // not found = new wallet flow
+
+        // Restore NIP-05 if it was self-revoked (has a standalone identity with ReleasedAt)
+        if (wallet.Nip05Revoked)
+        {
+            var identity = await db.Nip05Identities.FirstOrDefaultAsync(i => i.Pubkey == pubkey && i.ReleasedAt != null);
+            if (identity != null)
+            {
+                // Reclaim: restore username to wallet, clear identity
+                wallet.Nip05Username = identity.Username;
+                wallet.Nip05Revoked = false;
+                identity.Revoked = false;
+                identity.ReleasedAt = null;
+                _logger.LogInformation("Restored NIP-05 username {Username} for recovered wallet {WalletId}",
+                    identity.Username, wallet.Id);
+            }
+        }
+
+        // Log recovery
+        db.WalletTransactions.Add(new WalletTransaction
+        {
+            CustomerWalletId = wallet.Id,
+            Type = WalletTransactionType.WalletRecovery,
+            Reference = "Wallet recovered via Schnorr signature"
+        });
+
+        await db.SaveChangesAsync();
+        return (wallet, null);
     }
 
     /// <summary>Set pubkey and username on a wallet.</summary>

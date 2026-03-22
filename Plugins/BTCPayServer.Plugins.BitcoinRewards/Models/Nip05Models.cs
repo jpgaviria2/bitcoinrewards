@@ -13,6 +13,14 @@ public class CheckUsernameResponse
     public string? Suggestion { get; set; }
     [JsonPropertyName("reason")]
     public string? Reason { get; set; }
+    [JsonPropertyName("availableAfter")]
+    public DateTime? AvailableAfter { get; set; }
+}
+
+public class ReleaseNip05Request
+{
+    [JsonPropertyName("walletId")]
+    public Guid WalletId { get; set; }
 }
 
 public class UpdateUsernameRequest

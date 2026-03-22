@@ -73,11 +73,17 @@ public class Nip05ApiController : ControllerBase
             return Ok(new CheckUsernameResponse { Available = false, Reason = error, Suggestion = suggestion });
         }
 
-        var available = await _nip05.IsUsernameAvailable(lower);
+        var (available, reason, availableAfter) = await _nip05.CheckUsernameAvailability(lower);
         if (!available)
         {
             var suggestion = await _nip05.GenerateUsername();
-            return Ok(new CheckUsernameResponse { Available = false, Reason = "Username already taken", Suggestion = suggestion });
+            return Ok(new CheckUsernameResponse
+            {
+                Available = false,
+                Reason = reason ?? "Username already taken",
+                Suggestion = suggestion,
+                AvailableAfter = availableAfter
+            });
         }
 
         return Ok(new CheckUsernameResponse { Available = true });
@@ -143,6 +149,25 @@ public class Nip05ApiController : ControllerBase
         var host = Request.Host.Value;
         _logger.LogInformation("Updated NIP-05 username for wallet {WalletId} to {Username}", wallet.Id, lower);
         return Ok(new { success = true, nip05 = $"{lower}@trailscoffee.com", lud16 = $"{lower}@{host}" });
+    }
+
+    /// <summary>User self-revoke: release NIP-05 identity with 7-day cooldown.</summary>
+    [HttpPost("plugins/bitcoin-rewards/nip05/release")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Release([FromBody] ReleaseNip05Request request)
+    {
+        var wallet = await AuthenticateWalletAsync();
+        if (wallet == null)
+            return Unauthorized(new { error = "Invalid or missing wallet token" });
+        if (wallet.Id != request.WalletId)
+            return StatusCode(403, new { error = "Token does not match wallet" });
+
+        var (success, error) = await _nip05.ReleaseNip05ForWallet(wallet.Id);
+        if (!success)
+            return BadRequest(new { error });
+
+        _logger.LogInformation("Wallet {WalletId} released NIP-05 identity", wallet.Id);
+        return Ok(new { success = true, message = "NIP-05 identity released. Username enters 7-day cooldown." });
     }
 
     /// <summary>Admin: revoke a NIP-05 identity.</summary>
