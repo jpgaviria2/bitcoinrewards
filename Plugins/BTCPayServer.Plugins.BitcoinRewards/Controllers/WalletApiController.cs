@@ -20,8 +20,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
+using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;
-using NBitcoin.Secp256k1;
 using Newtonsoft.Json.Linq;
 using NicolasDorier.RateLimits;
 using System.Security.Cryptography;
@@ -131,14 +131,14 @@ public class WalletApiController : ControllerBase
         if (Math.Abs(now - request.Timestamp) > 300)
             return Unauthorized(new { error = "Timestamp expired or too far in the future" });
 
-        // Verify BIP-340 Schnorr signature
+        // Verify BIP-340 Schnorr signature (using NBitcoin public API)
         try
         {
             var challenge = $"wallet-auth:{request.Pubkey}:{request.Timestamp}";
             var msgHash = SHA256.HashData(Encoding.UTF8.GetBytes(challenge));
-            var pubkey = ECXOnlyPubKey.Create(Convert.FromHexString(request.Pubkey));
-            var sig = SecpSchnorrSignature.Create(Convert.FromHexString(request.Signature));
-            if (!pubkey.SigVerifyBIP340(sig, msgHash))
+            var pubkey = TaprootPubKey.Parse(request.Pubkey);
+            var sig = SchnorrSignature.Parse(request.Signature);
+            if (!pubkey.VerifySignature(new uint256(msgHash), sig))
                 return Unauthorized(new { error = "Invalid signature" });
         }
         catch (Exception ex)
