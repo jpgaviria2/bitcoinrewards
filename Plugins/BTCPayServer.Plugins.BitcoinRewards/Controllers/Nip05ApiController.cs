@@ -162,12 +162,15 @@ public class Nip05ApiController : ControllerBase
         if (wallet.Id != request.WalletId)
             return StatusCode(403, new { error = "Token does not match wallet" });
 
+        // Capture username before release clears it
+        var username = wallet.Nip05Username;
+
         var (success, error) = await _nip05.ReleaseNip05ForWallet(wallet.Id);
         if (!success)
             return BadRequest(new { error });
 
-        _logger.LogInformation("Wallet {WalletId} released NIP-05 identity", wallet.Id);
-        return Ok(new { success = true, message = "NIP-05 identity released. Username enters 7-day cooldown." });
+        _logger.LogInformation("Wallet {WalletId} released NIP-05 username {Username}", wallet.Id, username);
+        return Ok(new { success = true, username, action = "released" });
     }
 
     /// <summary>Admin: revoke a NIP-05 identity.</summary>
