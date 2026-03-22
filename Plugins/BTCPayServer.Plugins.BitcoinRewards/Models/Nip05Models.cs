@@ -50,3 +50,15 @@ public class RevokeRestoreRequest
     [JsonPropertyName("pubkey")]
     public string Pubkey { get; set; } = string.Empty;
 }
+
+public class Nip05LookupResponse
+{
+    [JsonPropertyName("walletId")]
+    public Guid? WalletId { get; set; }
+    [JsonPropertyName("nip05")]
+    public string Nip05 { get; set; } = string.Empty;
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; }
+    [JsonPropertyName("revoked")]
+    public bool Revoked { get; set; }
+}

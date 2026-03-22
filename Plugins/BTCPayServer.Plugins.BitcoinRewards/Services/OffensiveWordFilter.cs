@@ -40,7 +40,7 @@ public class OffensiveWordFilter
     }
 
     /// <summary>
-    /// Normalize leet-speak substitutions: 1→i, @→a, 3→e, $→s, 0→o
+    /// Normalize leet-speak substitutions and strip separators: 1→i, @→a, 3→e, $→s, 0→o, remove - and _
     /// </summary>
     private static string NormalizeLeetSpeak(string input)
     {
@@ -49,7 +49,9 @@ public class OffensiveWordFilter
             .Replace('@', 'a')
             .Replace('3', 'e')
             .Replace('$', 's')
-            .Replace('0', 'o');
+            .Replace('0', 'o')
+            .Replace("-", "")
+            .Replace("_", "");
     }
 
     /// <summary>

@@ -104,16 +104,16 @@ public class Nip05ApiController : ControllerBase
         if (string.IsNullOrWhiteSpace(pubkey))
             return BadRequest(new { error = "pubkey is required" });
 
-        var identity = await _nip05.LookupByPubkey(pubkey);
+        var (identity, walletId) = await _nip05.LookupByPubkey(pubkey);
         if (identity == null)
             return NotFound(new { error = "No NIP-05 identity found for this pubkey" });
 
-        return Ok(new
+        return Ok(new Nip05LookupResponse
         {
-            username = identity.Username,
-            pubkey = identity.Pubkey,
-            nip05 = $"{identity.Username}@trailscoffee.com",
-            revoked = identity.Revoked
+            WalletId = walletId,
+            Nip05 = $"{identity.Username}@trailscoffee.com",
+            CreatedAt = identity.CreatedAt,
+            Revoked = identity.Revoked
         });
     }
 

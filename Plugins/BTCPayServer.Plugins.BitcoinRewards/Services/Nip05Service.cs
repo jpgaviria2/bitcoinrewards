@@ -113,12 +113,12 @@ public class Nip05Service
         return names;
     }
 
-    public async Task<Nip05Identity?> LookupByPubkey(string pubkey)
+    public async Task<(Nip05Identity? identity, Guid? walletId)> LookupByPubkey(string pubkey)
     {
         await using var db = _dbFactory.CreateContext();
         // Check standalone first
         var identity = await db.Nip05Identities.FirstOrDefaultAsync(i => i.Pubkey == pubkey);
-        if (identity != null) return identity;
+        if (identity != null) return (identity, null);
 
         // Check wallets
         var wallet = await db.CustomerWallets
@@ -126,15 +126,16 @@ public class Nip05Service
             .FirstOrDefaultAsync();
         if (wallet != null)
         {
-            return new Nip05Identity
+            var walletIdentity = new Nip05Identity
             {
                 Pubkey = wallet.Pubkey!,
                 Username = wallet.Nip05Username!,
                 Revoked = wallet.Nip05Revoked,
                 CreatedAt = wallet.CreatedAt
             };
+            return (walletIdentity, wallet.Id);
         }
-        return null;
+        return (null, null);
     }
 
     public async Task RevokeNip05(string pubkey)
