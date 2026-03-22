@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using NicolasDorier.RateLimits;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -58,6 +59,7 @@ public class Nip05ApiController : ControllerBase
     /// <summary>Check username availability.</summary>
     [HttpGet("plugins/bitcoin-rewards/nip05/check")]
     [AllowAnonymous]
+    [RateLimitsFilter(ZoneLimits.Login, Scope = RateLimitsScope.RemoteAddress)]
     public async Task<IActionResult> CheckUsername([FromQuery] string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -118,6 +120,7 @@ public class Nip05ApiController : ControllerBase
     /// <summary>Update username for a wallet (wallet token auth).</summary>
     [HttpPost("plugins/bitcoin-rewards/nip05/update")]
     [AllowAnonymous]
+    [RateLimitsFilter(ZoneLimits.Login, Scope = RateLimitsScope.RemoteAddress)]
     public async Task<IActionResult> UpdateUsername([FromBody] UpdateUsernameRequest request)
     {
         var wallet = await AuthenticateWalletAsync();

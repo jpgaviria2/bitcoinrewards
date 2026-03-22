@@ -22,6 +22,7 @@ using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using Newtonsoft.Json.Linq;
+using NicolasDorier.RateLimits;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -110,6 +111,7 @@ public class WalletApiController : ControllerBase
 
     [HttpPost("plugins/bitcoin-rewards/wallet/create")]
     [AllowAnonymous]
+    [RateLimitsFilter(ZoneLimits.Register, Scope = RateLimitsScope.RemoteAddress)]
     public async Task<IActionResult> CreateWallet([FromBody] CreateWalletRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.StoreId))
