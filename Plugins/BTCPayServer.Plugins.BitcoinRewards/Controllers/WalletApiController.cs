@@ -22,6 +22,7 @@ using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using Newtonsoft.Json.Linq;
+using NicolasDorier.RateLimits;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
@@ -43,6 +44,7 @@ public class WalletApiController : ControllerBase
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsPluginDbContextFactory _dbFactory;
     private readonly Services.IdempotencyService _idempotencyService;
+    private readonly Services.Nip05Service _nip05Service;
     private readonly ILogger<WalletApiController> _logger;
 
     public WalletApiController(
@@ -56,6 +58,7 @@ public class WalletApiController : ControllerBase
         StoreRepository storeRepository,
         BitcoinRewardsPluginDbContextFactory dbFactory,
         Services.IdempotencyService idempotencyService,
+        Services.Nip05Service nip05Service,
         ILogger<WalletApiController> logger)
     {
         _walletService = walletService;
@@ -68,6 +71,7 @@ public class WalletApiController : ControllerBase
         _storeRepository = storeRepository;
         _dbFactory = dbFactory;
         _idempotencyService = idempotencyService;
+        _nip05Service = nip05Service;
         _logger = logger;
     }
 
@@ -107,6 +111,7 @@ public class WalletApiController : ControllerBase
 
     [HttpPost("plugins/bitcoin-rewards/wallet/create")]
     [AllowAnonymous]
+    [RateLimitsFilter(ZoneLimits.Register, Scope = RateLimitsScope.RemoteAddress)]
     public async Task<IActionResult> CreateWallet([FromBody] CreateWalletRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.StoreId))
@@ -143,6 +148,36 @@ public class WalletApiController : ControllerBase
             var wallet = await _walletService.GetOrCreateWalletAsync(
                 request.StoreId, pullPaymentId, cardUid: null, boltcardId: null);
 
+            // Handle NIP-05: pubkey + username
+            string? nip05 = null;
+            if (!string.IsNullOrWhiteSpace(request.Pubkey))
+            {
+                // Check pubkey not already registered
+                if (await _nip05Service.IsPubkeyRegistered(request.Pubkey))
+                    return BadRequest(new { error = "Pubkey already registered" });
+
+                // Validate or auto-generate username
+                string username;
+                if (!string.IsNullOrWhiteSpace(request.Username))
+                {
+                    var lower = request.Username.ToLowerInvariant();
+                    var (valid, validError) = _nip05Service.ValidateUsername(lower);
+                    if (!valid)
+                        return BadRequest(new { error = validError });
+                    if (!await _nip05Service.IsUsernameAvailable(lower))
+                        return BadRequest(new { error = "Username already taken" });
+                    username = lower;
+                }
+                else
+                {
+                    username = await _nip05Service.GenerateUsername();
+                }
+
+                // Store in wallet record
+                await _nip05Service.SetWalletNip05(wallet.Id, request.Pubkey, username);
+                nip05 = $"{username}@trailscoffee.com";
+            }
+
             // Generate token
             var token = await _walletService.GenerateWalletTokenAsync(wallet.Id);
 
@@ -154,7 +189,8 @@ public class WalletApiController : ControllerBase
                 token,
                 satsBalance = balance?.SatsBalance ?? 0,
                 cadBalanceCents = balance?.CadBalanceCents ?? 0,
-                autoConvert = balance?.AutoConvertToCad ?? true
+                autoConvert = balance?.AutoConvertToCad ?? true,
+                nip05
             });
         }
         catch (Exception ex)
@@ -651,6 +687,10 @@ public class WalletApiController : ControllerBase
     public class CreateWalletRequest
     {
         public string StoreId { get; set; } = string.Empty;
+        /// <summary>Optional Nostr public key (hex) for NIP-05 identity.</summary>
+        public string? Pubkey { get; set; }
+        /// <summary>Optional NIP-05 username. Auto-generated if pubkey provided without username.</summary>
+        public string? Username { get; set; }
     }
 
     public class SwapRequest

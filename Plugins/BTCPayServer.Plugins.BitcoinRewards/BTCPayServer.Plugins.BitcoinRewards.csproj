@@ -85,6 +85,11 @@
 	<Content Remove="BTCPayServer.Plugins.BitcoinRewards.json" />
 	<None Include="BTCPayServer.Plugins.BitcoinRewards.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- NIP-05 offensive word filter data -->
+  <ItemGroup>
+    <None Include="Data/offensive-words-en.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />

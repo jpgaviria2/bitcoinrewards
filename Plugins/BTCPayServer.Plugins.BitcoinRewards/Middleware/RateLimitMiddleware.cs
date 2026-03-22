@@ -39,6 +39,12 @@ public class RateLimitMiddleware
         
         // Settings: 10 per hour per wallet (prevent toggle spam)
         ("/plugins/bitcoin-rewards/wallet/{id}/settings", 10, TimeSpan.FromHours(1)),
+        
+        // NIP-05: check username availability
+        ("/plugins/bitcoin-rewards/nip05/check", 20, TimeSpan.FromMinutes(1)),
+        
+        // NIP-05: update username (per IP since wallet auth is separate)
+        ("/plugins/bitcoin-rewards/nip05/update", 3, TimeSpan.FromDays(1)),
     };
 
     public RateLimitMiddleware(RequestDelegate next, ILogger<RateLimitMiddleware> logger)
@@ -75,6 +81,7 @@ public class RateLimitMiddleware
             
             context.Response.StatusCode = 429; // Too Many Requests
             context.Response.ContentType = "application/json";
+            context.Response.Headers.Append("Retry-After", ((int)rule.Value.Window.TotalSeconds).ToString());
             await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(new
             {
                 error = "Rate limit exceeded",

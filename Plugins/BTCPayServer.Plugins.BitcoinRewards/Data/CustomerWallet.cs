@@ -52,4 +52,17 @@ public class CustomerWallet
     /// <summary>SHA-256 hash of bearer token used by PWA for API auth.</summary>
     [MaxLength(128)]
     public string? ApiTokenHash { get; set; }
+
+    // ── NIP-05 Identity ──
+
+    /// <summary>Nostr public key (hex format) for NIP-05 verification.</summary>
+    [MaxLength(64)]
+    public string? Pubkey { get; set; }
+
+    /// <summary>NIP-05 username (becomes username@trailscoffee.com).</summary>
+    [MaxLength(20)]
+    public string? Nip05Username { get; set; }
+
+    /// <summary>If true, user is hidden from nostr.json (moderation).</summary>
+    public bool Nip05Revoked { get; set; } = false;
 }

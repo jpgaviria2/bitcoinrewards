@@ -14,6 +14,7 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     public DbSet<CustomerWallet> CustomerWallets { get; set; } = null!;
     public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
     public DbSet<PendingLnurlClaim> PendingLnurlClaims { get; set; } = null!;
+    public DbSet<Nip05Identity> Nip05Identities { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,31 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
             entity.Property(e => e.TotalRewardedSatoshis).HasDefaultValue(0L);
             entity.Property(e => e.TotalRewardedCadCents).HasDefaultValue(0L);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.Nip05Revoked).HasDefaultValue(false);
+            
+            // NIP-05 unique indexes
+            entity.HasIndex(e => e.Pubkey)
+                .IsUnique()
+                .HasFilter("Pubkey IS NOT NULL")
+                .HasDatabaseName("IX_CustomerWallets_Pubkey_Unique");
+            entity.HasIndex(e => e.Nip05Username)
+                .IsUnique()
+                .HasFilter("Nip05Username IS NOT NULL")
+                .HasDatabaseName("IX_CustomerWallets_Nip05Username_Unique");
+        });
+
+        // Configure Nip05Identity entity
+        modelBuilder.Entity<Nip05Identity>(entity =>
+        {
+            entity.ToTable("Nip05Identities");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Pubkey)
+                .IsUnique()
+                .HasDatabaseName("IX_Nip05Identities_Pubkey_Unique");
+            entity.HasIndex(e => e.Username)
+                .IsUnique()
+                .HasDatabaseName("IX_Nip05Identities_Username_Unique");
+            entity.Property(e => e.Revoked).HasDefaultValue(false);
         });
 
         // Configure PendingLnurlClaim entity

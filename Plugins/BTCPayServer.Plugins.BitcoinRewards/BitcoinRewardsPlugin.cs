@@ -44,6 +44,10 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Production hardening services (v2.0)
         services.AddSingleton<Services.IdempotencyService>();
         
+        // NIP-05 identity services
+        services.AddSingleton<Services.OffensiveWordFilter>();
+        services.TryAddScoped<Services.Nip05Service>();
+        
         // BTCPay invoice listener
         services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<HostedServices.BtcpayInvoiceRewardHostedService>());
