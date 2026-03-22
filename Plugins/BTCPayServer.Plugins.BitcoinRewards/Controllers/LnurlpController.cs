@@ -229,7 +229,12 @@ public class LnurlpController : ControllerBase
             {
                 status = "OK",
                 pr = invoice.BOLT11,
-                routes = Array.Empty<object>()
+                routes = Array.Empty<object>(),
+                successAction = new
+                {
+                    tag = "message",
+                    message = $"Payment received by {lower}@{host}"
+                }
             });
         }
         catch (Exception ex)

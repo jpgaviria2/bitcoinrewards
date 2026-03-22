@@ -73,7 +73,9 @@ public class LightningAddressResolverFilter : PluginHookFilter<LightningAddressR
             MinSendable = new LightMoney(1000, LightMoneyUnit.MilliSatoshi),   // 1 sat
             MaxSendable = new LightMoney(100000000000, LightMoneyUnit.MilliSatoshi), // 100k sats
             Metadata = metadata,
-            CommentAllowed = 255
+            CommentAllowed = 255,
+            AllowsNostr = true,
+            NostrPubkey = wallet.Pubkey ?? ""
         };
 
         _logger.LogInformation("Resolved Lightning Address for NIP-05 user {Username}", username);
