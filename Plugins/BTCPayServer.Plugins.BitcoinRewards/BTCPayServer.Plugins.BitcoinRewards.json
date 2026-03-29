@@ -1,7 +1,7 @@
 {
   "Identifier": "BTCPayServer.Plugins.BitcoinRewards",
   "Name": "Bitcoin Rewards",
-  "Version": "2.2.0",
+  "Version": "2.3.0",
   "Description": "Bitcoin-backed rewards system with Lightning Address support, internal transfers, and NIP-05 identity.",
   "SystemPlugin": false,
   "Dependencies": [
