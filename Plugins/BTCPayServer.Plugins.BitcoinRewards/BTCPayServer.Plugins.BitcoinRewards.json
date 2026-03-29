@@ -1,8 +1,8 @@
 {
   "Identifier": "BTCPayServer.Plugins.BitcoinRewards",
   "Name": "Bitcoin Rewards",
-  "Version": "2.3.0",
-  "Description": "Bitcoin-backed rewards system with Lightning Address support, internal transfers, and NIP-05 identity.",
+  "Version": "1.5.1",
+  "Description": "Bitcoin-backed rewards system with production hardening, analytics, and advanced monitoring.",
   "SystemPlugin": false,
   "Dependencies": [
     {
@@ -12,6 +12,6 @@
   ],
   "Documentation": "https://github.com/jpgaviria2/bitcoinrewards/blob/main/README.md",
   "Source": "https://github.com/jpgaviria2/bitcoinrewards",
-  "Author": "BTCPay Community",
+  "Author": "jpgaviria2",
   "AuthorLink": "https://github.com/jpgaviria2"
 }
