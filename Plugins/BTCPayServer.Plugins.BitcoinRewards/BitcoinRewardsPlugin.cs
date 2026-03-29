@@ -76,6 +76,11 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Performance optimization (Phase 2.7)
         services.AddSingleton<Services.CachingService>();
         
+        // Phase 5: Feature Parity
+        services.TryAddScoped<Services.AnalyticsService>();
+        services.AddHttpClient<Services.WebhookOutService>();
+        services.TryAddScoped<Services.WebhookOutService>();
+        
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
         services.TryAddScoped<Services.Nip05Service>();
