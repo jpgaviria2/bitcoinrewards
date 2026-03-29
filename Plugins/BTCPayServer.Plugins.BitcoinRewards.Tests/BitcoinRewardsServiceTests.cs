@@ -62,19 +62,32 @@ public class BitcoinRewardsServiceTests
     {
         // Arrange
         const decimal SATS_PER_BTC = 100_000_000m;
-        decimal largeAmount = 100_000m; // 100k BTC
+        // long.MaxValue is ~92 billion BTC in sats, so 100k BTC fits fine
+        decimal largeAmount = 100_000m; // 100k BTC = 10 trillion sats (fits in long)
         
-        // Act
+        // Act - should NOT overflow
+        long result = 0;
         Action act = () =>
         {
             checked
             {
-                var result = (long)Math.Round(largeAmount * SATS_PER_BTC, MidpointRounding.AwayFromZero);
+                result = (long)Math.Round(largeAmount * SATS_PER_BTC, MidpointRounding.AwayFromZero);
             }
         };
         
-        // Assert
-        act.Should().Throw<OverflowException>("because 100k BTC exceeds long.MaxValue satoshis");
+        // Assert - 100k BTC is valid and does not overflow
+        act.Should().NotThrow("because 100k BTC (10 trillion sats) fits in a long");
+        
+        // But a truly huge amount WOULD overflow
+        decimal hugeAmount = 100_000_000_000m; // 100 billion BTC
+        Action hugeAct = () =>
+        {
+            checked
+            {
+                var _ = (long)Math.Round(hugeAmount * SATS_PER_BTC, MidpointRounding.AwayFromZero);
+            }
+        };
+        hugeAct.Should().Throw<OverflowException>("because 100 billion BTC exceeds long.MaxValue");
     }
 
     [Theory]

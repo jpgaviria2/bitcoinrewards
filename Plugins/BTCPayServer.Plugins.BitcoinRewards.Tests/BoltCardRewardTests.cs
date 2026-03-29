@@ -247,8 +247,11 @@ public class BoltCardRewardTests
         var baseUrl = "https://pay.example.com";
         var ppId = "pp with spaces";
         
-        var uri = new Uri(baseUrl.TrimEnd('/') + $"/pull-payments/{Uri.EscapeDataString(ppId)}");
-        uri.ToString().Should().Contain("pp%20with%20spaces");
+        var escaped = Uri.EscapeDataString(ppId);
+        escaped.Should().Contain("pp%20with%20spaces");
+        
+        var url = baseUrl.TrimEnd('/') + $"/pull-payments/{escaped}";
+        url.Should().Contain("pp%20with%20spaces");
     }
 
     // ── Security Tests ──
