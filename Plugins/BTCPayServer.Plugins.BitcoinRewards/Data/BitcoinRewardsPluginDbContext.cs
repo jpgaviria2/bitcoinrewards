@@ -15,6 +15,9 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
     public DbSet<PendingLnurlClaim> PendingLnurlClaims { get; set; } = null!;
     public DbSet<Nip05Identity> Nip05Identities { get; set; } = null!;
+    
+    // Phase 2: Production Hardening - Error tracking
+    public DbSet<Models.RewardError> RewardErrors { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -124,6 +127,22 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
                 .WithMany()
                 .HasForeignKey(e => e.CustomerWalletId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // Configure RewardError entity (Phase 2: Error Tracking)
+        modelBuilder.Entity<Models.RewardError>(entity =>
+        {
+            entity.ToTable("RewardErrors");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ErrorType);
+            entity.HasIndex(e => e.StoreId);
+            entity.HasIndex(e => e.OrderId);
+            entity.HasIndex(e => e.RewardId);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => new { e.Resolved, e.Timestamp })
+                .HasDatabaseName("IX_RewardErrors_Resolved_Timestamp");
+            entity.Property(e => e.Resolved).HasDefaultValue(false);
+            entity.Property(e => e.RetryCount).HasDefaultValue(0);
         });
     }
 }
