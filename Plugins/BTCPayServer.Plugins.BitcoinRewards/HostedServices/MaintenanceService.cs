@@ -58,16 +58,7 @@ public class MaintenanceService : BackgroundService
             var removedIdempotency = Services.IdempotencyService.CleanupExpiredEntries();
             _logger.LogInformation("Cleaned up {Count} expired idempotency entries", removedIdempotency);
 
-            // Cleanup rate limit histories (if middleware is active)
-            try
-            {
-                Middleware.RateLimitMiddleware.CleanupExpiredHistories();
-                _logger.LogInformation("Cleaned up expired rate limit histories");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Rate limit cleanup failed (middleware may not be active)");
-            }
+            // Rate limit cleanup is handled internally by RateLimitService
 
             // TODO: Cleanup old PendingLnurlClaims (completed > 7 days ago)
             // TODO: Archive old WalletTransactions (> 1 year old)

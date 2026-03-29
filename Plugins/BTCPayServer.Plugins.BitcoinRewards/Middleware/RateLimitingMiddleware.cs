@@ -38,6 +38,25 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Middleware
                 return;
             }
             
+            try
+            {
+                await InvokeRateLimitAsync(context, rateLimitService, storeRepository, metrics);
+            }
+            catch (Exception ex)
+            {
+                // Never crash the request pipeline due to rate limiting errors
+                _logger.LogWarning(ex, "Rate limiting middleware error, allowing request through");
+                await _next(context);
+            }
+        }
+
+        private async Task InvokeRateLimitAsync(
+            HttpContext context,
+            RateLimitService rateLimitService,
+            StoreRepository storeRepository,
+            RewardMetrics metrics)
+        {
+            
             // Get rate limit configuration for the store
             var storeId = ExtractStoreId(context.Request.Path);
             RateLimitConfiguration? config = null;

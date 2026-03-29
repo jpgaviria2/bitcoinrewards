@@ -7,7 +7,8 @@ using Microsoft.Extensions.Primitives;
 namespace BTCPayServer.Plugins.BitcoinRewards.Middleware
 {
     /// <summary>
-    /// Middleware to generate and propagate correlation IDs across requests
+    /// Middleware to generate and propagate correlation IDs across requests.
+    /// Wrapped in try/catch to never crash the request pipeline.
     /// </summary>
     public class CorrelationIdMiddleware
     {
@@ -23,33 +24,36 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Middleware
         
         public async Task InvokeAsync(HttpContext context)
         {
-            // Check if correlation ID already exists (from client or upstream proxy)
-            var correlationId = GetOrCreateCorrelationId(context);
-            
-            // Store in HttpContext.Items for access by other middleware/services
-            context.Items["CorrelationId"] = correlationId;
-            
-            // Add to response headers (helps with debugging)
-            context.Response.OnStarting(() =>
+            try
             {
-                if (!context.Response.Headers.ContainsKey(CORRELATION_ID_HEADER))
+                // Check if correlation ID already exists (from client or upstream proxy)
+                var correlationId = GetOrCreateCorrelationId(context);
+                
+                // Store in HttpContext.Items for access by other middleware/services
+                context.Items["CorrelationId"] = correlationId;
+                
+                // Add to response headers (helps with debugging)
+                context.Response.OnStarting(() =>
                 {
-                    context.Response.Headers.Add(CORRELATION_ID_HEADER, correlationId);
-                }
-                return Task.CompletedTask;
-            });
-            
-            // Create a log scope for this request
-            using (_logger.BeginScope(new { CorrelationId = correlationId }))
-            {
-                _logger.LogDebug("Request started: {Method} {Path} [CorrelationId: {CorrelationId}]",
-                    context.Request.Method, context.Request.Path, correlationId);
-                
-                await _next(context);
-                
-                _logger.LogDebug("Request completed: {Method} {Path} {StatusCode} [CorrelationId: {CorrelationId}]",
-                    context.Request.Method, context.Request.Path, context.Response.StatusCode, correlationId);
+                    try
+                    {
+                        context.Response.Headers[CORRELATION_ID_HEADER] = correlationId;
+                    }
+                    catch
+                    {
+                        // Never fail on header write
+                    }
+                    return Task.CompletedTask;
+                });
             }
+            catch (Exception ex)
+            {
+                // Log but never crash - correlation IDs are optional enhancement
+                _logger.LogDebug(ex, "Failed to set correlation ID");
+            }
+            
+            // Always call next, even if correlation ID setup failed
+            await _next(context);
         }
         
         /// <summary>

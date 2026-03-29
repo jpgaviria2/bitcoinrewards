@@ -86,9 +86,6 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
             sp.GetRequiredService<Services.LightningAddressResolverFilter>());
         services.AddHttpContextAccessor();
         
-        // Lightning Address resolution (LUD-16) — hooks into BTCPay's /.well-known/lnurlp/{username}
-        services.AddSingleton<IPluginHookFilter, Services.LightningAddressResolverFilter>();
-        
         // BTCPay invoice listener
         services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<HostedServices.BtcpayInvoiceRewardHostedService>());
