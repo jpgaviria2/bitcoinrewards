@@ -101,6 +101,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     public override void Execute(Microsoft.AspNetCore.Builder.IApplicationBuilder applicationBuilder,
         IServiceProvider serviceProvider)
     {
+        // Phase 2: Register rate limiting middleware
+        applicationBuilder.UseMiddleware<Middleware.RateLimitingMiddleware>();
+        
         base.Execute(applicationBuilder, serviceProvider);
     }
 }
