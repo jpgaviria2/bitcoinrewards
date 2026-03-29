@@ -117,6 +117,22 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Display Template Override (Optional)")]
     public string? DisplayTemplateOverride { get; set; }
     
+    [Display(Name = "Waiting Template Override (Optional)")]
+    public string? WaitingTemplateOverride { get; set; }
+    
+    // Branding Settings
+    [Display(Name = "Primary Color")]
+    public string PrimaryColor { get; set; } = "#6B4423";
+    
+    [Display(Name = "Secondary Color")]
+    public string SecondaryColor { get; set; } = "#CD853F";
+    
+    [Display(Name = "Accent Color")]
+    public string AccentColor { get; set; } = "#F5F5DC";
+    
+    [Display(Name = "Logo URL")]
+    public string? LogoUrl { get; set; }
+    
     // Bolt Card Settings
     [Display(Name = "Enable Bolt Card NFC Rewards")]
     public bool BoltCardEnabled { get; set; }
@@ -205,6 +221,12 @@ public class BitcoinRewardsSettingsViewModel
         DisplayAutoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
         DisplayTimeframeMinutes = settings.DisplayTimeframeMinutes;
         DisplayTemplateOverride = settings.DisplayTemplateOverride;
+        WaitingTemplateOverride = settings.WaitingTemplateOverride;
+        
+        PrimaryColor = settings.PrimaryColor;
+        SecondaryColor = settings.SecondaryColor;
+        AccentColor = settings.AccentColor;
+        LogoUrl = settings.LogoUrl;
         
         BoltCardEnabled = settings.BoltCardEnabled;
         BoltcardFactoryAppId = settings.BoltcardFactoryAppId;
@@ -236,6 +258,12 @@ public class BitcoinRewardsSettingsViewModel
         settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
         settings.DisplayTimeframeMinutes = DisplayTimeframeMinutes;
         settings.DisplayTemplateOverride = DisplayTemplateOverride;
+        settings.WaitingTemplateOverride = WaitingTemplateOverride;
+        
+        settings.PrimaryColor = PrimaryColor;
+        settings.SecondaryColor = SecondaryColor;
+        settings.AccentColor = AccentColor;
+        settings.LogoUrl = LogoUrl;
         
         settings.BoltCardEnabled = BoltCardEnabled;
         settings.BoltcardFactoryAppId = BoltcardFactoryAppId;

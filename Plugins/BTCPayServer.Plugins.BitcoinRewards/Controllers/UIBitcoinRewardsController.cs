@@ -452,12 +452,14 @@ public class UIBitcoinRewardsController : Controller
         
         if (settings == null || !settings.Enabled)
         {
+            var store = await _storeRepository.FindStore(storeId);
             return View("DisplayRewards", new DisplayRewardsViewModel
             {
                 StoreId = storeId,
                 HasReward = false,
                 AutoRefreshSeconds = 10,
-                TimeframeMinutes = 60
+                TimeframeMinutes = 60,
+                StoreName = store?.StoreName ?? "Our Store"
             });
         }
         
@@ -478,13 +480,20 @@ public class UIBitcoinRewardsController : Controller
         
         if (latestReward == null || string.IsNullOrEmpty(latestReward.ClaimLink))
         {
+            var store = await _storeRepository.FindStore(storeId);
             return View("DisplayRewards", new DisplayRewardsViewModel
             {
                 StoreId = storeId,
                 HasReward = false,
                 AutoRefreshSeconds = autoRefreshSeconds,
                 TimeframeMinutes = timeframeMinutes,
-                DisplayTimeoutSeconds = displayTimeoutSeconds
+                DisplayTimeoutSeconds = displayTimeoutSeconds,
+                WaitingTemplate = settings.WaitingTemplateOverride,
+                StoreName = store?.StoreName ?? "Our Store",
+                PrimaryColor = settings.PrimaryColor,
+                SecondaryColor = settings.SecondaryColor,
+                AccentColor = settings.AccentColor,
+                LogoUrl = settings.LogoUrl
             });
         }
         
@@ -495,13 +504,20 @@ public class UIBitcoinRewardsController : Controller
             if (isClaimed)
             {
                 _logger.LogInformation("DisplayRewards: Pull payment {PullPaymentId} has been claimed, hiding reward", latestReward.PullPaymentId);
+                var store = await _storeRepository.FindStore(storeId);
                 return View("DisplayRewards", new DisplayRewardsViewModel
                 {
                     StoreId = storeId,
                     HasReward = false,
                     AutoRefreshSeconds = autoRefreshSeconds,
                     TimeframeMinutes = timeframeMinutes,
-                    DisplayTimeoutSeconds = displayTimeoutSeconds
+                    DisplayTimeoutSeconds = displayTimeoutSeconds,
+                    WaitingTemplate = settings.WaitingTemplateOverride,
+                    StoreName = store?.StoreName ?? "Our Store",
+                    PrimaryColor = settings.PrimaryColor,
+                    SecondaryColor = settings.SecondaryColor,
+                    AccentColor = settings.AccentColor,
+                    LogoUrl = settings.LogoUrl
                 });
             }
         }

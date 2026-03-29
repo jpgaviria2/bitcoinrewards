@@ -289,6 +289,71 @@
                 </small>
             </div>
 
+            <!-- Waiting Template Override -->
+            <div class="form-group mb-4">
+                <label asp-for="WaitingTemplateOverride" class="form-label">Waiting Screen Template (Idle State)</label>
+
+                <ul class="nav nav-tabs mb-2" id="waiting-template-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="waiting-html-tab" data-bs-toggle="tab" data-bs-target="#waiting-html-panel" type="button" role="tab">HTML Source</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="waiting-preview-tab" data-bs-toggle="tab" data-bs-target="#waiting-preview-panel" type="button" role="tab">Live Preview</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content border rounded p-3 mb-2" id="waiting-template-content">
+                    <div class="tab-pane fade show active" id="waiting-html-panel" role="tabpanel">
+                        <textarea asp-for="WaitingTemplateOverride" class="form-control font-monospace" rows="12" id="waiting-template-textarea"></textarea>
+                    </div>
+                    <div class="tab-pane fade" id="waiting-preview-panel" role="tabpanel">
+                        <div id="waiting-template-preview" class="border rounded p-3 bg-light" style="min-height: 300px;">
+                            <p class="text-muted mb-0">Click "Live Preview" to see your waiting screen.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <span asp-validation-for="WaitingTemplateOverride" class="text-danger"></span>
+                <small class="form-text text-muted">
+                    HTML template shown when no rewards are pending. Tokens: {STORE_NAME}, {AUTO_REFRESH_SECONDS}, {TIMEFRAME_MINUTES}, {PRIMARY_COLOR}, {SECONDARY_COLOR}, {ACCENT_COLOR}, {LOGO_URL}, {LOGO_HTML}.
+                    <button type="button" class="btn btn-link btn-sm" onclick="resetWaitingTemplate()">Reset to Default</button>
+                </small>
+            </div>
+
+            <!-- Branding Settings -->
+            <h3 class="mt-5 mb-3">Branding Settings</h3>
+            <p class="text-muted mb-4">Customize colors and branding used in templates.</p>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="PrimaryColor">Primary Brand Color</label>
+                        <input asp-for="PrimaryColor" type="color" class="form-control" />
+                        <small class="form-text text-muted">Main brand color (default: #6B4423)</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="SecondaryColor">Secondary Color</label>
+                        <input asp-for="SecondaryColor" type="color" class="form-control" />
+                        <small class="form-text text-muted">Accent color (default: #CD853F)</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="AccentColor">Accent Color</label>
+                        <input asp-for="AccentColor" type="color" class="form-control" />
+                        <small class="form-text text-muted">Background color (default: #F5F5DC)</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group mb-4">
+                <label asp-for="LogoUrl">Logo URL</label>
+                <input asp-for="LogoUrl" class="form-control" placeholder="https://example.com/logo.png" />
+                <small class="form-text text-muted">Direct URL to your store logo (optional, used in templates)</small>
+            </div>
+
             <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
             <p class="text-muted mb-4">
                 Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.
@@ -635,5 +700,89 @@
                 updateDisplayPreview();
             }
         });
+        
+        // Reset waiting template to default
+        function resetWaitingTemplate() {
+            if (!confirm('Reset waiting template to default? This will overwrite any customizations.')) {
+                return;
+            }
+            
+            const waitingTextarea = document.getElementById('waiting-template-textarea');
+            if (!waitingTextarea) return;
+            
+            const defaultWaitingTemplate = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{STORE_NAME} Rewards</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: linear-gradient(135deg, {PRIMARY_COLOR} 0%, {SECONDARY_COLOR} 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .waiting-container {
+            background: #FFFEF7;
+            border-radius: 24px;
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        h1 {
+            font-family: 'Playfair Display', serif;
+            color: {PRIMARY_COLOR};
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        .hourglass {
+            font-size: 64px;
+            margin: 30px 0;
+            animation: rotate 3s linear infinite;
+        }
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(180deg); }
+        }
+        .subtitle { color: #666; font-size: 18px; margin-bottom: 30px; }
+        .info { background: {ACCENT_COLOR}; padding: 20px; border-radius: 12px; margin-top: 30px; font-size: 14px; color: #4A4A4A; }
+        .logo { max-width: 150px; margin-bottom: 20px; }
+    </style>
+    <script>
+        setTimeout(() => location.reload(), {AUTO_REFRESH_MS});
+    </script>
+</head>
+<body>
+    <div class="waiting-container">
+        {LOGO_HTML}
+        <h1>{STORE_NAME} Rewards</h1>
+        <div class="subtitle">Bitcoin Rewards Display</div>
+        <div class="hourglass">⏳</div>
+        <div class="subtitle">Waiting for rewards...</div>
+        <div class="info">
+            <strong>Auto-refresh:</strong> {AUTO_REFRESH_SECONDS} seconds<br>
+            <strong>Timeframe:</strong> {TIMEFRAME_MINUTES} minutes<br>
+            The latest unclaimed reward will appear here automatically
+        </div>
+    </div>
+</body>
+</html>`;
+            
+            waitingTextarea.value = defaultWaitingTemplate;
+            alert('Waiting template reset to default. Click Save to apply changes.');
+        }
     </script>
 }

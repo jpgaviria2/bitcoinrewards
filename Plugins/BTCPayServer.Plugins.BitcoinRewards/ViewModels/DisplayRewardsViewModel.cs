@@ -21,6 +21,16 @@ public class DisplayRewardsViewModel
     public string? CustomTemplate { get; set; }
     public string? LnurlString { get; set; }
     
+    // Waiting screen template
+    public string? WaitingTemplate { get; set; }
+    
+    // Branding properties
+    public string? StoreName { get; set; }
+    public string PrimaryColor { get; set; } = "#6B4423";
+    public string SecondaryColor { get; set; } = "#CD853F";
+    public string AccentColor { get; set; } = "#F5F5DC";
+    public string? LogoUrl { get; set; }
+    
     // Bolt Card NFC tap support
     public bool BoltCardEnabled { get; set; }
     public string? RewardId { get; set; }

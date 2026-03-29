@@ -138,6 +138,33 @@ public class BitcoinRewardsStoreSettings
     /// Custom HTML template for the rewards display page (optional)
     /// </summary>
     public string? DisplayTemplateOverride { get; set; }
+    
+    /// <summary>
+    /// Custom HTML template for the waiting/idle screen when no rewards are pending (optional)
+    /// </summary>
+    public string? WaitingTemplateOverride { get; set; }
+    
+    // ── Branding Settings ──
+    
+    /// <summary>
+    /// Primary brand color (hex code, e.g., "#6B4423")
+    /// </summary>
+    public string PrimaryColor { get; set; } = "#6B4423";
+    
+    /// <summary>
+    /// Secondary brand color (hex code, e.g., "#CD853F")
+    /// </summary>
+    public string SecondaryColor { get; set; } = "#CD853F";
+    
+    /// <summary>
+    /// Accent color (hex code, e.g., "#F5F5DC")
+    /// </summary>
+    public string AccentColor { get; set; } = "#F5F5DC";
+    
+    /// <summary>
+    /// Logo URL for branding (optional)
+    /// </summary>
+    public string? LogoUrl { get; set; }
 
     // ── Dual Balance Settings ──
 

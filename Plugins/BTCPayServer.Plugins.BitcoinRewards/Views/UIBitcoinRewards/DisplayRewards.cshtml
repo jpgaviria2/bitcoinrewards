@@ -6,6 +6,7 @@
     
     // Check if custom template is provided
     var useCustomTemplate = !string.IsNullOrWhiteSpace(Model.CustomTemplate) && Model.HasReward;
+    var useCustomWaitingTemplate = !string.IsNullOrWhiteSpace(Model.WaitingTemplate) && !Model.HasReward;
     
     // Helper function to replace tokens in custom template
     string ReplaceTokens(string template)
@@ -22,9 +23,34 @@
             .Replace("{DONE_BUTTON}", "<button class=\"done-button\" id=\"done-button\" onclick=\"hideReward()\">✓ Done</button>");
         return result;
     }
+    
+    // Helper function to replace tokens in waiting template
+    string ReplaceWaitingTokens(string template)
+    {
+        var autoRefreshMs = Model.AutoRefreshSeconds * 1000;
+        var logoHtml = string.IsNullOrEmpty(Model.LogoUrl) 
+            ? "" 
+            : $"<img src=\"{Model.LogoUrl}\" alt=\"{Model.StoreName}\" class=\"logo\">";
+        
+        var result = template
+            .Replace("{STORE_NAME}", Model.StoreName ?? "Our Store")
+            .Replace("{AUTO_REFRESH_SECONDS}", Model.AutoRefreshSeconds.ToString())
+            .Replace("{AUTO_REFRESH_MS}", autoRefreshMs.ToString())
+            .Replace("{TIMEFRAME_MINUTES}", Model.TimeframeMinutes.ToString())
+            .Replace("{PRIMARY_COLOR}", Model.PrimaryColor)
+            .Replace("{SECONDARY_COLOR}", Model.SecondaryColor)
+            .Replace("{ACCENT_COLOR}", Model.AccentColor)
+            .Replace("{LOGO_URL}", Model.LogoUrl ?? "")
+            .Replace("{LOGO_HTML}", logoHtml);
+        return result;
+    }
 }
 
-@if (useCustomTemplate)
+@if (useCustomWaitingTemplate)
+{
+    @Html.Raw(ReplaceWaitingTokens(Model.WaitingTemplate!))
+}
+else if (useCustomTemplate)
 {
     @Html.Raw(ReplaceTokens(Model.CustomTemplate!))
     
