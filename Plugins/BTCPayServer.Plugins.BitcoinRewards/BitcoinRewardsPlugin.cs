@@ -62,6 +62,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Rate limiting
         services.AddSingleton<Services.RateLimitService>();
         
+        // Advanced logging (Phase 2.6)
+        services.AddSingleton<Logging.BitcoinRewardsLogEnricher>();
+        
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
         services.TryAddScoped<Services.Nip05Service>();
@@ -108,7 +111,10 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     public override void Execute(Microsoft.AspNetCore.Builder.IApplicationBuilder applicationBuilder,
         IServiceProvider serviceProvider)
     {
-        // Phase 2: Register rate limiting middleware
+        // Phase 2.6: Correlation ID middleware (must be early in pipeline)
+        applicationBuilder.UseMiddleware<Middleware.CorrelationIdMiddleware>();
+        
+        // Phase 2.4: Rate limiting middleware
         applicationBuilder.UseMiddleware<Middleware.RateLimitingMiddleware>();
         
         base.Execute(applicationBuilder, serviceProvider);
