@@ -1,4 +1,5 @@
 #nullable enable
+using ServiceErrorStats = BTCPayServer.Plugins.BitcoinRewards.Services.ErrorStatistics;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -631,11 +632,24 @@ public class UIBitcoinRewardsController : Controller
             storeId: storeId, 
             since: days.HasValue ? DateTime.UtcNow.AddDays(-days.Value) : null);
         
+        // Map service statistics to view model statistics
+        var vmStats = new ViewModels.ErrorStatistics
+        {
+            TotalErrors = stats.TotalErrors,
+            UnresolvedErrors = stats.UnresolvedErrors,
+            RetryableErrors = errors.Count(e => e.IsRetryable),
+            ErrorsByType = stats.ErrorsByType,
+            ErrorsByOperation = errors
+                .Where(e => !string.IsNullOrEmpty(e.Operation))
+                .GroupBy(e => e.Operation!)
+                .ToDictionary(g => g.Key, g => g.Count())
+        };
+        
         var vm = new ErrorDashboardViewModel
         {
             StoreId = storeId,
             Errors = errors,
-            Statistics = stats,
+            Statistics = vmStats,
             DaysFilter = days ?? 7,
             ResolvedFilter = resolved
         };

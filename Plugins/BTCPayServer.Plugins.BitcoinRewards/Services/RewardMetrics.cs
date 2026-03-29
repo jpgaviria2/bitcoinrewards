@@ -287,8 +287,13 @@ public class RewardMetrics
                 .ToDictionary(x => x.Key, x => x.Stats!)
         };
     }
-}
+    
+    /// <summary>
+    /// Get snapshot of all metrics (alias for GetSummary for backward compatibility)
+    /// </summary>
+    public MetricsSummary GetSnapshot() => GetSummary();
 
+}
 /// <summary>
 /// Histogram statistics
 /// </summary>

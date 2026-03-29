@@ -91,7 +91,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                     .Where(r => r.Status != RewardStatus.Redeemed)
                     .Sum(r => r.RewardAmountSatoshis),
                 AverageRewardSatoshis = rewards.Count > 0
-                    ? rewards.Average(r => r.RewardAmountSatoshis)
+                    ? (decimal)rewards.Average(r => r.RewardAmountSatoshis)
                     : 0,
                 
                 TotalTransactionAmount = rewards.Sum(r => r.TransactionAmount),

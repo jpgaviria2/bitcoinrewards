@@ -29,6 +29,17 @@ public class RewardError
     public string Message { get; set; } = null!;
     
     /// <summary>
+    /// Alias for Message (backward compatibility)
+    /// </summary>
+    public string ErrorMessage => Message;
+    
+    /// <summary>
+    /// Operation that failed (e.g., "ProcessRewardAsync")
+    /// </summary>
+    [MaxLength(255)]
+    public string? Operation { get; set; }
+    
+    /// <summary>
     /// Full stack trace (nullable for non-exception errors)
     /// </summary>
     public string? StackTrace { get; set; }
@@ -71,6 +82,18 @@ public class RewardError
     /// Whether this error has been resolved/acknowledged
     /// </summary>
     public bool Resolved { get; set; } = false;
+    
+    /// <summary>
+    /// Alias for Resolved (backward compatibility)
+    /// </summary>
+    public bool IsResolved => Resolved;
+    
+    /// <summary>
+    /// Whether this error is retryable based on error type
+    /// </summary>
+    public bool IsRetryable => ErrorType.Contains("Transient") || 
+                               ErrorType.Contains("Timeout") ||
+                               ErrorType.Contains("Network");
     
     /// <summary>
     /// When the error was resolved

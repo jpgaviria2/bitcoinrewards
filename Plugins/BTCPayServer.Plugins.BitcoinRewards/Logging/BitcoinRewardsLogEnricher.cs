@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using Microsoft.AspNetCore.Http;
+using BTCPayServer.Plugins.BitcoinRewards.Middleware;
 using Microsoft.Extensions.Logging;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Logging

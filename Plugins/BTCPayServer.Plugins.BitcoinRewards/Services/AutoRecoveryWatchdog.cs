@@ -151,7 +151,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                         break;
                     
                     // Get retryable errors for this store
-                    var retryableErrors = await errorTracking.GetRetryableErrorsAsync(storeId);
+                    var retryableErrors = await errorTracking.GetRetryableErrorsAsync(maxRetries: 3, limit: 20);
                     
                     foreach (var error in retryableErrors)
                     {
@@ -262,7 +262,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 // This would integrate with BTCPay's notification system
                 // For now, just log at ERROR level
                 
-                var recentErrors = await errorTracking.GetRecentErrorsAsync(string.Empty, 7, false);
+                var recentErrors = await errorTracking.GetRecentErrorsAsync(limit: 100, filterType: null, storeId: null, resolvedOnly: false);
                 var exceededErrors = recentErrors
                     .Where(e => e.IsRetryable && e.RetryCount >= MAX_RETRY_ATTEMPTS && !e.IsResolved)
                     .ToList();

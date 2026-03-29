@@ -51,20 +51,19 @@
             <div class="form-group mr-3">
                 <label for="days" class="mr-2">Days:</label>
                 <select name="days" id="days" class="form-control" onchange="this.form.submit()">
-                    <option value="1" @(Model.DaysFilter == 1 ? "selected="selected"" : "")>Last 24 hours</option>
-                    <option value="7" @(Model.DaysFilter == 7 ? "selected="selected"" : "")>Last 7 days</option>
-                    <option value="30" @(Model.DaysFilter == 30 ? "selected="selected"" : "")>Last 30 days</option>
-                    <option value="90" @(Model.DaysFilter == 90 ? "selected="selected"" : "")>Last 90 days</option>
+                    <option value="1" selected="@(Model.DaysFilter == 1)">Last 24 hours</option>
+                    <option value="7" selected="@(Model.DaysFilter == 7)">Last 7 days</option>
+                    <option value="30" selected="@(Model.DaysFilter == 30)">Last 30 days</option>
+                    <option value="90" selected="@(Model.DaysFilter == 90)">Last 90 days</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="resolved" class="mr-2">Status:</label>
                 <select name="resolved" id="resolved" class="form-control" onchange="this.form.submit()">
-                    <option value="" @(!Model.ResolvedFilter.HasValue ? "selected="selected"" : "")>All</option>
-                    <option value="false" @(Model.ResolvedFilter == false ? "selected="selected"" : "")>Unresolved only</option>
-                    <option value="true" @(Model.ResolvedFilter == true ? "selected="selected"" : "")>Resolved only</option>
+                    <option value="" selected="@(!Model.ResolvedFilter.HasValue)">All</option>
+                    <option value="false" selected="@(Model.ResolvedFilter == false)">Unresolved only</option>
+                    <option value="true" selected="@(Model.ResolvedFilter == true)">Resolved only</option>
                 </select>
-            </div>
         </form>
     </div>
 </div>
@@ -220,13 +219,14 @@
                                                     {
                                                         <dt class="col-sm-2">Context</dt>
                                                         <dd class="col-sm-10">
-                                                            <dl class="row">
-                                                                @foreach (var ctx in error.Context)
-                                                                {
-                                                                    <dt class="col-sm-3">@ctx.Key</dt>
-                                                                    <dd class="col-sm-9">@ctx.Value</dd>
-                                                                }
-                                                            </dl>
+                                                            @if (!string.IsNullOrEmpty(error.Context))
+                                                            {
+                                                                <pre><code>@error.Context</code></pre>
+                                                            }
+                                                            else
+                                                            {
+                                                                <em>None</em>
+                                                            }
                                                         </dd>
                                                     }
                                                     @if (error.IsResolved)

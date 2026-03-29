@@ -233,7 +233,7 @@ public class BitcoinRewardsService
             {
                 await _repository.AddRewardAsync(reward);
             }
-            catch (Microsoft.EntityFrameworkException ex) 
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) 
                 when (ex.InnerException?.Message?.Contains("duplicate key") == true ||
                       ex.InnerException?.Message?.Contains("UNIQUE constraint") == true)
             {
@@ -332,14 +332,17 @@ public class BitcoinRewardsService
             _metrics.RecordError("general", storeId, ex.GetType().Name);
             
             // Track error in database
-            await _errorTracking.LogErrorAsync(
-                storeId,
-                null, // rewardId not available in catch
-                "ProcessRewardAsync",
-                ex.Message,
-                ex.StackTrace,
-                ex is Exceptions.BitcoinRewardsException brEx && brEx.IsRetryable,
-                new Dictionary<string, string>
+            var errorType = ex is Exceptions.BitcoinRewardsException brEx 
+                ? Exceptions.RewardErrorType.InvoiceAlreadyProcessed 
+                : Exceptions.RewardErrorType.InvoiceAlreadyProcessed;
+            
+            await _errorTracking.LogExceptionAsync(
+                ex,
+                errorType,
+                orderId: transaction.TransactionId,
+                storeId: storeId,
+                userId: null,
+                context: new Dictionary<string, object>
                 {
                     ["TransactionId"] = transaction.TransactionId,
                     ["Platform"] = transaction.Platform.ToString()
