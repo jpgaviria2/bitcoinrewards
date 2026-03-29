@@ -153,5 +153,30 @@ public class BitcoinRewardsRepository
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync();
     }
+    
+    /// <summary>
+    /// Get list of all store IDs that have reward records
+    /// </summary>
+    public async Task<List<string>> GetStoresWithRewardsAsync()
+    {
+        await using var context = _dbContextFactory.CreateContext();
+        return await context.BitcoinRewardRecords
+            .Select(r => r.StoreId)
+            .Distinct()
+            .ToListAsync();
+    }
+    
+    /// <summary>
+    /// Get a reward record by ID
+    /// </summary>
+    public async Task<BitcoinRewardRecord?> GetRewardByIdAsync(string rewardId)
+    {
+        if (!Guid.TryParse(rewardId, out var id))
+            return null;
+        
+        await using var context = _dbContextFactory.CreateContext();
+        return await context.BitcoinRewardRecords
+            .FirstOrDefaultAsync(r => r.Id == id);
+    }
 }
 

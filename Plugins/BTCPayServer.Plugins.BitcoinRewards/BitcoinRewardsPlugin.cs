@@ -86,6 +86,10 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Maintenance service (cleanup expired cache entries)
         services.AddHostedService<HostedServices.MaintenanceService>();
         
+        // Auto-recovery watchdog (Phase 2.5)
+        services.AddSingleton<Services.AutoRecoveryWatchdog>();
+        services.AddHostedService(sp => sp.GetRequiredService<Services.AutoRecoveryWatchdog>());
+        
         // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
 
