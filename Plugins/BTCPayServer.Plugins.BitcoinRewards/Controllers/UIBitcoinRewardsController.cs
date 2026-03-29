@@ -29,19 +29,22 @@ public class UIBitcoinRewardsController : Controller
     private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
     private readonly PullPaymentStatusService _pullPaymentStatusService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
+    private readonly ErrorTrackingService _errorTracking;
 
     public UIBitcoinRewardsController(
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
         PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
         PullPaymentStatusService pullPaymentStatusService,
-        ILogger<UIBitcoinRewardsController> logger)
+        ILogger<UIBitcoinRewardsController> logger,
+        ErrorTrackingService errorTracking)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
         _pullPaymentStatusService = pullPaymentStatusService;
         _logger = logger;
+        _errorTracking = errorTracking;
     }
 
     [HttpGet]
@@ -609,6 +612,44 @@ public class UIBitcoinRewardsController : Controller
         var pngQr = new PngByteQRCode(data);
         var bytes = pngQr.GetGraphic(10); // Scale factor 10 for larger QR code
         return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+    
+    /// <summary>
+    /// Admin dashboard for viewing and managing error logs
+    /// </summary>
+    [HttpGet]
+    [Route("plugins/bitcoin-rewards/{storeId}/errors")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    public async Task<IActionResult> ErrorDashboard(string storeId, int? days = 7, bool? resolved = null)
+    {
+        var errors = await _errorTracking.GetRecentErrorsAsync(storeId, days ?? 7, resolved);
+        var stats = await _errorTracking.GetErrorStatisticsAsync(storeId, days ?? 7);
+        
+        var vm = new ErrorDashboardViewModel
+        {
+            StoreId = storeId,
+            Errors = errors,
+            Statistics = stats,
+            DaysFilter = days ?? 7,
+            ResolvedFilter = resolved
+        };
+        
+        ViewData.SetActivePage("BitcoinRewards", "Error Dashboard", "BitcoinRewardsErrors");
+        return View("ErrorDashboard", vm);
+    }
+    
+    /// <summary>
+    /// Mark an error as resolved
+    /// </summary>
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/errors/{errorId}/resolve")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> ResolveError(string storeId, int errorId)
+    {
+        await _errorTracking.ResolveErrorAsync(errorId, User.Identity?.Name ?? "system");
+        TempData[WellKnownTempData.SuccessMessage] = "Error marked as resolved";
+        return RedirectToAction(nameof(ErrorDashboard), new { storeId });
     }
 }
 

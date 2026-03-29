@@ -1,172 +1,95 @@
-#nullable enable
-
-using System;
 using System.Text;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
-using BTCPayServer.Client;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
-namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
-
-/// <summary>
-/// Metrics endpoint for monitoring and observability
-/// </summary>
-[Route("plugins/bitcoin-rewards")]
-public class MetricsController : Controller
+namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
 {
-    private readonly RewardMetrics _metrics;
-    private readonly ILogger<MetricsController> _logger;
-
-    public MetricsController(
-        RewardMetrics metrics,
-        ILogger<MetricsController> logger)
-    {
-        _metrics = metrics;
-        _logger = logger;
-    }
-
     /// <summary>
-    /// Get metrics in Prometheus text format
-    /// GET /plugins/bitcoin-rewards/metrics
+    /// API controller for exposing Prometheus-compatible metrics
     /// </summary>
-    [HttpGet("metrics")]
-    [AllowAnonymous] // Prometheus scraper needs unauthenticated access
-    public IActionResult GetPrometheusMetrics()
+    [ApiController]
+    [Route("api/v1/bitcoin-rewards")]
+    [Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie)]
+    public class MetricsController : ControllerBase
     {
-        try
-        {
-            var prometheus = _metrics.ExportPrometheusFormat();
-            
-            // Add metadata header
-            var output = new StringBuilder();
-            output.AppendLine("# Bitcoin Rewards Plugin Metrics");
-            output.AppendLine($"# Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
-            output.AppendLine();
-            output.AppendLine(prometheus);
-            
-            return Content(output.ToString(), "text/plain; version=0.0.4");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error exporting Prometheus metrics");
-            return StatusCode(500, "Error generating metrics");
-        }
-    }
+        private readonly RewardMetrics _metrics;
 
-    /// <summary>
-    /// Get metrics summary in JSON format (requires authentication)
-    /// GET /plugins/bitcoin-rewards/{storeId}/metrics/summary
-    /// </summary>
-    [HttpGet("{storeId}/metrics/summary")]
-    [Authorize(Policy = Policies.CanViewStoreSettings, AuthenticationSchemes = AuthenticationSchemes.Cookie)]
-    public IActionResult GetMetricsSummary(string storeId)
-    {
-        try
+        public MetricsController(RewardMetrics metrics)
         {
-            var summary = _metrics.GetSummary();
-            
-            return Json(new
+            _metrics = metrics;
+        }
+
+        /// <summary>
+        /// Get Prometheus-format metrics for monitoring and alerting
+        /// </summary>
+        /// <returns>Plain text Prometheus metrics</returns>
+        [HttpGet("metrics")]
+        [AllowAnonymous] // Allow Prometheus scraper access (consider IP whitelist in production)
+        public async Task<IActionResult> GetMetrics()
+        {
+            var metricsText = await Task.Run(() => _metrics.ExportPrometheusFormat());
+            return Content(metricsText, "text/plain; version=0.0.4; charset=utf-8");
+        }
+
+        /// <summary>
+        /// Get JSON-formatted metrics for admin dashboard
+        /// </summary>
+        /// <returns>JSON metrics summary</returns>
+        [HttpGet("metrics/json")]
+        [Authorize(Policy = Policies.CanModifyStoreSettings)]
+        public IActionResult GetMetricsJson()
+        {
+            var snapshot = _metrics.GetSnapshot();
+            return Ok(new
             {
-                storeId,
-                timestamp = DateTime.UtcNow,
-                metrics = summary
+                counters = snapshot.Counters,
+                gauges = snapshot.Gauges,
+                histograms = snapshot.Histograms.Select(h => new
+                {
+                    name = h.Key,
+                    count = h.Value.Count,
+                    sum = h.Value.Sum,
+                    mean = h.Value.Mean,
+                    min = h.Value.Min,
+                    max = h.Value.Max,
+                    p50 = h.Value.P50,
+                    p95 = h.Value.P95,
+                    p99 = h.Value.P99
+                }).ToDictionary(x => x.name, x => (object)new
+                {
+                    x.count,
+                    x.sum,
+                    x.mean,
+                    x.min,
+                    x.max,
+                    x.p50,
+                    x.p95,
+                    x.p99
+                })
             });
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting metrics summary for store {StoreId}", storeId);
-            return StatusCode(500, "Error retrieving metrics");
-        }
-    }
 
-    /// <summary>
-    /// Get specific metric value
-    /// GET /plugins/bitcoin-rewards/metrics/counter/{name}
-    /// </summary>
-    [HttpGet("metrics/counter/{name}")]
-    [AllowAnonymous]
-    public IActionResult GetCounter(string name)
-    {
-        try
+        /// <summary>
+        /// Health check endpoint for metrics system
+        /// </summary>
+        [HttpGet("metrics/health")]
+        [AllowAnonymous]
+        public IActionResult GetMetricsHealth()
         {
-            var value = _metrics.GetCounter(name);
-            return Json(new { metric = name, value, type = "counter" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting counter {Name}", name);
-            return StatusCode(500, "Error retrieving counter");
-        }
-    }
-
-    /// <summary>
-    /// Get specific gauge value
-    /// GET /plugins/bitcoin-rewards/metrics/gauge/{name}
-    /// </summary>
-    [HttpGet("metrics/gauge/{name}")]
-    [AllowAnonymous]
-    public IActionResult GetGauge(string name)
-    {
-        try
-        {
-            var value = _metrics.GetGauge(name);
-            return Json(new { metric = name, value, type = "gauge" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting gauge {Name}", name);
-            return StatusCode(500, "Error retrieving gauge");
-        }
-    }
-
-    /// <summary>
-    /// Get histogram statistics
-    /// GET /plugins/bitcoin-rewards/metrics/histogram/{name}
-    /// </summary>
-    [HttpGet("metrics/histogram/{name}")]
-    [AllowAnonymous]
-    public IActionResult GetHistogram(string name)
-    {
-        try
-        {
-            var stats = _metrics.GetHistogramStats(name);
+            var snapshot = _metrics.GetSnapshot();
+            var totalMetrics = snapshot.Counters.Count + snapshot.Gauges.Count + snapshot.Histograms.Count;
             
-            if (stats == null)
+            return Ok(new
             {
-                return NotFound(new { error = "Histogram not found or no data" });
-            }
-            
-            return Json(new 
-            { 
-                metric = name, 
-                stats, 
-                type = "histogram" 
+                status = "healthy",
+                totalMetrics,
+                counters = snapshot.Counters.Count,
+                gauges = snapshot.Gauges.Count,
+                histograms = snapshot.Histograms.Count
             });
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting histogram {Name}", name);
-            return StatusCode(500, "Error retrieving histogram");
-        }
-    }
-
-    /// <summary>
-    /// Health check endpoint for the metrics system
-    /// GET /plugins/bitcoin-rewards/metrics/health
-    /// </summary>
-    [HttpGet("metrics/health")]
-    [AllowAnonymous]
-    public IActionResult Health()
-    {
-        return Json(new
-        {
-            status = "healthy",
-            service = "bitcoin-rewards-metrics",
-            timestamp = DateTime.UtcNow
-        });
     }
 }

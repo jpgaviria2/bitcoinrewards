@@ -25,15 +25,18 @@ public class SquareWebhookController : Controller
     private readonly BitcoinRewardsService _rewardsService;
     private readonly StoreRepository _storeRepository;
     private readonly ILogger<SquareWebhookController> _logger;
+    private readonly RewardMetrics _metrics;
 
     public SquareWebhookController(
         BitcoinRewardsService rewardsService,
         StoreRepository storeRepository,
-        ILogger<SquareWebhookController> logger)
+        ILogger<SquareWebhookController> logger,
+        RewardMetrics metrics)
     {
         _rewardsService = rewardsService;
         _storeRepository = storeRepository;
         _logger = logger;
+        _metrics = metrics;
     }
 
     // Helper to mask sensitive URL parts
@@ -48,12 +51,16 @@ public class SquareWebhookController : Controller
     [RequestSizeLimit(1_048_576)] // Security: 1 MB limit
     public async Task<IActionResult> HandleWebhook(string storeId)
     {
+        var startTime = DateTime.UtcNow;
+        _metrics.RecordWebhookReceived("square", storeId);
+        
         // Security: Rate limiting - prevent webhook flooding
         if (!await BitcoinRewardsPlugin.WebhookProcessingLock.WaitAsync(TimeSpan.FromSeconds(2)))
         {
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
             _logger.LogWarning("🚨 SECURITY: Webhook processing capacity exceeded from IP {IP} for store {StoreId}", 
                 clientIp, storeId);
+            _metrics.RecordWebhookDuration("square", storeId, (DateTime.UtcNow - startTime).TotalMilliseconds, false);
             return StatusCode(429, "Too many requests - please try again later");
         }
         
@@ -218,11 +225,14 @@ public class SquareWebhookController : Controller
                 }
             }
 
+            _metrics.RecordWebhookDuration("square", storeId, (DateTime.UtcNow - startTime).TotalMilliseconds, true);
             return Ok();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing Square webhook for store {StoreId}", storeId);
+            _metrics.RecordWebhookDuration("square", storeId, (DateTime.UtcNow - startTime).TotalMilliseconds, false);
+            _metrics.RecordError("webhook", storeId, ex.GetType().Name);
             return StatusCode(500);
         }
         finally

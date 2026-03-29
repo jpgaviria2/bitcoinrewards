@@ -56,6 +56,8 @@ public class BitcoinRewardsService
     private readonly ILogger<BitcoinRewardsService> _logger;
     private readonly RateFetcher _rateFetcher;
     private readonly DefaultRulesCollection _defaultRules;
+    private readonly RewardMetrics _metrics;
+    private readonly ErrorTrackingService _errorTracking;
 
     public BitcoinRewardsService(
         StoreRepository storeRepository,
@@ -64,7 +66,9 @@ public class BitcoinRewardsService
         ILogger<BitcoinRewardsService> logger,
         RewardPullPaymentService pullPaymentService,
         RateFetcher rateFetcher,
-        DefaultRulesCollection defaultRules)
+        DefaultRulesCollection defaultRules,
+        RewardMetrics metrics,
+        ErrorTrackingService errorTracking)
     {
         _storeRepository = storeRepository;
         _repository = repository;
@@ -73,6 +77,8 @@ public class BitcoinRewardsService
         _logger = logger;
         _rateFetcher = rateFetcher;
         _defaultRules = defaultRules;
+        _metrics = metrics;
+        _errorTracking = errorTracking;
     }
 
     public async Task<bool> ProcessRewardAsync(string storeId, TransactionData transaction)
@@ -89,6 +95,7 @@ public class BitcoinRewardsService
             if (settings == null || !settings.Enabled)
             {
                 _logger.LogWarning("Bitcoin Rewards not enabled or settings missing for store {StoreId}", storeId);
+                _metrics.RecordError("business_logic", storeId, "rewards_disabled");
                 return false;
             }
 
@@ -96,6 +103,7 @@ public class BitcoinRewardsService
             if (settings.EnabledPlatforms == PlatformFlags.None)
             {
                 _logger.LogWarning("No platforms enabled for store {StoreId}, rejecting transaction", storeId);
+                _metrics.RecordError("business_logic", storeId, "no_platforms_enabled");
                 return false;
             }
             
@@ -113,6 +121,7 @@ public class BitcoinRewardsService
                 {
                     _logger.LogWarning("Platform {Platform} not enabled for store {StoreId}. Enabled platforms: {EnabledPlatforms}", 
                         transaction.Platform, storeId, settings.EnabledPlatforms);
+                    _metrics.RecordError("business_logic", storeId, "platform_not_enabled");
                     return false;
                 }
             }
@@ -130,6 +139,7 @@ public class BitcoinRewardsService
             {
                 _logger.LogWarning("Transaction amount {Amount} {TxCurrency} (~{StoreAmount} {StoreCurrency}) below minimum {Minimum} for store {StoreId}", 
                     transaction.Amount, transaction.Currency, txAmountInStoreCurrency, storeCurrency, settings.MinimumTransactionAmount, storeId);
+                _metrics.RecordError("business_logic", storeId, "below_minimum_amount");
                 return false;
             }
 
@@ -146,6 +156,7 @@ public class BitcoinRewardsService
             {
                 _logger.LogWarning("Transaction {TransactionId} already processed for store {StoreId}", 
                     transaction.TransactionId, storeId);
+                _metrics.RecordError("business_logic", storeId, "duplicate_transaction");
                 return false;
             }
 
@@ -162,6 +173,7 @@ public class BitcoinRewardsService
             {
                 _logger.LogWarning("Calculated reward amount is zero or negative ({RewardAmount}) for transaction {TransactionId} in store {StoreId}; aborting reward creation",
                     rewardAmount, transaction.TransactionId, storeId);
+                _metrics.RecordError("business_logic", storeId, "zero_reward_amount");
                 return false;
             }
             
@@ -171,6 +183,7 @@ public class BitcoinRewardsService
             {
                 _logger.LogError("Failed to convert reward amount {Amount} {Currency} to satoshis for store {StoreId}", 
                     rewardAmount, transaction.Currency, storeId);
+                _metrics.RecordError("conversion", storeId, "satoshi_conversion_failed");
                 return false;
             }
 
@@ -179,6 +192,7 @@ public class BitcoinRewardsService
             {
                 _logger.LogWarning("🚨 SECURITY: Reward {RewardSats} sats exceeds maximum single reward cap {MaxSats} for store {StoreId}, transaction {TxId}. Rejecting reward.",
                     rewardSatoshis, settings.MaximumSingleRewardSatoshis, storeId, transaction.TransactionId);
+                _metrics.RecordError("security", storeId, "reward_exceeds_cap");
                 return false;
             }
 
@@ -219,12 +233,13 @@ public class BitcoinRewardsService
             {
                 await _repository.AddRewardAsync(reward);
             }
-            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) 
+            catch (Microsoft.EntityFrameworkException ex) 
                 when (ex.InnerException?.Message?.Contains("duplicate key") == true ||
                       ex.InnerException?.Message?.Contains("UNIQUE constraint") == true)
             {
                 _logger.LogWarning("🚨 SECURITY: Duplicate transaction {TransactionId} blocked by database constraint for store {StoreId} (concurrent request)",
                     transaction.TransactionId, storeId);
+                _metrics.RecordError("database", storeId, "duplicate_key_violation");
                 return false;
             }
             var pullPaymentResult = await _pullPaymentService.CreatePullPaymentAsync(
@@ -248,6 +263,12 @@ public class BitcoinRewardsService
                     : transaction.CustomerPhone;
 
                 await _repository.UpdateRewardAsync(reward);
+                
+                // Record successful reward creation metrics
+                var platformLabel = platformEnum.ToString().ToLowerInvariant();
+                _metrics.RecordRewardCreated(platformLabel, storeId);
+                _metrics.RecordRewardAmount(rewardSatoshis);
+                _metrics.RecordLightningOperation("pull_payment_created", storeId, true);
 
                 var hasEmailOrPhone = !string.IsNullOrEmpty(deliveryTarget);
 
@@ -293,6 +314,8 @@ public class BitcoinRewardsService
             {
                 reward.ErrorMessage = pullPaymentResult.Error;
                 _logger.LogWarning("Pull payment creation failed for store {StoreId}: {Error}", storeId, pullPaymentResult.Error);
+                _metrics.RecordLightningOperation("pull_payment_created", storeId, false);
+                _metrics.RecordError("lightning", storeId, "pull_payment_failed");
             }
 
             // Pull payment failed: update existing record with pending status and error for visibility
@@ -306,6 +329,22 @@ public class BitcoinRewardsService
         {
             _logger.LogError(ex, "Error processing reward for transaction {TransactionId} in store {StoreId}", 
                 transaction.TransactionId, storeId);
+            _metrics.RecordError("general", storeId, ex.GetType().Name);
+            
+            // Track error in database
+            await _errorTracking.LogErrorAsync(
+                storeId,
+                null, // rewardId not available in catch
+                "ProcessRewardAsync",
+                ex.Message,
+                ex.StackTrace,
+                ex is Exceptions.BitcoinRewardsException brEx && brEx.IsRetryable,
+                new Dictionary<string, string>
+                {
+                    ["TransactionId"] = transaction.TransactionId,
+                    ["Platform"] = transaction.Platform.ToString()
+                });
+            
             return false;
         }
     }
@@ -350,12 +389,14 @@ public class BitcoinRewardsService
 
                     await _repository.UpdateRewardAsync(reward);
                     recovered++;
-
+                    
+                    _metrics.RecordLightningOperation("orphan_recovered", storeId, true);
                     _logger.LogInformation("Recovered orphaned reward {RewardId} for order {OrderId} in store {StoreId} with pull payment {PullPaymentId}",
                         reward.Id, reward.OrderId, storeId, pullPaymentResult.PullPaymentId);
                 }
                 else
                 {
+                    _metrics.RecordLightningOperation("orphan_recovered", storeId, false);
                     _logger.LogWarning("Failed to recover orphaned reward {RewardId}: {Error}",
                         reward.Id, pullPaymentResult.Error);
                 }
