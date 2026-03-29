@@ -94,7 +94,7 @@ else
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="refresh" content="@Model.AutoRefreshSeconds">
-    <title>Bitcoin Rewards Display</title>
+    <title>Trails Coffee Rewards</title>
     <style>
         * {
             margin: 0;
@@ -104,7 +104,7 @@ else
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #6B4423 0%, #CD853F 100%);
             color: white;
             min-height: 100vh;
             display: flex;
@@ -148,7 +148,7 @@ else
         }
         
         .waiting-message {
-            color: #667eea;
+            color: #6B4423;
             font-size: 2rem;
             font-weight: 600;
             margin-bottom: 20px;
@@ -207,7 +207,7 @@ else
         
         .refresh-button, .done-button {
             background: white;
-            color: #667eea;
+            color: #6B4423;
             border: 2px solid white;
             padding: 15px 40px;
             font-size: 1.2rem;
@@ -222,25 +222,25 @@ else
         }
         
         .refresh-button:hover, .done-button:hover {
-            background: #667eea;
+            background: #6B4423;
             color: white;
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
         
         .done-button {
-            background: #28a745;
+            background: #6B4423;
             color: white;
-            border-color: #28a745;
+            border-color: #6B4423;
         }
-        
+
         .done-button:hover {
-            background: #218838;
-            border-color: #218838;
+            background: #CD853F;
+            border-color: #CD853F;
         }
         
         .countdown-timer {
-            color: #667eea;
+            color: #6B4423;
             font-size: 1.5rem;
             font-weight: 600;
             margin-top: 20px;
@@ -283,7 +283,7 @@ else
     <div class="container">
         <div class="header">
             <h1>🎯 Trails Coffee Rewards</h1>
-            <p>Bitcoin Rewards Display</p>
+            <p>Bitcoin Rewards • Anmore, BC</p>
         </div>
         
         <div class="status-bar">
@@ -293,7 +293,7 @@ else
         @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
         {
             <div class="reward-display">
-                <h2 style="color: #667eea; font-size: 2rem; margin-bottom: 20px;">✨ Scan to Claim Your Reward!</h2>
+                <h2 style="color: #6B4423; font-size: 2rem; margin-bottom: 20px;">Coffee Rewards Earned! ☕</h2>
                 
                 <div class="qr-code">
                     <img src="@Model.LnurlQrDataUri" alt="Reward QR Code" />
@@ -333,11 +333,11 @@ else
                 {
                 <div id="nfc-section" style="margin-top: 30px;">
                     <div style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 10px;">
-                        <p style="color: #667eea; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
+                        <p style="color: #6B4423; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
                             — OR —
                         </p>
                         <button id="nfc-tap-btn" onclick="startNfcRead()" style="
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            background: linear-gradient(135deg, #6B4423 0%, #CD853F 100%);
                             color: white;
                             border: none;
                             padding: 20px 40px;
@@ -345,7 +345,7 @@ else
                             border-radius: 16px;
                             cursor: pointer;
                             font-weight: 600;
-                            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+                            box-shadow: 0 4px 15px rgba(107,68,35,0.4);
                             transition: all 0.3s ease;
                         ">
                             📱 Tap Your Rewards Card
@@ -380,10 +380,10 @@ else
         else
         {
             <div class="reward-display waiting" id="waiting-display">
-                <div class="waiting-icon">⏳</div>
-                <div class="waiting-message">Waiting for rewards...</div>
+                <div class="waiting-icon">☕</div>
+                <div class="waiting-message">Waiting for next customer...</div>
                 <p style="color: #666; font-size: 1.2rem;">
-                    The latest unclaimed reward will appear here automatically
+                    The next reward will appear here after payment
                 </p>
             </div>
         }
@@ -481,7 +481,7 @@ else
                 try {
                     nfcReader = new NDEFReader();
                     nfcStatus.style.display = 'block';
-                    nfcStatus.innerHTML = '<span style="color: #667eea;">📡 Ready — tap your card now...</span>';
+                    nfcStatus.innerHTML = '<span style="color: #6B4423;">📡 Ready — tap your card now...</span>';
                     nfcError.style.display = 'none';
                     nfcSuccess.style.display = 'none';
                     
@@ -546,7 +546,7 @@ else
             }
             
             async function submitTap(p, c) {
-                nfcStatus.innerHTML = '<span style="color: #667eea;">⏳ Verifying card...</span>';
+                nfcStatus.innerHTML = '<span style="color: #6B4423;">⏳ Verifying card...</span>';
                 
                 try {
                     const response = await fetch('/plugins/bitcoin-rewards/boltcard/tap', {
