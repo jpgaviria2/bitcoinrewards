@@ -1,7 +1,5 @@
 #nullable enable
 
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,16 +7,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.HealthChecks;
 
 public class BitcoinRewardsHealthCheck : IHealthCheck
 {
-    private readonly BitcoinRewardsDbContextFactory _dbFactory;
+    private readonly BitcoinRewardsPluginDbContextFactory _dbFactory;
     private readonly ILogger<BitcoinRewardsHealthCheck> _logger;
     
     public BitcoinRewardsHealthCheck(
-        BitcoinRewardsDbContextFactory dbFactory,
+        BitcoinRewardsPluginDbContextFactory dbFactory,
         ILogger<BitcoinRewardsHealthCheck> logger)
     {
         _dbFactory = dbFactory;
@@ -49,9 +49,8 @@ public class BitcoinRewardsHealthCheck : IHealthCheck
             try
             {
                 var last24h = DateTime.UtcNow.AddHours(-24);
-                var recentRewards = await db.BitcoinRewards
+                var recentRewards = await db.BitcoinRewardRecords
                     .Where(r => r.CreatedAt >= last24h)
-                    .Select(r => new { r.ClaimedAt })
                     .ToListAsync(cancellationToken);
                 
                 if (recentRewards.Any())
@@ -85,7 +84,7 @@ public class BitcoinRewardsHealthCheck : IHealthCheck
             try
             {
                 var threeDaysAgo = DateTime.UtcNow.AddDays(-3);
-                var stuckRewards = await db.BitcoinRewards
+                var stuckRewards = await db.BitcoinRewardRecords
                     .Where(r => r.ClaimedAt == null && r.CreatedAt < threeDaysAgo)
                     .CountAsync(cancellationToken);
                 
@@ -104,7 +103,7 @@ public class BitcoinRewardsHealthCheck : IHealthCheck
             // 4. Database size/health metrics
             try
             {
-                var totalRewards = await db.BitcoinRewards.CountAsync(cancellationToken);
+                var totalRewards = await db.BitcoinRewardRecords.CountAsync(cancellationToken);
                 checks["total_rewards_all_time"] = totalRewards;
             }
             catch (Exception ex)

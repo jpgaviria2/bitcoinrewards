@@ -15,11 +15,11 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 
 public class ErrorTrackingService
 {
-    private readonly BitcoinRewardsDbContextFactory _dbFactory;
+    private readonly BitcoinRewardsPluginDbContextFactory _dbFactory;
     private readonly ILogger<ErrorTrackingService> _logger;
     
     public ErrorTrackingService(
-        BitcoinRewardsDbContextFactory dbFactory,
+        BitcoinRewardsPluginDbContextFactory dbFactory,
         ILogger<ErrorTrackingService> logger)
     {
         _dbFactory = dbFactory;
