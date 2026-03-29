@@ -1,52 +1,218 @@
-name: CI Build
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'feature/**' ]
   pull_request:
     branches: [ main, develop ]
 
 jobs:
-  build:
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: btcpayserver_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-        
+
     - name: Restore dependencies
       run: dotnet restore
-      
-    - name: Build BTCPay Server submodule
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Run unit tests
+      run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+    - name: Generate coverage report
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./coverage/**/coverage.cobertura.xml
+        fail_ci_if_error: false
+        verbose: true
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: ./coverage
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Run code analysis
+      run: dotnet build --configuration Release /p:TreatWarningsAsErrors=false /p:AnalysisLevel=latest
+
+    - name: Check formatting
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Run security scan
+      run: dotnet list package --vulnerable --include-transitive 2>&1 | tee security-scan.txt
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-scan
+        path: security-scan.txt
+
+  build-plugin:
+    name: Build Plugin Package
+    runs-on: ubuntu-latest
+    needs: [build-and-test, code-quality]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build plugin
+      run: dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-restore
+
+    - name: Publish plugin
+      run: dotnet publish Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-build --output ./publish
+
+    - name: Create plugin archive
       run: |
-        cd submodules
-        dotnet build BTCPayServer/BTCPayServer.csproj -c Release --no-restore
-        
-    - name: Build Bitcoin Rewards Plugin
-      run: |
-        export BTCPayServerPath="$(pwd)/submodules/BTCPayServer/bin/Release/net8.0"
-        dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj -c Release --no-restore
-        
-    - name: Build Bitcoin Rewards Tests
-      run: |
-        export BTCPayServerPath="$(pwd)/submodules/BTCPayServer/bin/Release/net8.0"
-        dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards.Tests/BTCPayServer.Plugins.BitcoinRewards.Tests.csproj -c Release --no-restore
-        
-    - name: Run tests
-      run: |
-        export BTCPayServerPath="$(pwd)/submodules/BTCPayServer/bin/Release/net8.0"
-        dotnet test Plugins/BTCPayServer.Plugins.BitcoinRewards.Tests/BTCPayServer.Plugins.BitcoinRewards.Tests.csproj --no-build --verbosity normal -c Release
-      
-    - name: Upload build artifacts
+        cd ./publish
+        zip -r ../BTCPayServer.Plugins.BitcoinRewards.zip .
+        cd ..
+
+    - name: Upload plugin artifact
       uses: actions/upload-artifact@v4
       with:
-        name: plugin-dll
-        path: Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll
-        retention-days: 7
+        name: plugin-package
+        path: BTCPayServer.Plugins.BitcoinRewards.zip
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: btcpayserver_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Run integration tests
+      run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --filter "Category=Integration" --verbosity normal
+      env:
+        ConnectionStrings__DefaultConnection: "Host=localhost;Database=btcpayserver_test;Username=postgres;Password=postgres"
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Run performance tests
+      run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --filter "Category=Performance" --verbosity normal
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-results
+        path: ./performance-results
