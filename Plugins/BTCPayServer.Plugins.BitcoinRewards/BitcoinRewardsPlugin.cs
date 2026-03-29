@@ -14,7 +14,7 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 {
     public override string Identifier => "BTCPayServer.Plugins.BitcoinRewards";
     public override string Name => "Bitcoin Rewards";
-    public override string Description => "Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.";
+    public override string Description => "Bitcoin rewards system for Square POS. Automatically sends Lightning rewards to customers via email or LNURL. Features: real-time analytics, error tracking, rate limiting, webhooks, health monitoring, and advanced reporting.";
     
     public const string PluginNavKey = nameof(BitcoinRewardsPlugin) + "Nav";
     

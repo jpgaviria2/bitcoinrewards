@@ -2,7 +2,7 @@
   "Identifier": "BTCPayServer.Plugins.BitcoinRewards",
   "Name": "Bitcoin Rewards",
   "Version": "1.5.1",
-  "Description": "Bitcoin-backed rewards system with production hardening, analytics, and advanced monitoring.",
+  "Description": "Bitcoin rewards system for Square POS. Automatically sends Lightning rewards to customers via email or LNURL. Features: real-time analytics, error tracking, rate limiting, webhooks, health monitoring, and advanced reporting.",
   "SystemPlugin": false,
   "Dependencies": [
     {

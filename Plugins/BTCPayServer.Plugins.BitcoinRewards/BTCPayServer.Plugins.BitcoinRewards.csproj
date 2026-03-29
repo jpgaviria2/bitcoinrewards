@@ -6,7 +6,7 @@
   <!-- Plugin specific properties -->
   <PropertyGroup>
     <Product>Bitcoin Rewards</Product>
-    <Description>Bitcoin-backed rewards system that integrates with Shopify to automatically send rewards to customers.</Description>
+    <Description>Bitcoin rewards system for Square POS. Automatically sends Lightning rewards to customers via email or LNURL. Features: real-time analytics, error tracking, rate limiting, webhooks, health monitoring, and advanced reporting.</Description>
     <Version>1.5.1</Version>
     <AssemblyVersion>1.5.1.0</AssemblyVersion>
     <FileVersion>1.5.1.0</FileVersion>
