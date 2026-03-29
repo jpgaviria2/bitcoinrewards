@@ -56,6 +56,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Error tracking
         services.TryAddScoped<Services.ErrorTrackingService>();
         
+        // Metrics and telemetry
+        services.AddSingleton<Services.RewardMetrics>();
+        
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
         services.TryAddScoped<Services.Nip05Service>();
