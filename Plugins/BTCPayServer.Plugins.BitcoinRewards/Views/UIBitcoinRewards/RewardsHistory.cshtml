@@ -11,13 +11,16 @@
 <div class="row">
     <div class="sticky-header">
         <h2 class="my-1">@ViewData["Title"]</h2>
-        <div>
-            <a asp-action="EditSettings" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
-                Settings
-            </a>
-            <a asp-action="CreateTestReward" asp-route-storeId="@Model.StoreId" class="btn btn-primary">
-                Create Test Reward
-            </a>
+    </div>
+    @{ ViewData["ActiveNav"] = "History"; ViewData["StoreId"] = Model.StoreId; }
+    <partial name="_PluginNav" />
+    <div class="d-flex gap-2 mb-3">
+        <a asp-action="EditSettings" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
+            Settings
+        </a>
+        <a asp-action="CreateTestReward" asp-route-storeId="@Model.StoreId" class="btn btn-primary">
+            Create Test Reward
+        </a>
         </div>
     </div>
     <partial name="_StatusMessage"/>

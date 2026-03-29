@@ -17,6 +17,8 @@
         </div>
     </div>
     <partial name="_StatusMessage"/>
+    @{ ViewData["ActiveNav"] = "Test"; ViewData["StoreId"] = Model.StoreId; }
+    <partial name="_PluginNav" />
     <div class="col-xxl-constrain col-xl-8">
         <div class="alert alert-info">
             <strong>Test Reward Creation</strong><br/>

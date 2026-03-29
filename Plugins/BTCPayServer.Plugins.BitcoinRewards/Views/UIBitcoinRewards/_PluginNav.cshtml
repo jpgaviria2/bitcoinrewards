@@ -1,0 +1,26 @@
+@{
+    var storeId = ViewData["StoreId"]?.ToString() ?? ViewContext.RouteData.Values["storeId"]?.ToString();
+    var activePage = ViewData["ActiveNav"]?.ToString() ?? "";
+}
+<nav class="mb-4">
+    <div class="nav nav-pills gap-2 flex-wrap" role="tablist">
+        <a asp-action="EditSettings" asp-route-storeId="@storeId" class="nav-link @(activePage == "Settings" ? "active" : "")">
+            <span>⚙️ Settings</span>
+        </a>
+        <a asp-action="RewardsHistory" asp-route-storeId="@storeId" class="nav-link @(activePage == "History" ? "active" : "")">
+            <span>📜 History</span>
+        </a>
+        <a asp-action="ErrorDashboard" asp-route-storeId="@storeId" class="nav-link @(activePage == "Errors" ? "active" : "")">
+            <span>🚨 Errors</span>
+        </a>
+        <a asp-action="RateLimitSettings" asp-route-storeId="@storeId" class="nav-link @(activePage == "RateLimits" ? "active" : "")">
+            <span>🔒 Rate Limits</span>
+        </a>
+        <a asp-action="CreateTestReward" asp-route-storeId="@storeId" class="nav-link @(activePage == "Test" ? "active" : "")">
+            <span>🧪 Test</span>
+        </a>
+        <a asp-action="DisplayRewards" asp-route-storeId="@storeId" class="nav-link" target="_blank">
+            <span>📺 Display ↗</span>
+        </a>
+    </div>
+</nav>

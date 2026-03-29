@@ -4,6 +4,8 @@
     ViewData.SetActivePage("BitcoinRewards", "Rate Limit Settings", "BitcoinRewardsRateLimits");
 }
 
+@{ ViewData["ActiveNav"] = "RateLimits"; }
+<partial name="_PluginNav" />
 <h3>Rate Limit Settings</h3>
 <p class="text-muted">Configure rate limiting policies to prevent abuse and ensure fair resource usage.</p>
 

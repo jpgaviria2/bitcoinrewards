@@ -22,6 +22,8 @@
         </div>
     </div>
     <partial name="_StatusMessage"/>
+    @{ ViewData["ActiveNav"] = "Settings"; ViewData["StoreId"] = Model.StoreId; }
+    <partial name="_PluginNav" />
     <div class="col-xxl-constrain col-xl-8">
         <form method="post">
             <div class="form-group mb-4">
