@@ -710,8 +710,8 @@
             const waitingTextarea = document.getElementById('waiting-template-textarea');
             if (!waitingTextarea) return;
             
-            // Load default from BTCPayServer.Plugins.BitcoinRewards.Constants.DefaultTemplates.WaitingTemplate
-            const defaultWaitingTemplate = '@BTCPayServer.Plugins.BitcoinRewards.Constants.DefaultTemplates.WaitingTemplate'.replace(/@@/g, '@');
+            // Load default waiting template
+            const defaultWaitingTemplate = @Html.Raw(Json.Serialize(BTCPayServer.Plugins.BitcoinRewards.Constants.DefaultTemplates.WaitingTemplate));
             
             waitingTextarea.value = defaultWaitingTemplate;
             alert('Waiting template reset to default. Click Save to apply changes.');
