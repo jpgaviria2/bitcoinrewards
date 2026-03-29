@@ -31,7 +31,8 @@ public class SquareWebhookControllerTests
         _controller = new SquareWebhookController(
             _mockRewardsService.Object,
             _mockStoreRepository.Object,
-            _mockLogger.Object
+            _mockLogger.Object,
+            new RewardMetrics()
         );
     }
 
