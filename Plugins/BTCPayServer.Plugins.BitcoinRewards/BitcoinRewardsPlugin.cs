@@ -29,6 +29,14 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
+        // Phase 2.7: Performance optimization - Memory cache configuration
+        services.AddMemoryCache(options =>
+        {
+            options.SizeLimit = 1000; // Max 1000 cache entries
+            options.CompactionPercentage = 0.25; // Remove 25% when limit reached
+            options.ExpirationScanFrequency = TimeSpan.FromMinutes(5);
+        });
+        
         // Other services
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
         services.TryAddScoped<Services.DatabaseCleanupService>();
@@ -64,6 +72,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         
         // Advanced logging (Phase 2.6)
         services.AddSingleton<Logging.BitcoinRewardsLogEnricher>();
+        
+        // Performance optimization (Phase 2.7)
+        services.AddSingleton<Services.CachingService>();
         
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
