@@ -39,7 +39,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
         /// </summary>
         /// <returns>JSON metrics summary</returns>
         [HttpGet("metrics/json")]
-        [Authorize(Policy = Policies.CanModifyStoreSettings)]
+        [Authorize(Policy = BTCPayServer.Client.Policies.CanModifyStoreSettings)]
         public IActionResult GetMetricsJson()
         {
             var snapshot = _metrics.GetSnapshot();

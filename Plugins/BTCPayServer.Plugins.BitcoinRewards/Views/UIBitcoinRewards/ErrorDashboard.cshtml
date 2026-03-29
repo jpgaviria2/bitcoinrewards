@@ -51,18 +51,18 @@
             <div class="form-group mr-3">
                 <label for="days" class="mr-2">Days:</label>
                 <select name="days" id="days" class="form-control" onchange="this.form.submit()">
-                    <option value="1" @(Model.DaysFilter == 1 ? "selected" : "")>Last 24 hours</option>
-                    <option value="7" @(Model.DaysFilter == 7 ? "selected" : "")>Last 7 days</option>
-                    <option value="30" @(Model.DaysFilter == 30 ? "selected" : "")>Last 30 days</option>
-                    <option value="90" @(Model.DaysFilter == 90 ? "selected" : "")>Last 90 days</option>
+                    <option value="1" @(Model.DaysFilter == 1 ? "selected="selected"" : "")>Last 24 hours</option>
+                    <option value="7" @(Model.DaysFilter == 7 ? "selected="selected"" : "")>Last 7 days</option>
+                    <option value="30" @(Model.DaysFilter == 30 ? "selected="selected"" : "")>Last 30 days</option>
+                    <option value="90" @(Model.DaysFilter == 90 ? "selected="selected"" : "")>Last 90 days</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="resolved" class="mr-2">Status:</label>
                 <select name="resolved" id="resolved" class="form-control" onchange="this.form.submit()">
-                    <option value="" @(!Model.ResolvedFilter.HasValue ? "selected" : "")>All</option>
-                    <option value="false" @(Model.ResolvedFilter == false ? "selected" : "")>Unresolved only</option>
-                    <option value="true" @(Model.ResolvedFilter == true ? "selected" : "")>Resolved only</option>
+                    <option value="" @(!Model.ResolvedFilter.HasValue ? "selected="selected"" : "")>All</option>
+                    <option value="false" @(Model.ResolvedFilter == false ? "selected="selected"" : "")>Unresolved only</option>
+                    <option value="true" @(Model.ResolvedFilter == true ? "selected="selected"" : "")>Resolved only</option>
                 </select>
             </div>
         </form>

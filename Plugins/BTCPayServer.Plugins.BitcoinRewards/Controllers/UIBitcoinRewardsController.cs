@@ -622,8 +622,14 @@ public class UIBitcoinRewardsController : Controller
     [Authorize(Policy = Policies.CanModifyStoreSettings)]
     public async Task<IActionResult> ErrorDashboard(string storeId, int? days = 7, bool? resolved = null)
     {
-        var errors = await _errorTracking.GetRecentErrorsAsync(storeId, days ?? 7, resolved);
-        var stats = await _errorTracking.GetErrorStatisticsAsync(storeId, days ?? 7);
+        var errors = await _errorTracking.GetRecentErrorsAsync(
+            limit: 100, 
+            filterType: null, 
+            storeId: storeId, 
+            resolvedOnly: resolved);
+        var stats = await _errorTracking.GetErrorStatisticsAsync(
+            storeId: storeId, 
+            since: days.HasValue ? DateTime.UtcNow.AddDays(-days.Value) : null);
         
         var vm = new ErrorDashboardViewModel
         {
@@ -645,7 +651,7 @@ public class UIBitcoinRewardsController : Controller
     [Route("plugins/bitcoin-rewards/{storeId}/errors/{errorId}/resolve")]
     [Authorize(Policy = Policies.CanModifyStoreSettings)]
     [AutoValidateAntiforgeryToken]
-    public async Task<IActionResult> ResolveError(string storeId, int errorId)
+    public async Task<IActionResult> ResolveError(string storeId, string errorId)
     {
         await _errorTracking.ResolveErrorAsync(errorId, User.Identity?.Name ?? "system");
         TempData[WellKnownTempData.SuccessMessage] = "Error marked as resolved";

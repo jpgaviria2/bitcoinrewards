@@ -28,16 +28,30 @@ public class RewardMetrics
     private readonly ConcurrentDictionary<string, Dictionary<string, string>> _labels = new();
     
     /// <summary>
-    /// Record a reward creation event
+    /// Record a reward creation event (simple version)
     /// </summary>
-    public void RecordRewardCreated(decimal amountSats, string platform, string storeId)
+    public void RecordRewardCreated(string platform, string storeId)
     {
         IncrementCounter($"rewards_created_total|platform={platform}|store={storeId}");
         IncrementCounter($"rewards_created_total|platform={platform}");
         IncrementCounter("rewards_created_total");
-        
-        RecordObservation($"reward_amount_sats|platform={platform}", (double)amountSats);
-        RecordObservation("reward_amount_sats", (double)amountSats);
+    }
+    
+    /// <summary>
+    /// Record reward amount
+    /// </summary>
+    public void RecordRewardAmount(long amountSats)
+    {
+        RecordObservation("reward_amount_satoshis", (double)amountSats);
+    }
+    
+    /// <summary>
+    /// Record a reward creation event (with amount)
+    /// </summary>
+    public void RecordRewardCreated(decimal amountSats, string platform, string storeId)
+    {
+        RecordRewardCreated(platform, storeId);
+        RecordRewardAmount((long)amountSats);
     }
     
     /// <summary>
@@ -53,7 +67,17 @@ public class RewardMetrics
     }
     
     /// <summary>
-    /// Record an error event
+    /// Record an error event (simple)
+    /// </summary>
+    public void RecordError(string errorType, string storeId, string reason)
+    {
+        IncrementCounter($"errors_total|error_type={errorType}|store={storeId}");
+        IncrementCounter($"errors_total|error_type={errorType}");
+        IncrementCounter("errors_total");
+    }
+    
+    /// <summary>
+    /// Record an error event (with enum)
     /// </summary>
     public void RecordError(RewardErrorType errorType, string storeId)
     {
@@ -61,6 +85,22 @@ public class RewardMetrics
         IncrementCounter($"reward_errors_total|type={type}|store={storeId}");
         IncrementCounter($"reward_errors_total|type={type}");
         IncrementCounter("reward_errors_total");
+    }
+    
+    /// <summary>
+    /// Record a Lightning Network operation
+    /// </summary>
+    public void RecordLightningOperation(string operation, string storeId, bool success)
+    {
+        IncrementCounter($"lightning_operations_total|operation={operation}|store={storeId}|success={success}");
+    }
+    
+    /// <summary>
+    /// Record webhook received
+    /// </summary>
+    public void RecordWebhookReceived(string platform, string storeId)
+    {
+        IncrementCounter($"webhooks_received_total|platform={platform}|store={storeId}");
     }
     
     /// <summary>
@@ -90,10 +130,10 @@ public class RewardMetrics
     /// <summary>
     /// Record webhook processing time
     /// </summary>
-    public void RecordWebhookDuration(string platform, double milliseconds, bool success)
+    public void RecordWebhookDuration(string platform, string storeId, double milliseconds, bool success)
     {
-        RecordObservation($"webhook_duration_ms|platform={platform}", milliseconds);
-        IncrementCounter($"webhooks_processed_total|platform={platform}|success={success}");
+        RecordObservation($"webhook_duration_ms|platform={platform}|store={storeId}", milliseconds);
+        IncrementCounter($"webhooks_processed_total|platform={platform}|store={storeId}|success={success}");
     }
     
     // Helper methods

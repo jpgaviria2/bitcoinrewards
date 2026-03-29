@@ -27,7 +27,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
         /// Get analytics dashboard data
         /// </summary>
         [HttpGet("{storeId}/analytics")]
-        [Authorize(Policy = Policies.CanViewStoreSettings)]
+        [Authorize(Policy = BTCPayServer.Client.Policies.CanViewStoreSettings)]
         public async Task<IActionResult> GetAnalytics(
             string storeId,
             [FromQuery] DateTime? startDate = null,
@@ -45,7 +45,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers
         /// Export analytics data
         /// </summary>
         [HttpGet("{storeId}/analytics/export")]
-        [Authorize(Policy = Policies.CanModifyStoreSettings)]
+        [Authorize(Policy = BTCPayServer.Client.Policies.CanModifyStoreSettings)]
         public async Task<IActionResult> ExportAnalytics(
             string storeId,
             [FromQuery] DateTime? startDate = null,

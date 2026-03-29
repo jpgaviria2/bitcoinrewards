@@ -75,7 +75,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
             DateTime startDate,
             DateTime endDate)
         {
-            var claimed = rewards.Where(r => r.Status == RewardStatus.Claimed).ToList();
+            var claimed = rewards.Where(r => r.Status == RewardStatus.Redeemed).ToList();
             
             var overview = new AnalyticsOverview
             {
@@ -88,7 +88,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 TotalRewardedSatoshis = rewards.Sum(r => r.RewardAmountSatoshis),
                 TotalClaimedSatoshis = claimed.Sum(r => r.RewardAmountSatoshis),
                 UnclaimedSatoshis = rewards
-                    .Where(r => r.Status != RewardStatus.Claimed)
+                    .Where(r => r.Status != RewardStatus.Redeemed)
                     .Sum(r => r.RewardAmountSatoshis),
                 AverageRewardSatoshis = rewards.Count > 0
                     ? rewards.Average(r => r.RewardAmountSatoshis)
@@ -202,7 +202,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                     Count = g.Count(),
                     Percentage = total > 0 ? (decimal)g.Count() / total * 100 : 0,
                     TotalSatoshis = g.Sum(r => r.RewardAmountSatoshis),
-                    AverageSatoshis = g.Average(r => r.RewardAmountSatoshis)
+                    AverageSatoshis = (decimal)g.Average(r => r.RewardAmountSatoshis)
                 })
                 .OrderByDescending(b => b.Count)
                 .ToList();
@@ -220,7 +220,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                     Count = g.Count(),
                     Percentage = total > 0 ? (decimal)g.Count() / total * 100 : 0,
                     TotalSatoshis = g.Sum(r => r.RewardAmountSatoshis),
-                    AverageSatoshis = g.Average(r => r.RewardAmountSatoshis)
+                    AverageSatoshis = (decimal)g.Average(r => r.RewardAmountSatoshis)
                 })
                 .OrderByDescending(b => b.Count)
                 .ToList();
@@ -238,7 +238,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                     Count = g.Count(),
                     Percentage = total > 0 ? (decimal)g.Count() / total * 100 : 0,
                     TotalSatoshis = g.Sum(r => r.RewardAmountSatoshis),
-                    AverageSatoshis = g.Average(r => r.RewardAmountSatoshis)
+                    AverageSatoshis = (decimal)g.Average(r => r.RewardAmountSatoshis)
                 })
                 .OrderBy(b => b.Category)
                 .ToList();
@@ -269,7 +269,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services
                 .Select(g =>
                 {
                     var customerRewards = g.ToList();
-                    var claimed = customerRewards.Count(r => r.Status == RewardStatus.Claimed);
+                    var claimed = customerRewards.Count(r => r.Status == RewardStatus.Redeemed);
                     
                     return new CustomerInsight
                     {
