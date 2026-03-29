@@ -1,207 +1,200 @@
-#nullable enable
-
 using System;
-using System.Collections.Concurrent;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using BTCPayServer.Plugins.BitcoinRewards.Models;
+using BTCPayServer.Plugins.BitcoinRewards.Services;
+using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace BTCPayServer.Plugins.BitcoinRewards.Middleware;
-
-/// <summary>
-/// Rate limiting middleware to protect Bitcoin Rewards endpoints from abuse
-/// </summary>
-public class RateLimitingMiddleware
+namespace BTCPayServer.Plugins.BitcoinRewards.Middleware
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<RateLimitingMiddleware> _logger;
-    
-    // Stores: key -> (timestamp, count)
-    private static readonly ConcurrentDictionary<string, RateLimitEntry> _rateLimits = new();
-    
-    // Cleanup old entries periodically
-    private static DateTime _lastCleanup = DateTime.UtcNow;
-    private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
-    
-    public RateLimitingMiddleware(
-        RequestDelegate next,
-        ILogger<RateLimitingMiddleware> logger)
+    /// <summary>
+    /// Middleware for rate limiting Bitcoin Rewards plugin endpoints
+    /// </summary>
+    public class RateLimitingMiddleware
     {
-        _next = next;
-        _logger = logger;
-    }
-
-    public async Task InvokeAsync(HttpContext context)
-    {
-        var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+        private readonly RequestDelegate _next;
+        private readonly ILogger<RateLimitingMiddleware> _logger;
         
-        // Check if this path requires rate limiting
-        var limit = GetRateLimitForPath(path);
-        
-        if (limit != null)
+        public RateLimitingMiddleware(RequestDelegate next, ILogger<RateLimitingMiddleware> logger)
         {
-            var clientId = GetClientIdentifier(context);
-            var key = $"{path}:{clientId}";
-            
-            // Check rate limit
-            if (!TryAcquire(key, limit.MaxRequests, limit.WindowSeconds))
+            _next = next;
+            _logger = logger;
+        }
+        
+        public async Task InvokeAsync(
+            HttpContext context,
+            RateLimitService rateLimitService,
+            StoreRepository storeRepository,
+            RewardMetrics metrics)
+        {
+            // Only apply to Bitcoin Rewards endpoints
+            if (!context.Request.Path.StartsWithSegments("/plugins/bitcoin-rewards") &&
+                !context.Request.Path.StartsWithSegments("/api/v1/bitcoin-rewards"))
             {
-                context.Response.StatusCode = 429; // Too Many Requests
-                context.Response.Headers["Retry-After"] = limit.WindowSeconds.ToString();
-                context.Response.Headers["X-RateLimit-Limit"] = limit.MaxRequests.ToString();
-                context.Response.Headers["X-RateLimit-Window"] = $"{limit.WindowSeconds}s";
+                await _next(context);
+                return;
+            }
+            
+            // Get rate limit configuration for the store
+            var storeId = ExtractStoreId(context.Request.Path);
+            RateLimitConfiguration? config = null;
+            
+            if (!string.IsNullOrEmpty(storeId))
+            {
+                config = await storeRepository.GetSettingAsync<RateLimitConfiguration>(
+                    storeId,
+                    "BitcoinRewardsRateLimitConfig");
+            }
+            
+            // Use default config if not found or rate limiting disabled
+            config ??= new RateLimitConfiguration();
+            
+            if (!config.Enabled)
+            {
+                await _next(context);
+                return;
+            }
+            
+            // Get client IP
+            var clientIp = GetClientIp(context);
+            
+            // Check blacklist
+            if (config.BlacklistedIps.Contains(clientIp))
+            {
+                _logger.LogWarning("Blocked request from blacklisted IP {IP}", clientIp);
+                metrics.RecordError("rate_limit", storeId ?? "unknown", "blacklisted_ip");
+                context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                await context.Response.WriteAsync("Access denied");
+                return;
+            }
+            
+            // Check whitelist (skip rate limiting)
+            if (config.WhitelistedIps.Contains(clientIp))
+            {
+                await _next(context);
+                return;
+            }
+            
+            // Determine which policy to apply
+            var policy = DeterminePolicy(context.Request.Path, config);
+            
+            // Check per-IP rate limit
+            var ipState = await rateLimitService.CheckRateLimitAsync(
+                $"ip:{clientIp}",
+                policy);
+            
+            // Check per-store rate limit if applicable
+            RateLimitState? storeState = null;
+            if (!string.IsNullOrEmpty(storeId))
+            {
+                storeState = await rateLimitService.CheckRateLimitAsync(
+                    $"store:{storeId}",
+                    config.StorePolicy);
+            }
+            
+            // If either limit is exceeded, return 429
+            var isLimited = ipState.IsLimited || (storeState?.IsLimited ?? false);
+            var limitingFactor = ipState.IsLimited ? "IP" : "Store";
+            var state = ipState.IsLimited ? ipState : storeState ?? ipState;
+            
+            // Add rate limit headers
+            if (policy.IncludeHeaders)
+            {
+                context.Response.Headers["X-RateLimit-Limit"] = policy.RequestsPerWindow.ToString();
+                context.Response.Headers["X-RateLimit-Remaining"] = state.TokensRemaining.ToString();
+                context.Response.Headers["X-RateLimit-Reset"] = state.ResetAt.ToString();
                 
-                _logger.LogWarning(
-                    "Rate limit exceeded for {Path} by {ClientId}. Limit: {MaxRequests}/{WindowSeconds}s",
-                    path, clientId, limit.MaxRequests, limit.WindowSeconds);
+                if (isLimited)
+                {
+                    var retryAfter = (DateTimeOffset.FromUnixTimeSeconds(state.ResetAt) - DateTimeOffset.UtcNow).TotalSeconds;
+                    context.Response.Headers["Retry-After"] = ((int)Math.Ceiling(retryAfter)).ToString();
+                }
+            }
+            
+            if (isLimited)
+            {
+                _logger.LogWarning("Rate limit exceeded for {Factor} {Key} on path {Path}", 
+                    limitingFactor, state.Key, context.Request.Path);
                 
+                metrics.RecordError("rate_limit", storeId ?? "unknown", $"{limitingFactor.ToLower()}_exceeded");
+                
+                context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
                 await context.Response.WriteAsJsonAsync(new
                 {
                     error = "Rate limit exceeded",
-                    message = $"Too many requests. Limit: {limit.MaxRequests} requests per {limit.WindowSeconds} seconds.",
-                    retry_after = limit.WindowSeconds
+                    limitedBy = limitingFactor,
+                    retryAfter = state.ResetAt,
+                    message = $"Too many requests. Please try again after {DateTimeOffset.FromUnixTimeSeconds(state.ResetAt):u}"
                 });
-                
                 return;
             }
+            
+            // Request allowed, continue pipeline
+            await _next(context);
         }
         
-        // Periodic cleanup of old entries
-        MaybeCleanup();
+        /// <summary>
+        /// Extract store ID from request path
+        /// </summary>
+        private static string? ExtractStoreId(PathString path)
+        {
+            var segments = path.Value?.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments == null || segments.Length < 3)
+                return null;
+            
+            // Pattern: /plugins/bitcoin-rewards/{storeId}/...
+            if (segments[0] == "plugins" && segments[1] == "bitcoin-rewards")
+                return segments.Length > 2 ? segments[2] : null;
+            
+            // Pattern: /api/v1/bitcoin-rewards (no store ID in path, may be in query)
+            return null;
+        }
         
-        await _next(context);
-    }
-    
-    private bool TryAcquire(string key, int maxRequests, int windowSeconds)
-    {
-        var now = DateTime.UtcNow;
-        var windowStart = now.AddSeconds(-windowSeconds);
-        
-        var entry = _rateLimits.AddOrUpdate(
-            key,
-            // Add new entry
-            k => new RateLimitEntry 
-            { 
-                WindowStart = now, 
-                Count = 1 
-            },
-            // Update existing entry
-            (k, existing) =>
+        /// <summary>
+        /// Get client IP address, respecting X-Forwarded-For headers
+        /// </summary>
+        private static string GetClientIp(HttpContext context)
+        {
+            // Check X-Forwarded-For header (for reverse proxy scenarios)
+            var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(forwardedFor))
             {
-                // If window has expired, reset
-                if (existing.WindowStart < windowStart)
-                {
-                    return new RateLimitEntry 
-                    { 
-                        WindowStart = now, 
-                        Count = 1 
-                    };
-                }
-                
-                // Increment count in current window
-                existing.Count++;
-                return existing;
-            });
-        
-        return entry.Count <= maxRequests;
-    }
-    
-    private RateLimitConfig? GetRateLimitForPath(string path)
-    {
-        // Webhook endpoints - stricter limits
-        if (path.Contains("/webhook/"))
-        {
-            return new RateLimitConfig(100, 60); // 100 requests per minute
+                // Take the first IP (original client)
+                var ips = forwardedFor.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (ips.Length > 0)
+                    return ips[0].Trim();
+            }
+            
+            // Fall back to direct connection IP
+            return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
         
-        // Display page - moderate limits (auto-refresh every 10s)
-        if (path.Contains("/display"))
+        /// <summary>
+        /// Determine which rate limit policy to apply based on endpoint
+        /// </summary>
+        private static RateLimitPolicy DeterminePolicy(PathString path, RateLimitConfiguration config)
         {
-            return new RateLimitConfig(600, 60); // 600 requests per minute (~10 clients refreshing)
-        }
-        
-        // API endpoints - moderate limits
-        if (path.Contains("/api/") && path.Contains("/bitcoin-rewards/"))
-        {
-            return new RateLimitConfig(300, 60); // 300 requests per minute
-        }
-        
-        // Metrics endpoint - generous limits (Prometheus scraping)
-        if (path.Contains("/metrics"))
-        {
-            return new RateLimitConfig(1000, 60); // 1000 requests per minute
-        }
-        
-        // No rate limit for other paths
-        return null;
-    }
-    
-    private string GetClientIdentifier(HttpContext context)
-    {
-        // Try to get real IP from headers (behind proxy)
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            return forwardedFor.Split(',')[0].Trim();
-        }
-        
-        var realIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(realIp))
-        {
-            return realIp;
-        }
-        
-        // Fall back to connection remote IP
-        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    }
-    
-    private void MaybeCleanup()
-    {
-        if (DateTime.UtcNow - _lastCleanup < CleanupInterval)
-            return;
-        
-        _lastCleanup = DateTime.UtcNow;
-        
-        // Remove entries older than 10 minutes
-        var cutoff = DateTime.UtcNow.AddMinutes(-10);
-        var toRemove = _rateLimits
-            .Where(kv => kv.Value.WindowStart < cutoff)
-            .Select(kv => kv.Key)
-            .ToList();
-        
-        foreach (var key in toRemove)
-        {
-            _rateLimits.TryRemove(key, out _);
-        }
-        
-        if (toRemove.Any())
-        {
-            _logger.LogDebug("Cleaned up {Count} expired rate limit entries", toRemove.Count);
+            var pathValue = path.Value ?? string.Empty;
+            
+            // Webhook endpoints (most restrictive)
+            if (pathValue.Contains("/webhooks/", StringComparison.OrdinalIgnoreCase))
+                return config.WebhookPolicy;
+            
+            // Admin/UI endpoints
+            if (pathValue.Contains("/settings", StringComparison.OrdinalIgnoreCase) ||
+                pathValue.Contains("/errors", StringComparison.OrdinalIgnoreCase) ||
+                pathValue.Contains("/display", StringComparison.OrdinalIgnoreCase))
+                return config.AdminPolicy;
+            
+            // API endpoints
+            if (pathValue.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+                return config.ApiPolicy;
+            
+            // Default to webhook policy (most restrictive)
+            return config.WebhookPolicy;
         }
     }
-}
-
-/// <summary>
-/// Rate limit configuration for an endpoint
-/// </summary>
-public class RateLimitConfig
-{
-    public int MaxRequests { get; }
-    public int WindowSeconds { get; }
-    
-    public RateLimitConfig(int maxRequests, int windowSeconds)
-    {
-        MaxRequests = maxRequests;
-        WindowSeconds = windowSeconds;
-    }
-}
-
-/// <summary>
-/// Rate limit entry tracking request counts in a time window
-/// </summary>
-public class RateLimitEntry
-{
-    public DateTime WindowStart { get; set; }
-    public int Count { get; set; }
 }

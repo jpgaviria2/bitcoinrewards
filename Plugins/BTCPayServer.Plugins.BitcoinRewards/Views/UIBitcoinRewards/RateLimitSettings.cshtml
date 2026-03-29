@@ -1,0 +1,162 @@
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@model RateLimitSettingsViewModel
+@{
+    ViewData.SetActivePage("BitcoinRewards", "Rate Limit Settings", "BitcoinRewardsRateLimits");
+}
+
+<h3>Rate Limit Settings</h3>
+<p class="text-muted">Configure rate limiting policies to prevent abuse and ensure fair resource usage.</p>
+
+<form method="post" asp-action="RateLimitSettings" asp-route-storeId="@Model.StoreId">
+    <div class="form-group">
+        <div class="form-check">
+            <input asp-for="Enabled" type="checkbox" class="form-check-input" />
+            <label asp-for="Enabled" class="form-check-label"></label>
+            <span asp-validation-for="Enabled" class="text-danger"></span>
+        </div>
+        <small class="form-text text-muted">
+            When disabled, all rate limits are bypassed (not recommended for production).
+        </small>
+    </div>
+    
+    <hr class="my-4" />
+    
+    <h5>Webhook Endpoints</h5>
+    <p class="text-muted small">Rate limits for incoming webhook requests (Square, Shopify, etc.)</p>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="WebhookRequestsPerMinute"></label>
+                <input asp-for="WebhookRequestsPerMinute" class="form-control" />
+                <span asp-validation-for="WebhookRequestsPerMinute" class="text-danger"></span>
+                <small class="form-text text-muted">Maximum webhook requests per minute per IP address.</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="WebhookBurstSize"></label>
+                <input asp-for="WebhookBurstSize" class="form-control" />
+                <span asp-validation-for="WebhookBurstSize" class="text-danger"></span>
+                <small class="form-text text-muted">Allows temporary spikes above the limit.</small>
+            </div>
+        </div>
+    </div>
+    
+    <hr class="my-4" />
+    
+    <h5>API Endpoints</h5>
+    <p class="text-muted small">Rate limits for metrics and other API endpoints</p>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="ApiRequestsPerMinute"></label>
+                <input asp-for="ApiRequestsPerMinute" class="form-control" />
+                <span asp-validation-for="ApiRequestsPerMinute" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="ApiBurstSize"></label>
+                <input asp-for="ApiBurstSize" class="form-control" />
+                <span asp-validation-for="ApiBurstSize" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
+    
+    <hr class="my-4" />
+    
+    <h5>Admin UI</h5>
+    <p class="text-muted small">Rate limits for admin dashboard and settings pages</p>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="AdminRequestsPerMinute"></label>
+                <input asp-for="AdminRequestsPerMinute" class="form-control" />
+                <span asp-validation-for="AdminRequestsPerMinute" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="AdminBurstSize"></label>
+                <input asp-for="AdminBurstSize" class="form-control" />
+                <span asp-validation-for="AdminBurstSize" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
+    
+    <hr class="my-4" />
+    
+    <h5>Per-Store Limits</h5>
+    <p class="text-muted small">Store-wide rate limits applied across all endpoints for this store</p>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="StoreRequestsPerMinute"></label>
+                <input asp-for="StoreRequestsPerMinute" class="form-control" />
+                <span asp-validation-for="StoreRequestsPerMinute" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="StoreBurstSize"></label>
+                <input asp-for="StoreBurstSize" class="form-control" />
+                <span asp-validation-for="StoreBurstSize" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
+    
+    <hr class="my-4" />
+    
+    <h5>IP Whitelist / Blacklist</h5>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="WhitelistedIpsText"></label>
+                <textarea asp-for="WhitelistedIpsText" class="form-control" rows="5" placeholder="192.168.1.1&#10;10.0.0.1"></textarea>
+                <span asp-validation-for="WhitelistedIpsText" class="text-danger"></span>
+                <small class="form-text text-muted">
+                    Whitelisted IPs bypass all rate limits. Enter one IP address per line.
+                </small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label asp-for="BlacklistedIpsText"></label>
+                <textarea asp-for="BlacklistedIpsText" class="form-control" rows="5" placeholder="192.168.1.100&#10;10.0.0.99"></textarea>
+                <span asp-validation-for="BlacklistedIpsText" class="text-danger"></span>
+                <small class="form-text text-muted">
+                    Blacklisted IPs are permanently blocked. Enter one IP address per line.
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <hr class="my-4" />
+    
+    <div class="alert alert-info">
+        <h6>How Rate Limiting Works</h6>
+        <p class="small mb-0">
+            <strong>Token Bucket Algorithm:</strong> Each client starts with a bucket of tokens. 
+            Each request consumes one token. Tokens are refilled at a constant rate (requests per minute). 
+            The burst size allows temporary spikes above the sustained rate.
+        </p>
+        <p class="small mb-0 mt-2">
+            <strong>Example:</strong> 60 requests/minute with burst 10 = 70 total tokens. 
+            After using all tokens, clients must wait for refill (1 token per second).
+        </p>
+    </div>
+    
+    <div class="form-group mt-4">
+        <button type="submit" class="btn btn-primary" name="command" value="Save">Save Settings</button>
+        <a asp-action="EditSettings" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Back to Settings</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

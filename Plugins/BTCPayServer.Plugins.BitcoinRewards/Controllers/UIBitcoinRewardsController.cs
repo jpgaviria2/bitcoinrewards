@@ -651,5 +651,46 @@ public class UIBitcoinRewardsController : Controller
         TempData[WellKnownTempData.SuccessMessage] = "Error marked as resolved";
         return RedirectToAction(nameof(ErrorDashboard), new { storeId });
     }
+    
+    /// <summary>
+    /// Admin interface for rate limit configuration
+    /// </summary>
+    [HttpGet]
+    [Route("plugins/bitcoin-rewards/{storeId}/rate-limits")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    public async Task<IActionResult> RateLimitSettings(string storeId)
+    {
+        var config = await _storeRepository.GetSettingAsync<Models.RateLimitConfiguration>(
+            storeId,
+            "BitcoinRewardsRateLimitConfig") ?? new Models.RateLimitConfiguration();
+        
+        var vm = new RateLimitSettingsViewModel { StoreId = storeId };
+        vm.SetFromConfiguration(config);
+        
+        ViewData.SetActivePage("BitcoinRewards", "Rate Limit Settings", "BitcoinRewardsRateLimits");
+        return View("RateLimitSettings", vm);
+    }
+    
+    /// <summary>
+    /// Save rate limit configuration
+    /// </summary>
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/rate-limits")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> RateLimitSettings(string storeId, RateLimitSettingsViewModel vm)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewData.SetActivePage("BitcoinRewards", "Rate Limit Settings", "BitcoinRewardsRateLimits");
+            return View("RateLimitSettings", vm);
+        }
+        
+        var config = vm.ToConfiguration();
+        await _storeRepository.UpdateSetting(storeId, "BitcoinRewardsRateLimitConfig", config);
+        
+        TempData[WellKnownTempData.SuccessMessage] = "Rate limit settings saved successfully";
+        return RedirectToAction(nameof(RateLimitSettings), new { storeId });
+    }
 }
 

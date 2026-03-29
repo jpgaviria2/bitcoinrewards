@@ -59,6 +59,9 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Metrics and telemetry
         services.AddSingleton<Services.RewardMetrics>();
         
+        // Rate limiting
+        services.AddSingleton<Services.RateLimitService>();
+        
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
         services.TryAddScoped<Services.Nip05Service>();
