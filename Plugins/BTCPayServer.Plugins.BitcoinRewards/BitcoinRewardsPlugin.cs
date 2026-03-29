@@ -45,6 +45,12 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // Production hardening services (v2.0)
         services.AddSingleton<Services.IdempotencyService>();
         
+        // Health checks (Phase 2 - Production Hardening)
+        services.AddHealthChecks()
+            .AddCheck<HealthChecks.BitcoinRewardsHealthCheck>(
+                "bitcoin-rewards",
+                tags: new[] { "bitcoin-rewards", "plugin" });
+        
         // NIP-05 identity services
         services.AddSingleton<Services.OffensiveWordFilter>();
         services.TryAddScoped<Services.Nip05Service>();
