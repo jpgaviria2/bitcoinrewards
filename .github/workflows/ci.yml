@@ -142,7 +142,7 @@ jobs:
       run: dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
 
     - name: Publish plugin
-      run: dotnet publish Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-build --output ./publish
+      run: dotnet publish Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-build --output ./publish /p:StaticWebAssetsEnabled=false
 
     - name: Create plugin archive
       run: |
