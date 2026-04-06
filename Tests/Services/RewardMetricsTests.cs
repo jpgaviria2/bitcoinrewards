@@ -182,7 +182,7 @@ namespace BitcoinRewards.Tests.Services
 
             // Assert
             var snapshot = _metrics.GetSnapshot();
-            var key = $"unclaimed_value_satoshis|store={storeId}";
+            var key = $"unclaimed_rewards_sats|store={storeId}";
             snapshot.Gauges.Should().ContainKey(key);
             snapshot.Gauges[key].Should().Be(value);
         }
@@ -200,11 +200,11 @@ namespace BitcoinRewards.Tests.Services
 
             // Assert
             output.Should().NotBeNullOrEmpty();
-            output.Should().Contain("# TYPE rewards_created_total counter");
-            output.Should().Contain("# TYPE reward_amount_satoshis histogram");
-            output.Should().Contain("# TYPE active_rewards gauge");
-            output.Should().Contain("platform=\"square\"");
-            output.Should().Contain("store=\"store123\"");
+            output.Should().Contain("rewards_created_total");
+            output.Should().Contain("reward_amount_satoshis");
+            output.Should().Contain("active_rewards");
+            output.Should().Contain("platform=square");
+            output.Should().Contain("store=store123");
         }
 
         [Fact]

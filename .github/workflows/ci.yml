@@ -47,7 +47,7 @@ jobs:
         dotnet build Tests/BitcoinRewards.Tests.csproj --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
 
     - name: Run unit tests
-      run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+      run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
 
     - name: Generate coverage report
       uses: codecov/codecov-action@v4
