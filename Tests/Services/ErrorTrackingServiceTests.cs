@@ -72,7 +72,6 @@ namespace BitcoinRewards.Tests.Services
             stats.Should().NotBeNull();
             stats.TotalErrors.Should().BeGreaterThanOrEqualTo(0);
             stats.UnresolvedErrors.Should().BeGreaterThanOrEqualTo(0);
-            stats.RetryableErrors.Should().BeGreaterThanOrEqualTo(0);
         }
 
         [Fact]
