@@ -38,7 +38,7 @@ jobs:
 
     - name: Restore dependencies
       run: |
-        dotnet restore
+        dotnet restore -p:StaticWebAssetsEnabled=false
         dotnet restore Tests/BitcoinRewards.Tests.csproj
 
     - name: Build
@@ -79,7 +79,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore -p:StaticWebAssetsEnabled=false
 
     - name: Run code analysis
       run: dotnet build --configuration Release /p:TreatWarningsAsErrors=false /p:AnalysisLevel=latest /p:StaticWebAssetsEnabled=false
@@ -103,7 +103,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore -p:StaticWebAssetsEnabled=false
 
     - name: Run security scan
       run: dotnet list package --vulnerable --include-transitive 2>&1 | tee security-scan.txt
@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-and-test, code-quality]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -133,10 +133,10 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore -p:StaticWebAssetsEnabled=false
 
     - name: Build plugin
-      run: dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-restore
+      run: dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
 
     - name: Publish plugin
       run: dotnet publish Plugins/BTCPayServer.Plugins.BitcoinRewards --configuration Release --no-build --output ./publish
@@ -185,7 +185,7 @@ jobs:
 
     - name: Restore dependencies
       run: |
-        dotnet restore
+        dotnet restore -p:StaticWebAssetsEnabled=false
         dotnet restore Tests/BitcoinRewards.Tests.csproj
 
     - name: Build
@@ -216,7 +216,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore -p:StaticWebAssetsEnabled=false
 
     - name: Build
       run: dotnet build --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
