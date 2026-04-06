@@ -2,21 +2,25 @@ using System;
 using System.Threading.Tasks;
 using BTCPayServer.Plugins.BitcoinRewards.Middleware;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Tests.Middleware;
 
 /// <summary>
-/// Tests for RateLimitMiddleware - DOS protection
+/// Tests for RateLimitingMiddleware - DOS protection
 /// </summary>
 public class RateLimitMiddlewareTests
 {
+    private static RateLimitingMiddleware CreateMiddleware() =>
+        new RateLimitingMiddleware(_ => Task.CompletedTask, new Mock<ILogger<RateLimitingMiddleware>>().Object);
+
     [Fact]
     public async Task RateLimit_UnderLimit_ShouldAllow()
     {
         // Arrange
-        var middleware = new RateLimitMiddleware(next => Task.CompletedTask);
+        var middleware = CreateMiddleware();
         var context = CreateHttpContext("/plugins/bitcoin-rewards/wallet/123/balance");
 
         // Act
@@ -30,7 +34,7 @@ public class RateLimitMiddlewareTests
     public async Task RateLimit_ExceedLimit_ShouldReturn429()
     {
         // Arrange
-        var middleware = new RateLimitMiddleware(next => Task.CompletedTask);
+        var middleware = CreateMiddleware();
         var walletId = Guid.NewGuid().ToString();
         var path = $"/plugins/bitcoin-rewards/wallet/{walletId}/pay-invoice";
 
@@ -50,7 +54,7 @@ public class RateLimitMiddlewareTests
     public async Task RateLimit_DifferentWallets_ShouldNotInterfere()
     {
         // Arrange
-        var middleware = new RateLimitMiddleware(next => Task.CompletedTask);
+        var middleware = CreateMiddleware();
         var wallet1 = Guid.NewGuid().ToString();
         var wallet2 = Guid.NewGuid().ToString();
 
@@ -59,7 +63,7 @@ public class RateLimitMiddlewareTests
         {
             var ctx1 = CreateHttpContext($"/plugins/bitcoin-rewards/wallet/{wallet1}/pay-invoice");
             var ctx2 = CreateHttpContext($"/plugins/bitcoin-rewards/wallet/{wallet2}/pay-invoice");
-            
+
             await middleware.InvokeAsync(ctx1);
             await middleware.InvokeAsync(ctx2);
         }
@@ -74,7 +78,7 @@ public class RateLimitMiddlewareTests
     public async Task RateLimit_WalletCreation_ShouldLimitPerIP()
     {
         // Arrange
-        var middleware = new RateLimitMiddleware(next => Task.CompletedTask);
+        var middleware = CreateMiddleware();
         var path = "/plugins/bitcoin-rewards/wallet/create";
         var ip = "192.168.1.100";
 
@@ -91,18 +95,10 @@ public class RateLimitMiddlewareTests
     }
 
     [Fact]
-    public void CleanupExpiredHistories_ShouldNotThrow()
-    {
-        // Act & Assert
-        RateLimitMiddleware.CleanupExpiredHistories();
-        // Should complete without exception
-    }
-
-    [Fact]
     public async Task RateLimit_NonWalletEndpoint_ShouldPassThrough()
     {
         // Arrange
-        var middleware = new RateLimitMiddleware(next => Task.CompletedTask);
+        var middleware = CreateMiddleware();
         var context = CreateHttpContext("/some/other/endpoint");
 
         // Act
@@ -118,15 +114,8 @@ public class RateLimitMiddlewareTests
         context.Request.Path = path;
         context.Request.Method = "POST";
         context.Response.Body = new System.IO.MemoryStream();
-        
-        if (remoteIp != null)
-        {
-            context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(remoteIp);
-        }
-        else
-        {
-            context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("127.0.0.1");
-        }
+
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(remoteIp ?? "127.0.0.1");
 
         return context;
     }

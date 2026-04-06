@@ -2,8 +2,6 @@ using System;
 using System.Linq;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
-using Moq;
 using Xunit;
 
 namespace BitcoinRewards.Tests.Services
@@ -14,8 +12,7 @@ namespace BitcoinRewards.Tests.Services
 
         public RewardMetricsTests()
         {
-            var loggerMock = new Mock<ILogger<RewardMetrics>>();
-            _metrics = new RewardMetrics(loggerMock.Object);
+            _metrics = new RewardMetrics();
         }
 
         [Fact]
@@ -40,15 +37,15 @@ namespace BitcoinRewards.Tests.Services
         public void RecordRewardClaimed_ShouldIncrementCounter()
         {
             // Arrange
-            var platform = "square";
+            var method = "lnurl";
             var storeId = "store123";
 
             // Act
-            _metrics.RecordRewardClaimed(platform, storeId);
+            _metrics.RecordRewardClaimed(method, storeId, 1000m);
 
             // Assert
             var snapshot = _metrics.GetSnapshot();
-            var key = $"rewards_claimed_total|platform={platform}|store={storeId}";
+            var key = $"rewards_claimed_total|method={method}|store={storeId}";
             snapshot.Counters.Should().ContainKey(key);
             snapshot.Counters[key].Should().Be(1);
         }
@@ -136,7 +133,7 @@ namespace BitcoinRewards.Tests.Services
         }
 
         [Fact]
-        public void RecordClaimDuration_ShouldCalculatePercentiles()
+        public void RecordOperationDuration_ShouldCalculatePercentiles()
         {
             // Arrange
             var durations = Enumerable.Range(1, 100).Select(i => (double)i).ToArray();
@@ -144,13 +141,13 @@ namespace BitcoinRewards.Tests.Services
             // Act
             foreach (var duration in durations)
             {
-                _metrics.RecordClaimDuration(duration);
+                _metrics.RecordOperationDuration("claim", duration);
             }
 
             // Assert
             var snapshot = _metrics.GetSnapshot();
-            snapshot.Histograms.Should().ContainKey("claim_duration_seconds");
-            var histogram = snapshot.Histograms["claim_duration_seconds"];
+            snapshot.Histograms.Should().ContainKey("operation_duration_ms|operation=claim");
+            var histogram = snapshot.Histograms["operation_duration_ms|operation=claim"];
             histogram.P50.Should().BeApproximately(50, 5);
             histogram.P95.Should().BeApproximately(95, 5);
             histogram.P99.Should().BeApproximately(99, 2);
@@ -262,7 +259,7 @@ namespace BitcoinRewards.Tests.Services
             var snapshot = _metrics.GetSnapshot();
             var successKey = $"lightning_operations_total|operation={operation}|store={storeId}|success=true";
             var failureKey = $"lightning_operations_total|operation={operation}|store={storeId}|success=false";
-            
+
             snapshot.Counters[successKey].Should().Be(2);
             snapshot.Counters[failureKey].Should().Be(1);
         }

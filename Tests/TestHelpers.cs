@@ -50,8 +50,7 @@ public static class TestHelpers
             CadBalanceCents = cadBalanceCents,
             SatsBalanceSatoshis = satsBalance,
             AutoConvertToCad = true,
-            CreatedAt = DateTime.UtcNow,
-            WalletToken = GenerateWalletToken()
+            CreatedAt = DateTime.UtcNow
         };
     }
 

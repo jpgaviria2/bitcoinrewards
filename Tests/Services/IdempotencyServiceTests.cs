@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Xunit;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Tests.Services;
@@ -14,7 +16,7 @@ public class IdempotencyServiceTests
 
     public IdempotencyServiceTests()
     {
-        _service = new IdempotencyService();
+        _service = new IdempotencyService(new Mock<ILogger<IdempotencyService>>().Object);
     }
 
     [Fact]

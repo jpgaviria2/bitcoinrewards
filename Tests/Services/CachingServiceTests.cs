@@ -119,7 +119,7 @@ namespace BitcoinRewards.Tests.Services
             var rate = 50000m;
 
             // Act
-            var result = await _service.GetOrCreateRateAsync(
+            var result = await _service.GetOrCreateRateAsync<decimal>(
                 fromCurrency,
                 toCurrency,
                 async () =>
