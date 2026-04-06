@@ -40,7 +40,9 @@ jobs:
       run: dotnet restore
 
     - name: Build
-      run: dotnet build --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
+      run: |
+        dotnet build --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
+        dotnet build Tests/BitcoinRewards.Tests.csproj --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
 
     - name: Run unit tests
       run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
@@ -183,7 +185,9 @@ jobs:
       run: dotnet restore
 
     - name: Build
-      run: dotnet build --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
+      run: |
+        dotnet build --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
+        dotnet build Tests/BitcoinRewards.Tests.csproj --configuration Release --no-restore /p:StaticWebAssetsEnabled=false
 
     - name: Run integration tests
       run: dotnet test Tests/BitcoinRewards.Tests.csproj --configuration Release --no-build --filter "Category=Integration" --verbosity normal
