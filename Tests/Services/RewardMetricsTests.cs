@@ -257,8 +257,8 @@ namespace BitcoinRewards.Tests.Services
 
             // Assert
             var snapshot = _metrics.GetSnapshot();
-            var successKey = $"lightning_operations_total|operation={operation}|store={storeId}|success=true";
-            var failureKey = $"lightning_operations_total|operation={operation}|store={storeId}|success=false";
+            var successKey = $"lightning_operations_total|operation={operation}|store={storeId}|success=True";
+            var failureKey = $"lightning_operations_total|operation={operation}|store={storeId}|success=False";
 
             snapshot.Counters[successKey].Should().Be(2);
             snapshot.Counters[failureKey].Should().Be(1);
