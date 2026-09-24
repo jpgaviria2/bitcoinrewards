@@ -20,8 +20,9 @@ public class TransactionData
     public string Currency { get; set; } = StoreBlob.StandardDefaultCurrency;
     public string? CustomerEmail { get; set; }
     public string? CustomerPhone { get; set; }
+    public string? CustomerProfileId { get; set; }
+    public string? LightningAddressHash { get; set; }
     public TransactionPlatform Platform { get; set; }
     public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
     public Dictionary<string, string> Metadata { get; set; } = new();
 }
-

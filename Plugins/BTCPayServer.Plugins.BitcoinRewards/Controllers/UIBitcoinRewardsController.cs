@@ -111,6 +111,10 @@ public class UIBitcoinRewardsController : Controller
             vm.SwapEnabled = swapEnabledValues.Count > 0 && swapEnabledValues.Contains("true");
             var cadSpendingValues = Request.Form["CadSpendingEnabled"];
             vm.CadSpendingEnabled = cadSpendingValues.Count > 0 && cadSpendingValues.Contains("true");
+            var associationValues = Request.Form["CustomerProfileAssociationEnabled"];
+            vm.CustomerProfileAssociationEnabled = associationValues.Count > 0 && associationValues.Contains("true");
+            var legacyFallbackValues = Request.Form["LegacyPullPaymentFallbackEnabled"];
+            vm.LegacyPullPaymentFallbackEnabled = legacyFallbackValues.Count > 0 && legacyFallbackValues.Contains("true");
             
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
@@ -121,6 +125,19 @@ public class UIBitcoinRewardsController : Controller
             ModelState.Remove(nameof(vm.DefaultAutoConvertToCad));
             ModelState.Remove(nameof(vm.SwapEnabled));
             ModelState.Remove(nameof(vm.CadSpendingEnabled));
+            ModelState.Remove(nameof(vm.CustomerProfileAssociationEnabled));
+            ModelState.Remove(nameof(vm.LegacyPullPaymentFallbackEnabled));
+
+            if (vm.CustomerProfileAssociationEnabled)
+            {
+                if (!string.Equals(vm.CustomerProfileApiBaseUrl?.Trim(), "https://api.trailscoffee.com", StringComparison.OrdinalIgnoreCase))
+                    ModelState.AddModelError(nameof(vm.CustomerProfileApiBaseUrl), "The profile API must be https://api.trailscoffee.com");
+                if (string.IsNullOrWhiteSpace(vm.CustomerProfileApiToken) &&
+                    string.IsNullOrWhiteSpace(existingSettings?.CustomerProfileApiToken))
+                    ModelState.AddModelError(nameof(vm.CustomerProfileApiToken), "A profile service token is required when association is enabled");
+                if (!vm.LegacyPullPaymentFallbackEnabled)
+                    ModelState.AddModelError(nameof(vm.LegacyPullPaymentFallbackEnabled), "Legacy fallback must remain enabled until direct payout is approved");
+            }
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
@@ -713,4 +730,3 @@ public class UIBitcoinRewardsController : Controller
         return RedirectToAction(nameof(RateLimitSettings), new { storeId });
     }
 }
-

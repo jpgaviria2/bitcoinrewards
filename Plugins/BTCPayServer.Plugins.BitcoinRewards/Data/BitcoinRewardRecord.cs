@@ -22,6 +22,12 @@ public enum RewardPlatform
     Btcpay = 2
 }
 
+public enum RewardDeliveryMode
+{
+    LegacyPullPayment = 0,
+    DirectLightning = 1
+}
+
 public class BitcoinRewardRecord
 {
     [Key]
@@ -46,6 +52,16 @@ public class BitcoinRewardRecord
     
     [MaxLength(50)]
     public string? CustomerPhone { get; set; }
+
+    [MaxLength(64)]
+    public string? CustomerProfileId { get; set; }
+
+    [MaxLength(64)]
+    public string? LightningAddressHash { get; set; }
+
+    public RewardDeliveryMode DeliveryMode { get; set; } = RewardDeliveryMode.LegacyPullPayment;
+
+    public RewardPayoutState? DirectPayoutState { get; set; }
     
     [Required]
     [Column(TypeName = "decimal(18,8)")]
@@ -98,4 +114,3 @@ public class BitcoinRewardRecord
     
     public int RetryCount { get; set; } = 0;
 }
-

@@ -158,6 +158,34 @@
 
             <h3 class="mt-5 mb-3">Advanced Settings</h3>
 
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4 class="card-title">iOS Rewards Profile — Part B</h4>
+                    <p class="text-muted">Bind a scanned <code>user@pay.trailscoffee.com</code> address to one exact Square order. Direct Lightning payout remains unavailable; the existing pull-payment reward stays authoritative.</p>
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="CustomerProfileAssociationEnabled" value="false">
+                        <input name="CustomerProfileAssociationEnabled" class="form-check-input" type="checkbox" value="true" @(Model.CustomerProfileAssociationEnabled ? "checked" : "")>
+                        <label asp-for="CustomerProfileAssociationEnabled" class="form-check-label"></label>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="CustomerProfileApiBaseUrl" class="form-label"></label>
+                        <input asp-for="CustomerProfileApiBaseUrl" class="form-control" readonly />
+                        <span asp-validation-for="CustomerProfileApiBaseUrl" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="CustomerProfileApiToken" class="form-label"></label>
+                        <input asp-for="CustomerProfileApiToken" class="form-control" type="password" autocomplete="new-password" />
+                        <span asp-validation-for="CustomerProfileApiToken" class="text-danger"></span>
+                        <small class="form-text text-muted">@if (Model.HasCustomerProfileApiToken) { <span class="text-success">Saved (hidden)</span> } Never paste this token into logs or support messages.</small>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="LegacyPullPaymentFallbackEnabled" value="false">
+                        <input name="LegacyPullPaymentFallbackEnabled" class="form-check-input" type="checkbox" value="true" @(Model.LegacyPullPaymentFallbackEnabled ? "checked" : "")>
+                        <label asp-for="LegacyPullPaymentFallbackEnabled" class="form-check-label"></label>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-group mb-4">
                 <label asp-for="MinimumTransactionAmount" class="form-label"></label>
                 <input asp-for="MinimumTransactionAmount" class="form-control" type="number" step="0.01" min="0" />

@@ -26,8 +26,12 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 b.Property<string>("Currency").IsRequired().HasMaxLength(10).HasColumnType("character varying(10)");
                 b.Property<string>("CustomerEmail").HasMaxLength(255).HasColumnType("character varying(255)");
                 b.Property<string>("CustomerPhone").HasMaxLength(50).HasColumnType("character varying(50)");
+                b.Property<string>("CustomerProfileId").HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<int>("DeliveryMode").HasColumnType("integer");
+                b.Property<int?>("DirectPayoutState").HasColumnType("integer");
                 b.Property<DateTime?>("ExpiresAt").HasColumnType("timestamp with time zone");
                 b.Property<string>("ErrorMessage").HasMaxLength(500).HasColumnType("character varying(500)");
+                b.Property<string>("LightningAddressHash").HasMaxLength(64).HasColumnType("character varying(64)");
                 b.Property<string>("OrderId").HasMaxLength(255).HasColumnType("character varying(255)");
                 b.Property<DateTime?>("PaidAt").HasColumnType("timestamp with time zone");
                 b.Property<string>("PayoutId").HasMaxLength(100).HasColumnType("character varying(100)");
@@ -47,8 +51,54 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 b.HasKey("Id");
                 b.HasIndex("StoreId");
                 b.HasIndex("Status");
+                b.HasIndex("CustomerProfileId");
                 b.HasIndex("StoreId", "TransactionId", "Platform");
                 b.ToTable("BitcoinRewardRecords", "BTCPayServer.Plugins.BitcoinRewards");
+            });
+
+            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.CustomerOrderAssociation", b =>
+            {
+                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                b.Property<DateTime?>("BoundAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime?>("CancelledAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime?>("ConsumedAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("CustomerProfileId").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<string>("DeviceId").HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<string>("LightningAddressHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<string>("RegisterId").HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<string>("SquareOrderId").IsRequired().HasMaxLength(255).HasColumnType("character varying(255)");
+                b.Property<string>("SquarePaymentId").HasMaxLength(255).HasColumnType("character varying(255)");
+                b.Property<string>("StaffActorId").HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<int>("State").HasColumnType("integer");
+                b.Property<string>("StoreId").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)");
+                b.Property<DateTime>("UpdatedAt").IsConcurrencyToken().HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.HasIndex("StoreId", "CustomerProfileId", "State");
+                b.HasIndex("StoreId", "SquareOrderId").IsUnique();
+                b.HasIndex("StoreId", "SquarePaymentId").IsUnique().HasFilter("\"SquarePaymentId\" IS NOT NULL");
+                b.ToTable("CustomerOrderAssociations", "BTCPayServer.Plugins.BitcoinRewards");
+            });
+
+            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.RewardPayoutAttempt", b =>
+            {
+                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                b.Property<long>("AmountSatoshis").HasColumnType("bigint");
+                b.Property<int>("AttemptNumber").HasColumnType("integer");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("LastError").HasMaxLength(1000).HasColumnType("character varying(1000)");
+                b.Property<string>("LightningAddressHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<DateTime?>("NextRetryAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime?>("PaidAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("PaymentHash").HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<string>("ProviderReference").HasMaxLength(255).HasColumnType("character varying(255)");
+                b.Property<Guid>("RewardId").HasColumnType("uuid");
+                b.Property<int>("State").HasColumnType("integer");
+                b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("Id");
+                b.HasIndex("RewardId", "AttemptNumber").IsUnique();
+                b.HasIndex("State", "NextRetryAt");
+                b.ToTable("RewardPayoutAttempts", "BTCPayServer.Plugins.BitcoinRewards");
             });
 
             modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.BoltCardLink", b =>
@@ -116,6 +166,15 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 b.HasOne("BTCPayServer.Plugins.BitcoinRewards.Data.CustomerWallet", null)
                     .WithMany()
                     .HasForeignKey("CustomerWalletId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+            });
+
+            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.RewardPayoutAttempt", b =>
+            {
+                b.HasOne("BTCPayServer.Plugins.BitcoinRewards.Data.BitcoinRewardRecord", null)
+                    .WithMany()
+                    .HasForeignKey("RewardId")
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
             });

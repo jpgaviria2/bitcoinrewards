@@ -26,17 +26,20 @@ public class SquareWebhookController : Controller
     private readonly StoreRepository _storeRepository;
     private readonly ILogger<SquareWebhookController> _logger;
     private readonly RewardMetrics _metrics;
+    private readonly CustomerOrderAssociationService _associationService;
 
     public SquareWebhookController(
         BitcoinRewardsService rewardsService,
         StoreRepository storeRepository,
         ILogger<SquareWebhookController> logger,
-        RewardMetrics metrics)
+        RewardMetrics metrics,
+        CustomerOrderAssociationService associationService)
     {
         _rewardsService = rewardsService;
         _storeRepository = storeRepository;
         _logger = logger;
         _metrics = metrics;
+        _associationService = associationService;
     }
 
     // Helper to mask sensitive URL parts
@@ -212,6 +215,28 @@ public class SquareWebhookController : Controller
                             TransactionDate = DateTime.UtcNow
                         };
 
+                        Data.CustomerOrderAssociation? association = null;
+                        var rewardSettings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
+                            storeId, BitcoinRewardsStoreSettings.SettingsName);
+                        if (rewardSettings?.CustomerProfileAssociationEnabled == true && !string.IsNullOrWhiteSpace(orderId))
+                        {
+                            association = await _associationService.BindPaymentAsync(storeId, orderId, paymentId);
+                            if (association is not null)
+                            {
+                                transaction.CustomerProfileId = association.CustomerProfileId;
+                                transaction.LightningAddressHash = association.LightningAddressHash;
+                            }
+                        }
+
+                        // Direct payout intentionally remains fail-closed until the durable dispatcher and
+                        // reconciliation worker have passed the Part B payout gates.
+                        if (rewardSettings?.DirectLightningPayoutEnabled == true)
+                        {
+                            _logger.LogError("Direct Lightning payout was requested for store {StoreId}, but no approved dispatcher is installed", storeId);
+                            if (!rewardSettings.LegacyPullPaymentFallbackEnabled)
+                                return StatusCode(503, "Direct reward payout is not available");
+                        }
+
                         // Log high-value transactions for monitoring
                         if (amount > 1000) // > $1000
                         {
@@ -219,7 +244,9 @@ public class SquareWebhookController : Controller
                                 amount, currency, storeId, paymentId);
                         }
 
-                        await _rewardsService.ProcessRewardAsync(storeId, transaction);
+                        var processed = await _rewardsService.ProcessRewardAsync(storeId, transaction);
+                        if (processed && association is not null)
+                            await _associationService.MarkConsumedAsync(association.Id);
                         _logger.LogInformation("Processed Square webhook for payment {PaymentId}", paymentId);
                     }
                 }
