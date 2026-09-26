@@ -59,6 +59,22 @@ public class BitcoinRewardsSettingsViewModel
 
     public bool HasSquareAccessToken { get; set; }
     public bool HasSquareWebhookSignatureKey { get; set; }
+
+    // Rewards Part B
+    [Display(Name = "Enable exact customer/order association")]
+    public bool CustomerProfileAssociationEnabled { get; set; }
+
+    [Display(Name = "Customer Profile API URL")]
+    [Url]
+    public string CustomerProfileApiBaseUrl { get; set; } = "https://api.trailscoffee.com";
+
+    [Display(Name = "Customer Profile service token")]
+    public string? CustomerProfileApiToken { get; set; }
+
+    public bool HasCustomerProfileApiToken { get; set; }
+
+    [Display(Name = "Keep legacy pull-payment fallback")]
+    public bool LegacyPullPaymentFallbackEnabled { get; set; } = true;
     
     // Email Settings
     [Display(Name = "Email Subject Override (Optional)")]
@@ -200,9 +216,15 @@ public class BitcoinRewardsSettingsViewModel
         HasSquareAccessToken = !string.IsNullOrWhiteSpace(settings.Square?.AccessToken);
         HasSquareWebhookSignatureKey = !string.IsNullOrWhiteSpace(settings.Square?.WebhookSignatureKey);
 
+        CustomerProfileAssociationEnabled = settings.CustomerProfileAssociationEnabled;
+        CustomerProfileApiBaseUrl = settings.CustomerProfileApiBaseUrl;
+        HasCustomerProfileApiToken = !string.IsNullOrWhiteSpace(settings.CustomerProfileApiToken);
+        LegacyPullPaymentFallbackEnabled = settings.LegacyPullPaymentFallbackEnabled;
+
         // Never echo secrets back into the form fields
         SquareAccessToken = null;
         SquareWebhookSignatureKey = null;
+        CustomerProfileApiToken = null;
         
         EmailSubjectOverride = settings.EmailSubject;
         EmailTemplateOverride = settings.EmailTemplate;
@@ -253,6 +275,15 @@ public class BitcoinRewardsSettingsViewModel
         settings.MaximumRewardSatoshis = MaximumRewardSatoshis;
         settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;
         settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();
+        settings.CustomerProfileAssociationEnabled = CustomerProfileAssociationEnabled;
+        settings.CustomerProfileApiBaseUrl = string.IsNullOrWhiteSpace(CustomerProfileApiBaseUrl)
+            ? "https://api.trailscoffee.com"
+            : CustomerProfileApiBaseUrl.Trim();
+        if (!string.IsNullOrWhiteSpace(CustomerProfileApiToken))
+            settings.CustomerProfileApiToken = CustomerProfileApiToken.Trim();
+        settings.LegacyPullPaymentFallbackEnabled = LegacyPullPaymentFallbackEnabled;
+        // No UI control may activate direct payout until the durable dispatcher is released.
+        settings.DirectLightningPayoutEnabled = false;
         
         settings.DisplayTimeoutSeconds = DisplayTimeoutSeconds;
         settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
@@ -315,4 +346,3 @@ public class BitcoinRewardsSettingsViewModel
         return settings;
     }
 }
-

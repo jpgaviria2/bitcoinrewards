@@ -17,6 +17,7 @@ Complete documentation for the BTCPay Server Bitcoin Rewards plugin.
 ### Development
 - **[Testing Guide](../TESTING-GUIDE.md)** - Unit/integration testing
 - **[Performance Guide](../PERFORMANCE-OPTIMIZATION-GUIDE.md)** - Optimization and tuning
+- **[iOS Rewards Part B](./IOS-REWARDS-PART-B.md)** - Contract, rollout gates, rollback, and deployment status
 
 ### Project Management
 - **[Phase 2 Roadmap](../PHASE-2-ROADMAP.md)** - Production hardening features

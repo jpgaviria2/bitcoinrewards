@@ -15,6 +15,8 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
     public DbSet<PendingLnurlClaim> PendingLnurlClaims { get; set; } = null!;
     public DbSet<Nip05Identity> Nip05Identities { get; set; } = null!;
+    public DbSet<CustomerOrderAssociation> CustomerOrderAssociations { get; set; } = null!;
+    public DbSet<RewardPayoutAttempt> RewardPayoutAttempts { get; set; } = null!;
     
     // Phase 2: Production Hardening - Error tracking
     public DbSet<Models.RewardError> RewardErrors { get; set; } = null!;
@@ -37,6 +39,27 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
                 .HasDatabaseName("IX_BitcoinRewardRecords_StoreId_TransactionId_Platform_Unique");
             
             entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CustomerProfileId);
+        });
+
+        modelBuilder.Entity<CustomerOrderAssociation>(entity =>
+        {
+            entity.ToTable("CustomerOrderAssociations");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.StoreId, e.SquareOrderId }).IsUnique();
+            entity.HasIndex(e => new { e.StoreId, e.SquarePaymentId })
+                .IsUnique().HasFilter("\"SquarePaymentId\" IS NOT NULL");
+            entity.HasIndex(e => new { e.StoreId, e.CustomerProfileId, e.State });
+        });
+
+        modelBuilder.Entity<RewardPayoutAttempt>(entity =>
+        {
+            entity.ToTable("RewardPayoutAttempts");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.RewardId, e.AttemptNumber }).IsUnique();
+            entity.HasIndex(e => new { e.State, e.NextRetryAt });
+            entity.HasOne<BitcoinRewardRecord>().WithMany().HasForeignKey(e => e.RewardId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Configure BoltCardLink entity
@@ -146,4 +169,3 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
         });
     }
 }
-

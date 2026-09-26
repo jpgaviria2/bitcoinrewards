@@ -101,6 +101,34 @@ public class BitcoinRewardsStoreSettings
     /// Optional fallback base URL (https://...) used to build absolute claim links when HttpContext and StoreWebsite are unavailable.
     /// </summary>
     public string? ServerBaseUrl { get; set; }
+
+    // ── Rewards Part B (iOS customer profile integration) ──
+
+    /// <summary>
+    /// Enables the additive customer-profile/order-association API. This is deliberately
+    /// independent from direct payout and defaults off for safe rollout.
+    /// </summary>
+    public bool CustomerProfileAssociationEnabled { get; set; } = false;
+
+    /// <summary>Base URL of the Trails customer profile service.</summary>
+    public string CustomerProfileApiBaseUrl { get; set; } = "https://api.trailscoffee.com";
+
+    /// <summary>
+    /// Service credential used only for server-to-server profile resolution. It is never
+    /// returned by an API or written to logs.
+    /// </summary>
+    public string? CustomerProfileApiToken { get; set; }
+
+    /// <summary>
+    /// Future rollout control for direct LNURL-pay delivery. The Part B foundation does not
+    /// activate direct payouts; operators must leave this false until the payout saga ships.
+    /// </summary>
+    public bool DirectLightningPayoutEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Keep the existing pull-payment reward path authoritative while Part B is being proven.
+    /// </summary>
+    public bool LegacyPullPaymentFallbackEnabled { get; set; } = true;
     
     // ── Bolt Card Settings ──
 
@@ -200,4 +228,3 @@ public class SmsProviderConfig
     public string? ApiSecret { get; set; }
     public string? FromNumber { get; set; }
 }
-

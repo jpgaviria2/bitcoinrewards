@@ -43,6 +43,8 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         services.TryAddScoped<Services.BoltCardRewardService>();
         services.TryAddScoped<Services.ExchangeRateService>();
         services.TryAddScoped<Services.CustomerWalletService>();
+        services.TryAddScoped<Services.CustomerOrderAssociationService>();
+        services.AddHttpClient<Services.CustomerProfileClient>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
         // Production hardening services (v2.0)
@@ -128,4 +130,3 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         base.Execute(applicationBuilder, serviceProvider);
     }
 }
-

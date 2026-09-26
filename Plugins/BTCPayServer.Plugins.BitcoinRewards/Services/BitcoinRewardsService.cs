@@ -220,6 +220,9 @@ public class BitcoinRewardsService
                 OrderId = transaction.OrderId,
                 CustomerEmail = transaction.CustomerEmail,
                 CustomerPhone = transaction.CustomerPhone,
+                CustomerProfileId = transaction.CustomerProfileId,
+                LightningAddressHash = transaction.LightningAddressHash,
+                DeliveryMode = RewardDeliveryMode.LegacyPullPayment,
                 TransactionAmount = transaction.Amount,
                 Currency = transaction.Currency,
                 RewardAmount = rewardAmount,
@@ -680,4 +683,3 @@ public class BitcoinRewardsService
         }
     }
 }
-
