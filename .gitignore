@@ -14,3 +14,4 @@ output/
 *.apk
 *.jks
 .hermes/
+.secrets/
