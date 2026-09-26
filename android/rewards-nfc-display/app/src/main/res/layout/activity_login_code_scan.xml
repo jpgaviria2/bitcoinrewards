@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#1a1a2e"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Scan BTCPay Login QR"
+        android:textColor="#ffffff"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/login_scan_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Point camera at the QR shown in BTCPay."
+        android:textColor="#aaaacc"
+        android:textSize="15sp"
+        android:gravity="center"
+        android:layout_marginBottom="12dp" />
+
+    <com.journeyapps.barcodescanner.DecoratedBarcodeView
+        android:id="@+id/login_barcode_scanner"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <Button
+        android:id="@+id/btn_close_login_scan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cancel"
+        android:textColor="#ffffff"
+        android:background="#666688"
+        android:padding="12dp"
+        android:layout_marginTop="12dp" />
+</LinearLayout>

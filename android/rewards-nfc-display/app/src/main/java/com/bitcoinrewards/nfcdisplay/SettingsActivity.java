@@ -18,6 +18,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.net.URLDecoder;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.json.JSONObject;
  */
 public class SettingsActivity extends Activity {
     private static final String TAG = "RewardsSettings";
+    private static final int LOGIN_CODE_SCAN_REQUEST = 4401;
     public static final String PREFS_NAME = "RewardsNfcPrefs";
     public static final String KEY_BTCPAY_URL = "btcpay_url";
     public static final String KEY_STORE_ID = "store_id";
@@ -122,9 +124,22 @@ public class SettingsActivity extends Activity {
         if (btnLoginCode != null) {
             btnLoginCode.setOnClickListener(v -> loginWithCode());
         }
+        Button btnScanLoginCode = findViewById(R.id.btn_scan_login_code);
+        if (btnScanLoginCode != null) {
+            btnScanLoginCode.setOnClickListener(v -> startActivityForResult(new Intent(this, LoginCodeScanActivity.class), LOGIN_CODE_SCAN_REQUEST));
+        }
         btnSave.setOnClickListener(v -> saveAndLaunch());
         if (btnCycleStore != null) {
             btnCycleStore.setOnClickListener(v -> cycleStore());
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == LOGIN_CODE_SCAN_REQUEST && resultCode == RESULT_OK && data != null) {
+            String payload = data.getStringExtra(LoginCodeScanActivity.EXTRA_LOGIN_CODE_PAYLOAD);
+            applyLoginCodePayload(payload);
         }
     }
 
@@ -172,10 +187,75 @@ public class SettingsActivity extends Activity {
         new ConnectTask().execute(finalUrl, email, password);
     }
 
+    private void applyLoginCodePayload(String payload) {
+        if (payload == null) return;
+        String raw = payload.trim();
+        if (raw.isEmpty()) return;
+
+        String scannedUrl = extractServerUrl(raw);
+        if (!scannedUrl.isEmpty()) {
+            inputUrl.setText(scannedUrl);
+        }
+
+        String scannedCode = extractLoginCode(raw);
+        inputLoginCode.setText(scannedCode);
+        statusText.setText("✅ Login QR scanned. Tap Login with BTCPay Code.");
+        statusText.setVisibility(View.VISIBLE);
+    }
+
+    private static String extractLoginCode(String raw) {
+        if (raw == null) return "";
+        String value = raw.trim();
+        if (value.isEmpty()) return "";
+
+        try {
+            if (value.startsWith("http://") || value.startsWith("https://")) {
+                URL parsed = new URL(value);
+                String query = parsed.getQuery();
+                if (query != null) {
+                    for (String part : query.split("&")) {
+                        int equals = part.indexOf('=');
+                        String key = equals >= 0 ? part.substring(0, equals) : part;
+                        String val = equals >= 0 ? part.substring(equals + 1) : "";
+                        if ("loginCode".equalsIgnoreCase(URLDecoder.decode(key, "UTF-8"))) {
+                            return URLDecoder.decode(val, "UTF-8").trim();
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+
+        int semicolon = value.indexOf(';');
+        if (semicolon > 0) {
+            return value.substring(0, semicolon).trim();
+        }
+        return value;
+    }
+
+    private static String extractServerUrl(String raw) {
+        if (raw == null) return "";
+        String value = raw.trim();
+        if (value.isEmpty()) return "";
+
+        try {
+            if (value.startsWith("http://") || value.startsWith("https://")) {
+                URL parsed = new URL(value);
+                return parsed.getProtocol() + "://" + parsed.getHost() + (parsed.getPort() > 0 ? ":" + parsed.getPort() : "");
+            }
+        } catch (Exception ignored) { }
+
+        String[] parts = value.split(";", 3);
+        if (parts.length >= 2 && (parts[1].startsWith("http://") || parts[1].startsWith("https://"))) {
+            return normalizeUrl(parts[1]);
+        }
+        return "";
+    }
+
     private void loginWithCode() {
         String url = normalizeUrl(inputUrl.getText().toString().trim());
         String storeId = inputStoreId.getText().toString().trim();
-        String loginCode = inputLoginCode.getText().toString().trim();
+        String loginCodePayload = inputLoginCode.getText().toString().trim();
+        String loginCode = extractLoginCode(loginCodePayload);
 
         if (url.isEmpty()) {
             inputUrl.setError("Required");
@@ -343,7 +423,7 @@ public class SettingsActivity extends Activity {
                     errReader.close();
 
                     if (code == 401) {
-                        error = "Invalid email or password";
+                        error = "Password login failed. If BTCPay has 2FA/passkeys enabled, use Scan BTCPay Login QR instead.";
                     } else {
                         error = "API error (" + code + "): " + errBody.toString();
                     }

@@ -38,6 +38,12 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.MaterialComponents.NoActionBar" />
 
+        <activity
+            android:name=".LoginCodeScanActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.MaterialComponents.NoActionBar" />
+
         <service
             android:name=".ndef.NdefHostCardEmulationService"
             android:exported="true"

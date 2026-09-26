@@ -113,6 +113,18 @@
             android:textSize="17sp" />
 
         <Button
+            android:id="@+id/btn_scan_login_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Scan BTCPay Login QR"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#ffffff"
+            android:background="#1976D2"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
             android:id="@+id/btn_login_code"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
