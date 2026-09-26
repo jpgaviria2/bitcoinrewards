@@ -10,11 +10,20 @@ dotnet build Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.Bi
 ```
 Output: `Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll`
 
-2) Package the plugin by renaming the DLL to `.btcpay` at repo root:
+2) Package the plugin with BTCPay's PluginPacker (a `.btcpay` file is a ZIP package,
+not a renamed DLL):
 ```
-cp Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0/BTCPayServer.Plugins.BitcoinRewards.dll \
-   BTCPayServer.Plugins.BitcoinRewards.btcpay
+PACK_OUTPUT="$(mktemp -d /tmp/bitcoinrewards-pack.XXXXXX)"
+dotnet run --project submodules/BTCPayServer.PluginPacker/BTCPayServer.PluginPacker.csproj -- \
+  Plugins/BTCPayServer.Plugins.BitcoinRewards/bin/Release/net8.0 \
+  BTCPayServer.Plugins.BitcoinRewards \
+  "$PACK_OUTPUT"
 ```
+
+The package is written below
+`$PACK_OUTPUT/BTCPayServer.Plugins.BitcoinRewards/<version>/`. Keep the upload
+filename exactly `BTCPayServer.Plugins.BitcoinRewards.btcpay`; suffixes change the
+identifier BTCPay derives during manual upload.
 
 3) Install into BTCPay (docker example, container `generated_btcpayserver_1`):
 ```
@@ -26,7 +35,7 @@ Then enable the plugin in Server Settings > Plugins if needed.
 
 ## Why this works
 - `Directory.Build.targets` auto-initializes/restores the BTCPay submodule, so no manual `BTCPayServerPath` or pre-built BTCPay checkout is required.
-- The current project does **not** emit a `.btcpay` file automatically; you must copy/rename the DLL (step 2).
+- PluginPacker validates the plugin assembly and creates the manifest, package, and checksums in BTCPay's expected format.
 
 ## Notes on helper scripts
 - `scripts/build-local.sh` / `.ps1` currently assume the csproj sits at repo root and will fail here. Use the `dotnet build` command above until the scripts are updated.
@@ -39,4 +48,3 @@ Then enable the plugin in Server Settings > Plugins if needed.
 ## Troubleshooting
 - Missing BTCPay namespaces/types: ensure you ran the `dotnet build` command from repo root so the submodule restore ran.
 - Plugin not showing in BTCPay: confirm the `.btcpay` file exists in `/datadir/plugins` (or your BTCPay plugins directory) and restart BTCPay.
-
