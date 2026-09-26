@@ -25,6 +25,7 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -102,6 +103,13 @@ public class MainActivity extends Activity {
         if (btnSettings != null) {
             btnSettings.setOnClickListener(v -> {
                 startActivity(new Intent(this, SettingsActivity.class));
+            });
+        }
+
+        Button btnScanRewardsProfile = findViewById(R.id.btn_scan_rewards_profile);
+        if (btnScanRewardsProfile != null) {
+            btnScanRewardsProfile.setOnClickListener(v -> {
+                startActivity(new Intent(this, RewardsProfileScanActivity.class));
             });
         }
 

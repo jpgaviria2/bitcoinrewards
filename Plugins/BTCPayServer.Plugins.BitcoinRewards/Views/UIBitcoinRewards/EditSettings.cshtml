@@ -1,750 +1,213 @@
 @using BTCPayServer.Abstractions.Extensions
-@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
-@using BTCPayServer.Plugins.BitcoinRewards
-@model BitcoinRewardsSettingsViewModel
+@model BTCPayServer.Plugins.BitcoinRewards.ViewModels.BitcoinRewardsSettingsViewModel
 @{
     ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
+    ViewData["ActivePage"] = "Settings";
     Layout = "_Layout";
 }
 
 <div class="row">
     <div class="sticky-header">
-        <h2 class="my-1">@ViewData["Title"]</h2>
-        <div class="d-flex gap-2">
-            <a asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
-                View History
-            </a>
-            <form method="post" class="d-inline">
-                <button name="command" type="submit" class="btn btn-danger" value="Reset">
-                    Reset
-                </button>
-            </form>
-        </div>
+    <h2 class="my-1">Bitcoin Rewards</h2>
+    <div class="d-flex gap-2">
+        <a asp-controller="CustomerCheckIn" asp-action="Index" asp-route-storeId="@Model.StoreId" class="btn btn-success">Open QR Scanner</a>
+        <a asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">View History</a>
+        <a asp-action="CreateTestReward" asp-route-storeId="@Model.StoreId" class="btn btn-outline-secondary">Create Test Reward</a>
     </div>
-    <partial name="_StatusMessage"/>
-    @{ ViewData["ActiveNav"] = "Settings"; ViewData["StoreId"] = Model.StoreId; }
-    <partial name="_PluginNav" />
-    <div class="col-xxl-constrain col-xl-8">
-        <form method="post">
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="Enabled" value="false">
-                    <input name="Enabled" class="form-check-input" type="checkbox" id="Enabled" value="true" @(Model.Enabled ? "checked" : "")>
-                    <label asp-for="Enabled" class="form-check-label"></label>
-                </div>
-                <span asp-validation-for="Enabled" class="text-danger"></span>
-                <small class="form-text text-muted">Enable Bitcoin Rewards for this store. When disabled, no rewards will be processed.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="ExternalRewardPercentage" class="form-label"></label>
-                <input asp-for="ExternalRewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
-                <span asp-validation-for="ExternalRewardPercentage" class="text-danger"></span>
-                <small class="form-text text-muted">Percentage for Shopify and Square rewards (0-100). Example: 5 means 5% cashback.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="BtcpayRewardPercentage" class="form-label"></label>
-                <input asp-for="BtcpayRewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
-                <span asp-validation-for="BtcpayRewardPercentage" class="text-danger"></span>
-                <small class="form-text text-muted">Percentage for BTCPay payments (any method) that include a buyer email.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="DeliveryMethod" class="form-label"></label>
-                <div>
-                    <div class="form-check form-check-inline">
-                        <input asp-for="DeliveryMethod" class="form-check-input" type="radio" value="@DeliveryMethod.Email" id="DeliveryMethod_Email" checked="@(Model.DeliveryMethod == DeliveryMethod.Email)">
-                        <label class="form-check-label" for="DeliveryMethod_Email">Email</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input asp-for="DeliveryMethod" class="form-check-input" type="radio" value="@DeliveryMethod.Sms" id="DeliveryMethod_Sms" checked="@(Model.DeliveryMethod == DeliveryMethod.Sms)">
-                        <label class="form-check-label" for="DeliveryMethod_Sms">SMS</label>
-                    </div>
-                </div>
-                <span asp-validation-for="DeliveryMethod" class="text-danger"></span>
-                <small class="form-text text-muted">How rewards will be delivered to customers.</small>
-            </div>
-
-            <h3 class="mt-5 mb-3">Platform Integration</h3>
-            
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="EnableShopify" value="false">
-                    <input name="EnableShopify" class="form-check-input" type="checkbox" id="EnableShopify" value="true" disabled>
-                    <label class="form-check-label" for="EnableShopify">Enable Shopify (coming soon)</label>
-                </div>
-                <small class="form-text text-muted text-warning">Shopify integration is temporarily disabled; toggle is locked off.</small>
-            </div>
-
-            <div id="shopify-settings" style="display:none;">
-                <div class="form-group mb-3">
-                    <label asp-for="ShopifyShopUrl" class="form-label"></label>
-                    <input asp-for="ShopifyShopUrl" class="form-control" placeholder="https://your-store.myshopify.com" disabled />
-                    <span asp-validation-for="ShopifyShopUrl" class="text-danger"></span>
-                    <small class="form-text text-muted">Your Shopify store URL (coming soon).</small>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="ShopifyAccessToken" class="form-label"></label>
-                    <input asp-for="ShopifyAccessToken" class="form-control" type="password" disabled />
-                    <span asp-validation-for="ShopifyAccessToken" class="text-danger"></span>
-                    <small class="form-text text-muted">Shopify API access token (coming soon).</small>
-                </div>
-            </div>
-
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="EnableSquare" value="false">
-                    <input name="EnableSquare" class="form-check-input" type="checkbox" id="EnableSquare" value="true" @(Model.EnableSquare ? "checked" : "")>
-                    <label asp-for="EnableSquare" class="form-check-label"></label>
-                </div>
-                <small class="form-text text-muted">Enable rewards for Square transactions.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="EnableBtcpay" value="false">
-                    <input name="EnableBtcpay" class="form-check-input" type="checkbox" id="EnableBtcpay" value="true" @(Model.EnableBtcpay ? "checked" : "")>
-                    <label asp-for="EnableBtcpay" class="form-check-label"></label>
-                </div>
-                <small class="form-text text-muted">Enable rewards for BTCPay payments (any payment method) when buyer email is present.</small>
-            </div>
-
-            <div id="square-settings" style="display: @(Model.EnableSquare ? "block" : "none");">
-                <div class="form-group mb-3">
-                    <label asp-for="SquareApplicationId" class="form-label"></label>
-                    <input asp-for="SquareApplicationId" class="form-control" />
-                    <span asp-validation-for="SquareApplicationId" class="text-danger"></span>
-                    <small class="form-text text-muted">Square Application ID from your Square Developer Dashboard.</small>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="SquareAccessToken" class="form-label"></label>
-                    <input asp-for="SquareAccessToken" class="form-control" type="password" />
-                    <span asp-validation-for="SquareAccessToken" class="text-danger"></span>
-                    <small class="form-text text-muted">
-                        Square API access token. @if (Model.HasSquareAccessToken) { <span class="text-success">Saved (hidden)</span> }
-                    </small>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="SquareLocationId" class="form-label"></label>
-                    <input asp-for="SquareLocationId" class="form-control" />
-                    <span asp-validation-for="SquareLocationId" class="text-danger"></span>
-                    <small class="form-text text-muted">Square Location ID where transactions occur.</small>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="SquareEnvironment" class="form-label"></label>
-                    <select asp-for="SquareEnvironment" class="form-select">
-                        <option value="production">Production</option>
-                        <option value="sandbox">Sandbox</option>
-                    </select>
-                    <span asp-validation-for="SquareEnvironment" class="text-danger"></span>
-                    <small class="form-text text-muted">Square API environment.</small>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="SquareWebhookSignatureKey" class="form-label"></label>
-                    <input asp-for="SquareWebhookSignatureKey" class="form-control" type="password" />
-                    <span asp-validation-for="SquareWebhookSignatureKey" class="text-danger"></span>
-                    <small class="form-text text-muted">
-                        Square webhook signature key used to verify incoming webhooks.
-                        @if (Model.HasSquareWebhookSignatureKey) { <span class="text-success">Saved (hidden)</span> }
-                    </small>
-                </div>
-            </div>
-
-            <h3 class="mt-5 mb-3">Advanced Settings</h3>
-
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h4 class="card-title">iOS Rewards Profile — Part B</h4>
-                    <p class="text-muted">Bind a scanned <code>user@pay.trailscoffee.com</code> address to one exact Square order. Direct Lightning payout remains unavailable; the existing pull-payment reward stays authoritative.</p>
-                    <div class="form-check form-switch mb-3">
-                        <input type="hidden" name="CustomerProfileAssociationEnabled" value="false">
-                        <input name="CustomerProfileAssociationEnabled" class="form-check-input" type="checkbox" value="true" @(Model.CustomerProfileAssociationEnabled ? "checked" : "")>
-                        <label asp-for="CustomerProfileAssociationEnabled" class="form-check-label"></label>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="CustomerProfileApiBaseUrl" class="form-label"></label>
-                        <input asp-for="CustomerProfileApiBaseUrl" class="form-control" readonly />
-                        <span asp-validation-for="CustomerProfileApiBaseUrl" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="CustomerProfileApiToken" class="form-label"></label>
-                        <input asp-for="CustomerProfileApiToken" class="form-control" type="password" autocomplete="new-password" />
-                        <span asp-validation-for="CustomerProfileApiToken" class="text-danger"></span>
-                        <small class="form-text text-muted">@if (Model.HasCustomerProfileApiToken) { <span class="text-success">Saved (hidden)</span> } Never paste this token into logs or support messages.</small>
-                    </div>
-                    <div class="form-check form-switch">
-                        <input type="hidden" name="LegacyPullPaymentFallbackEnabled" value="false">
-                        <input name="LegacyPullPaymentFallbackEnabled" class="form-check-input" type="checkbox" value="true" @(Model.LegacyPullPaymentFallbackEnabled ? "checked" : "")>
-                        <label asp-for="LegacyPullPaymentFallbackEnabled" class="form-check-label"></label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="MinimumTransactionAmount" class="form-label"></label>
-                <input asp-for="MinimumTransactionAmount" class="form-control" type="number" step="0.01" min="0" />
-                <span asp-validation-for="MinimumTransactionAmount" class="text-danger"></span>
-                <small class="form-text text-muted">Minimum transaction amount (in store currency) to trigger a reward. Leave empty for no minimum.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="MaximumRewardSatoshis" class="form-label"></label>
-                <input asp-for="MaximumRewardSatoshis" class="form-control" type="number" min="0" />
-                <span asp-validation-for="MaximumRewardSatoshis" class="text-danger"></span>
-                <small class="form-text text-muted">Maximum reward cap in satoshis. Leave empty for no limit.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="ServerBaseUrl" class="form-label"></label>
-                <input asp-for="ServerBaseUrl" class="form-control" placeholder="https://anmore.cash/" />
-                <span asp-validation-for="ServerBaseUrl" class="text-danger"></span>
-                <small class="form-text text-muted">Fallback base URL used to build claim links in emails when no request context or store website is available. Use your public BTCPay URL.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="EmailSubjectOverride" class="form-label"></label>
-                <input asp-for="EmailSubjectOverride" class="form-control" placeholder="Your Bitcoin Reward - {AMOUNT_SATS} sats" />
-                <span asp-validation-for="EmailSubjectOverride" class="text-danger"></span>
-                <small class="form-text text-muted">Optional custom subject line. Tokens: {AMOUNT_SATS}, {AMOUNT_BTC}.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="EmailTemplateOverride" class="form-label"></label>
-
-                <!-- Tab navigation for HTML/Preview -->
-                <ul class="nav nav-tabs mb-2" id="email-template-tabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="html-tab" data-bs-toggle="tab" data-bs-target="#html-panel" type="button" role="tab" aria-controls="html-panel" aria-selected="true">HTML Source</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="preview-tab" data-bs-toggle="tab" data-bs-target="#preview-panel" type="button" role="tab" aria-controls="preview-panel" aria-selected="false">Live Preview</button>
-                    </li>
-                </ul>
-
-                <!-- Tab content -->
-                <div class="tab-content border rounded p-3 mb-2" id="email-template-content">
-                    <div class="tab-pane fade show active" id="html-panel" role="tabpanel" aria-labelledby="html-tab">
-                        <textarea asp-for="EmailTemplateOverride" class="form-control" rows="8" id="email-template-textarea" placeholder="Use {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL} tokens"></textarea>
-                    </div>
-                    <div class="tab-pane fade" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab">
-                        <div id="email-template-preview" class="border rounded p-3 bg-light" style="min-height: 200px;">
-                            <!-- Preview will be populated by JavaScript -->
-                            <p class="text-muted mb-0">Click "Live Preview" to see how your email will look.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <span asp-validation-for="EmailTemplateOverride" class="text-danger"></span>
-                <small class="form-text text-muted">
-                    Optional override template (HTML allowed). Tokens: {ORDER_ID}, {AMOUNT_BTC}, {AMOUNT_SATS}, {CLAIM_LINK}, {LNURL}, {LNURL_QR}.
-                    <a href="#" id="load-sample-template">Load sample template</a>
-                </small>
-            </div>
-
-            <h3 class="mt-5 mb-3">Display Settings</h3>
-            <p class="text-muted mb-4">
-                Configure how rewards are displayed on the display page.
-            </p>
-
-            <div class="alert alert-info mb-4">
-                <strong>Rewards Display Page:</strong>
-                <p class="mb-2">Show recent unclaimed rewards with QR codes. Perfect for physical stores!</p>
-                <p class="mb-0">
-                    <a asp-action="DisplayRewards" asp-route-storeId="@Model.StoreId" class="btn btn-sm btn-primary" target="_blank">
-                        Open Display Page
-                    </a>
-                </p>
-                <p class="mb-0 mt-2">
-                    <small class="text-muted">Display URL: <code>@Url.Action("DisplayRewards", "UIBitcoinRewards", new { storeId = Model.StoreId }, Context.Request.Scheme)</code></small>
-                </p>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="DisplayTimeoutSeconds" class="form-label"></label>
-                <input asp-for="DisplayTimeoutSeconds" class="form-control" type="number" min="10" max="300" />
-                <span asp-validation-for="DisplayTimeoutSeconds" class="text-danger"></span>
-                <small class="form-text text-muted">How long to show the QR code on the display before automatically hiding it (10-300 seconds).</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="DisplayAutoRefreshSeconds" class="form-label"></label>
-                <input asp-for="DisplayAutoRefreshSeconds" class="form-control" type="number" min="5" max="60" />
-                <span asp-validation-for="DisplayAutoRefreshSeconds" class="text-danger"></span>
-                <small class="form-text text-muted">How often the display page auto-refreshes (5-60 seconds).</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="DisplayTimeframeMinutes" class="form-label"></label>
-                <input asp-for="DisplayTimeframeMinutes" class="form-control" type="number" min="5" max="1440" />
-                <span asp-validation-for="DisplayTimeframeMinutes" class="text-danger"></span>
-                <small class="form-text text-muted">How far back to look for unclaimed rewards on the display page (5-1440 minutes).</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="DisplayTemplateOverride" class="form-label"></label>
-
-                <!-- Tab navigation for HTML/Preview -->
-                <ul class="nav nav-tabs mb-2" id="display-template-tabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="display-html-tab" data-bs-toggle="tab" data-bs-target="#display-html-panel" type="button" role="tab" aria-controls="display-html-panel" aria-selected="true">HTML Source</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="display-preview-tab" data-bs-toggle="tab" data-bs-target="#display-preview-panel" type="button" role="tab" aria-controls="display-preview-panel" aria-selected="false">Live Preview</button>
-                    </li>
-                </ul>
-
-                <!-- Tab content -->
-                <div class="tab-content border rounded p-3 mb-2" id="display-template-content">
-                    <div class="tab-pane fade show active" id="display-html-panel" role="tabpanel" aria-labelledby="display-html-tab">
-                        <textarea asp-for="DisplayTemplateOverride" class="form-control" rows="12" id="display-template-textarea" placeholder="Use {AMOUNT_BTC}, {AMOUNT_SATS}, {QR_CODE}, {CLAIM_LINK}, {LNURL} tokens"></textarea>
-                    </div>
-                    <div class="tab-pane fade" id="display-preview-panel" role="tabpanel" aria-labelledby="display-preview-tab">
-                        <div id="display-template-preview" class="border rounded p-3 bg-light" style="min-height: 300px;">
-                            <!-- Preview will be populated by JavaScript -->
-                            <p class="text-muted mb-0">Click "Live Preview" to see how your display page will look.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <span asp-validation-for="DisplayTemplateOverride" class="text-danger"></span>
-                <small class="form-text text-muted">
-                    Optional custom HTML template for the display page. Tokens: {AMOUNT_BTC}, {AMOUNT_SATS}, {QR_CODE}, {CLAIM_LINK}, {LNURL}, {COUNTDOWN_TIMER}, {DONE_BUTTON}.
-                    <a href="#" id="load-sample-display-template">Load sample template</a>
-                </small>
-            </div>
-
-            <!-- Waiting Template Override -->
-            <div class="form-group mb-4">
-                <label asp-for="WaitingTemplateOverride" class="form-label">Waiting Screen Template (Idle State)</label>
-
-                <ul class="nav nav-tabs mb-2" id="waiting-template-tabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="waiting-html-tab" data-bs-toggle="tab" data-bs-target="#waiting-html-panel" type="button" role="tab">HTML Source</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="waiting-preview-tab" data-bs-toggle="tab" data-bs-target="#waiting-preview-panel" type="button" role="tab">Live Preview</button>
-                    </li>
-                </ul>
-
-                <div class="tab-content border rounded p-3 mb-2" id="waiting-template-content">
-                    <div class="tab-pane fade show active" id="waiting-html-panel" role="tabpanel">
-                        <textarea asp-for="WaitingTemplateOverride" class="form-control font-monospace" rows="12" id="waiting-template-textarea"></textarea>
-                    </div>
-                    <div class="tab-pane fade" id="waiting-preview-panel" role="tabpanel">
-                        <div id="waiting-template-preview" class="border rounded p-3 bg-light" style="min-height: 300px;">
-                            <p class="text-muted mb-0">Click "Live Preview" to see your waiting screen.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <span asp-validation-for="WaitingTemplateOverride" class="text-danger"></span>
-                <small class="form-text text-muted">
-                    HTML template shown when no rewards are pending. Tokens: {STORE_NAME}, {AUTO_REFRESH_SECONDS}, {TIMEFRAME_MINUTES}, {PRIMARY_COLOR}, {SECONDARY_COLOR}, {ACCENT_COLOR}, {LOGO_URL}, {LOGO_HTML}.
-                    <button type="button" class="btn btn-link btn-sm" onclick="resetWaitingTemplate()">Reset to Default</button>
-                </small>
-            </div>
-
-            <!-- Branding Settings -->
-            <h3 class="mt-5 mb-3">Branding Settings</h3>
-            <p class="text-muted mb-4">Customize colors and branding used in templates.</p>
-
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label asp-for="PrimaryColor">Primary Brand Color</label>
-                        <input asp-for="PrimaryColor" type="color" class="form-control" />
-                        <small class="form-text text-muted">Main brand color (default: #6B4423)</small>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label asp-for="SecondaryColor">Secondary Color</label>
-                        <input asp-for="SecondaryColor" type="color" class="form-control" />
-                        <small class="form-text text-muted">Accent color (default: #CD853F)</small>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label asp-for="AccentColor">Accent Color</label>
-                        <input asp-for="AccentColor" type="color" class="form-control" />
-                        <small class="form-text text-muted">Background color (default: #F5F5DC)</small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="LogoUrl">Logo URL</label>
-                <input asp-for="LogoUrl" class="form-control" placeholder="https://example.com/logo.png" />
-                <small class="form-text text-muted">Direct URL to your store logo (optional, used in templates)</small>
-            </div>
-
-            <h3 class="mt-5 mb-3">Payout Processor Configuration</h3>
-            <p class="text-muted mb-4">
-                Configure payout processors in BTCPay Server settings. Rewards will be automatically sent using the configured payout processor.
-            </p>
-            
-            <div class="alert alert-info mb-4">
-                <strong>Payout Processor Setup:</strong>
-                <p class="mb-2">To enable automatic reward payouts, configure a payout processor in:</p>
-                <p class="mb-0">
-                    <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
-                        Store Settings → Payout Processors
-                    </a>
-                </p>
-            </div>
-            
-            <div class="form-group mb-4">
-                <label asp-for="SelectedPayoutProcessorId" class="form-label">Payout Processor for Rewards</label>
-                <select asp-for="SelectedPayoutProcessorId" class="form-select">
-                    <option value="">-- None (Disable automated payouts) --</option>
-                    @foreach (var processor in Model.AvailablePayoutProcessors)
-                    {
-                        var isSelected = Model.SelectedPayoutProcessorId == processor.ProcessorId;
-                        <option value="@processor.ProcessorId" selected="@isSelected">
-                            @processor.FriendlyName (@string.Join(", ", processor.SupportedMethods.Select(m => m.ToString())))
-                        </option>
-                    }
-                </select>
-                <span asp-validation-for="SelectedPayoutProcessorId" class="text-danger"></span>
-                <small class="form-text text-muted">
-                    Select which payout processor to use for automatically sending rewards to customers. 
-                    Configure payout processors in <a href="~/stores/@Model.StoreId/payout-processors" target="_blank">Store Settings → Payout Processors</a>.
-                </small>
-            </div>
-            
-            @if (Model.AvailablePayoutProcessors.Count == 0)
-            {
-                <div class="alert alert-info mb-4">
-                    <strong>No Payout Processors Configured</strong>
-                    <p class="mb-2">You need to configure at least one payout processor before you can automatically send rewards.</p>
-                    <p class="mb-0">
-                        <a href="~/stores/@Model.StoreId/payout-processors" class="btn btn-sm btn-primary" target="_blank">
-                            Go to Payout Processors Settings
-                        </a>
-                    </p>
-                </div>
-            }
-
-            <h4 class="mt-5 mb-3">⚡ Bolt Card NFC Rewards</h4>
-            <div class="alert alert-info mb-3">
-                <strong>Prerequisites:</strong> Requires the <a href="https://plugin-builder.btcpayserver.org/public/plugins/boltcards-plugin" target="_blank">Boltcards Plugin</a> 
-                installed on this BTCPay Server, with a BoltcardFactory app configured for card issuance.
-                Cards must be NTAG 424 DNA. NFC tap only works on Android Chrome.
-            </div>
-            
-            <div class="form-check mb-3">
-                <input asp-for="BoltCardEnabled" class="form-check-input" type="checkbox" />
-                <label asp-for="BoltCardEnabled" class="form-check-label">Enable Bolt Card NFC Rewards</label>
-                <small class="form-text text-muted d-block">
-                    When enabled, the rewards display page will show an NFC tap button alongside the QR code.
-                    Customers can tap their Bolt Card to collect rewards directly onto their card balance.
-                </small>
-            </div>
-            
-            <div class="mb-3">
-                <label asp-for="BoltcardFactoryAppId" class="form-label">Boltcard Factory App ID</label>
-                <input asp-for="BoltcardFactoryAppId" class="form-control" placeholder="e.g. 3Jma9xYhSEKZ..." />
-                <small class="form-text text-muted">
-                    The App ID of your BoltcardFactory app (found in Apps → your Boltcard Factory app URL).
-                </small>
-            </div>
-            
-            <div class="mb-3">
-                <label asp-for="DefaultCardBalanceSats" class="form-label">Default New Card Balance (sats)</label>
-                <input asp-for="DefaultCardBalanceSats" class="form-control" type="number" min="0" />
-                <small class="form-text text-muted">
-                    Initial balance in satoshis for newly issued cards. Default: 100 sats.
-                </small>
-            </div>
-
-            <h3 class="mt-5 mb-3">💰 Dual Balance Wallet Settings</h3>
-            <p class="text-muted mb-4">
-                Configure dual-balance (CAD + Sats) wallet behavior for bolt card holders.
-                <a asp-controller="UIWalletManagement" asp-action="ListWallets" asp-route-storeId="@Model.StoreId" class="btn btn-sm btn-outline-primary ms-2">
-                    Manage Customer Wallets →
-                </a>
-            </p>
-
-            <div class="form-group mb-3">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="DefaultAutoConvertToCad" value="false">
-                    <input name="DefaultAutoConvertToCad" class="form-check-input" type="checkbox" id="DefaultAutoConvertToCad" value="true" @(Model.DefaultAutoConvertToCad ? "checked" : "")>
-                    <label class="form-check-label" for="DefaultAutoConvertToCad">Default Auto-Convert to CAD</label>
-                </div>
-                <small class="form-text text-muted">When enabled, new wallets will auto-convert sats rewards to CAD at the current exchange rate.</small>
-            </div>
-
-            <div class="form-group mb-3">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="SwapEnabled" value="false">
-                    <input name="SwapEnabled" class="form-check-input" type="checkbox" id="SwapEnabled" value="true" @(Model.SwapEnabled ? "checked" : "")>
-                    <label class="form-check-label" for="SwapEnabled">Enable Swaps (CAD ↔ Sats)</label>
-                </div>
-                <small class="form-text text-muted">Allow customers to swap between CAD and sats balances via the PWA.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <div class="form-check form-switch">
-                    <input type="hidden" name="CadSpendingEnabled" value="false">
-                    <input name="CadSpendingEnabled" class="form-check-input" type="checkbox" id="CadSpendingEnabled" value="true" @(Model.CadSpendingEnabled ? "checked" : "")>
-                    <label class="form-check-label" for="CadSpendingEnabled">Enable CAD Spending</label>
-                </div>
-                <small class="form-text text-muted">Allow CAD balance to be debited at POS (in-store spending).</small>
-            </div>
-
-            <button name="command" type="submit" class="btn btn-primary" value="Save">Save Settings</button>
-        </form>
     </div>
 </div>
 
-@section PageFootContent {
-    <script>
-        document.getElementById('EnableShopify').addEventListener('change', function() {
-            document.getElementById('shopify-settings').style.display = this.checked ? 'block' : 'none';
-        });
-        document.getElementById('EnableSquare').addEventListener('change', function() {
-            document.getElementById('square-settings').style.display = this.checked ? 'block' : 'none';
-        });
+<partial name="_StatusMessage" />
+<partial name="_PluginNav" />
 
-        // Email template preview functionality
-        const subjectInput = document.getElementById('EmailSubjectOverride');
-        const textarea = document.getElementById('email-template-textarea');
-        const previewDiv = document.getElementById('email-template-preview');
-        const loadSampleBtn = document.getElementById('load-sample-template');
+<form method="post" asp-action="EditSettings" asp-route-storeId="@Model.StoreId">
+    @Html.AntiForgeryToken()
 
-        function updatePreview() {
-            const html = textarea.value;
-            if (html.trim()) {
-                // Simple token replacement for preview (using sample data)
-                let processedHtml = html
-                    .replace(/{ORDER_ID}/g, 'ORDER-12345')
-                    .replace(/{AMOUNT_BTC}/g, '0.00123456')
-                    .replace(/{AMOUNT_SATS}/g, '123456')
-                    .replace(/{CLAIM_LINK}/g, 'https://example.com/claim/abc123')
-                    .replace(/{LNURL}/g, 'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns')
-                    .replace(/{LNURL_QR}/g, 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAKYSURBVHic7ZxNSBRBEMX/'); // Sample QR data URI
+    <div class="row">
+        <div class="col-xxl-constrain">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Core Square Rewards</h3>
+                </div>
+                <div class="card-body">
+                    <div asp-validation-summary="All" class="text-danger"></div>
 
-                previewDiv.innerHTML = processedHtml;
-            } else {
-                previewDiv.innerHTML = '<p class="text-muted mb-0">Click "Live Preview" to see how your email will look.</p>';
-            }
-        }
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="Enabled" value="false" />
+                        <input asp-for="Enabled" class="form-check-input" type="checkbox" value="true" />
+                        <label asp-for="Enabled" class="form-check-label">Enable Bitcoin Rewards</label>
+                    </div>
 
-        // Update preview when tab is clicked
-        document.getElementById('preview-tab').addEventListener('click', updatePreview);
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="EnableSquare" value="false" />
+                        <input asp-for="EnableSquare" class="form-check-input" type="checkbox" value="true" />
+                        <label asp-for="EnableSquare" class="form-check-label">Enable Square payments</label>
+                        <small class="form-text text-muted d-block">Square payment.updated webhooks create rewards after Square marks the payment COMPLETED.</small>
+                    </div>
 
-        // Update preview when textarea or subject changes
-        textarea.addEventListener('input', function() {
-            if (document.getElementById('preview-tab').classList.contains('active')) {
-                updatePreview();
-            }
-        });
-        if (subjectInput) {
-            subjectInput.addEventListener('input', function() {
-                // Could add subject preview here if needed
-            });
-        }
+                    <div class="form-group mb-3">
+                        <label asp-for="ExternalRewardPercentage">Square Reward Percentage</label>
+                        <input asp-for="ExternalRewardPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
+                        <span asp-validation-for="ExternalRewardPercentage" class="text-danger"></span>
+                    </div>
 
-        // Load sample template
-        loadSampleBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const sampleTemplate = `<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px; font-weight: 600;">🎉 Trails Coffee Rewards Earned!</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.9;">You've received a reward for your recent purchase</p>
-    </div>
+                    <input type="hidden" asp-for="BtcpayRewardPercentage" />
+                    <input type="hidden" asp-for="DeliveryMethod" />
+                    <input type="hidden" asp-for="EnableBtcpay" value="false" />
 
-    <div style="padding: 30px 20px; color: #333;">
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="margin: 0 0 15px 0; color: #495057;">Reward Details</h2>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <strong>Order ID:</strong> <span>{ORDER_ID}</span>
+                    <input type="hidden" asp-for="LegacyPullPaymentFallbackEnabled" value="true" />
+                </div>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <strong>Reward Amount:</strong> <span style="color: #28a745; font-weight: 600;">{AMOUNT_SATS} sats</span>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Square API + Webhook</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label asp-for="SquareApplicationId"></label>
+                        <input asp-for="SquareApplicationId" class="form-control" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="SquareAccessToken"></label>
+                        <input asp-for="SquareAccessToken" class="form-control" type="password" autocomplete="off" placeholder="@(Model.HasSquareAccessToken ? "Saved — leave blank to keep current token" : "Square access token")" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="SquareLocationId"></label>
+                        <input asp-for="SquareLocationId" class="form-control" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="SquareEnvironment"></label>
+                        <select asp-for="SquareEnvironment" class="form-select">
+                            <option value="production">production</option>
+                            <option value="sandbox">sandbox</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="SquareWebhookSignatureKey"></label>
+                        <input asp-for="SquareWebhookSignatureKey" class="form-control" type="password" autocomplete="off" placeholder="@(Model.HasSquareWebhookSignatureKey ? "Saved — leave blank to keep current key" : "Webhook signature key")" />
+                    </div>
+                    <div class="alert alert-secondary">
+                        Square webhook endpoint:<br />
+                        <code>/plugins/bitcoin-rewards/@Model.StoreId/webhooks/square</code>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #856404;"><strong>⚡ Scan or copy/paste to redeem:</strong> Scan the QR code below with a your Trails Coffee rewards wallet, don't have one go to points.trailscoffee.com</p>
-        </div>
-
-        <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 20px 0; background: #f8f9fa;">
-            <h3 style="margin: 0 0 10px 0; color: #495057;">Trails Rewards Claim (LNURL)</h3>
-            <p style="margin: 0 0 10px 0; color: #6c757d;">Scan with your Trails Coffee Rewards Wallet  (points.trailscoffee.com):</p>
-            <div style="text-align: center;">
-                <img src="{LNURL_QR}" alt="LNURL QR Code" style="max-width: 150px; height: auto;" />
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">In-person scanned Lightning address flow</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                        <div>
+                            <strong>Customer rewards profile scanner</strong><br />
+                            Open this on the customer-facing phone/tablet. The customer scans their wallet QR containing a Lightning address; the next Square order will use it for rewards.
+                        </div>
+                        <a asp-controller="CustomerCheckIn" asp-action="Index" asp-route-storeId="@Model.StoreId" class="btn btn-success btn-lg text-nowrap">Open QR Scanner</a>
+                    </div>
+                    <div class="alert alert-secondary">
+                        Scanner URL:<br />
+                        <code>/plugins/bitcoin-rewards/@Model.StoreId/check-in</code>
+                        <br />
+                        Native Android scanner API:<br />
+                        <code>/plugins/bitcoin-rewards/@Model.StoreId/check-in/api</code>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="CustomerProfileAssociationEnabled" value="false" />
+                        <input asp-for="CustomerProfileAssociationEnabled" class="form-check-input" type="checkbox" value="true" />
+                        <label asp-for="CustomerProfileAssociationEnabled" class="form-check-label">Enable exact customer/order association</label>
+                        <small class="form-text text-muted d-block">POS/app scans a Trails Lightning address and associates it with a Square order before settlement.</small>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="CustomerProfileApiBaseUrl"></label>
+                        <input asp-for="CustomerProfileApiBaseUrl" class="form-control" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="CustomerProfileApiToken"></label>
+                        <input asp-for="CustomerProfileApiToken" class="form-control" type="password" autocomplete="off" placeholder="@(Model.HasCustomerProfileApiToken ? "Saved — leave blank to keep current token" : "Profile service token")" />
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="DirectLightningPayoutEnabled" value="false" />
+                        <input asp-for="DirectLightningPayoutEnabled" class="form-check-input" type="checkbox" value="true" />
+                        <label asp-for="DirectLightningPayoutEnabled" class="form-check-label">Enable direct Lightning payout for associated in-person Square orders</label>
+                        <small class="form-text text-muted d-block">When Square marks an associated order paid, BTCPay queues a Lightning payout to the scanned address. This can move funds once Square webhooks arrive.</small>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input type="hidden" name="LegacyPullPaymentFallbackEnabled" value="false" />
+                        <input asp-for="LegacyPullPaymentFallbackEnabled" class="form-check-input" type="checkbox" value="true" />
+                        <label asp-for="LegacyPullPaymentFallbackEnabled" class="form-check-label">Fallback to email pull payment if direct Lightning payout cannot be queued</label>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{CLAIM_LINK}" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; box-shadow: 0 2px 4px rgba(40,167,69,0.2);">Claim Your Reward</a>
-        </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Online order email pull payments</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label asp-for="SelectedPayoutProcessorId"></label>
+                        <select asp-for="SelectedPayoutProcessorId" class="form-select">
+                            <option value="">-- Auto-select configured payout processor --</option>
+                            @foreach (var processor in Model.AvailablePayoutProcessors)
+                            {
+                                <option value="@processor.ProcessorId">@processor.FriendlyName (@string.Join(", ", processor.SupportedMethods.Select(m => m.ToString())))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="ServerBaseUrl"></label>
+                        <input asp-for="ServerBaseUrl" class="form-control" placeholder="https://your-btcpay.example/" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="EmailSubjectOverride"></label>
+                        <input asp-for="EmailSubjectOverride" class="form-control" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="EmailTemplateOverride"></label>
+                        <textarea asp-for="EmailTemplateOverride" class="form-control" rows="8"></textarea>
+                        <small class="form-text text-muted">Available placeholders: {CUSTOMER_NAME}, {REWARD_AMOUNT}, {REWARD_SATS}, {CLAIM_LINK}, {QR_CODE}, {ORDER_ID}</small>
+                    </div>
+                </div>
+            </div>
 
-        <div style="border-top: 1px solid #dee2e6; padding-top: 20px; margin-top: 20px;">
-            <h3 style="margin: 0 0 15px 0; color: #495057;">How to Claim:</h3>
-            <ol style="padding-left: 20px; margin: 0;">
-                <li>Scan the QR code above with your Trails Coffee Rewards Wallet</li>
-                <li>Or click the "Claim Your Reward" button to use any payout method</li>
-                <li>Enter your payment details and receive your {AMOUNT_SATS} sats</li>
-            </ol>
-        </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Limits + Branding</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label asp-for="MinimumTransactionAmount"></label>
+                        <input asp-for="MinimumTransactionAmount" class="form-control" type="number" step="0.01" min="0" />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="MaximumRewardSatoshis"></label>
+                        <input asp-for="MaximumRewardSatoshis" class="form-control" type="number" min="0" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="PrimaryColor"></label>
+                            <input asp-for="PrimaryColor" class="form-control" type="color" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="SecondaryColor"></label>
+                            <input asp-for="SecondaryColor" class="form-control" type="color" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="AccentColor"></label>
+                            <input asp-for="AccentColor" class="form-control" type="color" />
+                        </div>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="LogoUrl"></label>
+                        <input asp-for="LogoUrl" class="form-control" />
+                    </div>
+                </div>
+            </div>
 
-        <p style="margin: 30px 0 0 0; text-align: center; color: #6c757d;">Thank you for your business! 🎯</p>
+            <button name="command" type="submit" class="btn btn-primary" value="Save">Save Settings</button>
+            <button name="command" type="submit" class="btn btn-outline-danger ms-2" value="Reset" onclick="return confirm('Reset Bitcoin Rewards settings for this store?')">Reset</button>
+        </div>
     </div>
-</div>`;
-
-            textarea.value = sampleTemplate;
-            // Trigger preview update if preview tab is active
-            if (document.getElementById('preview-tab').classList.contains('active')) {
-                updatePreview();
-            }
-        });
-
-        // Display template preview functionality
-        const displayTextarea = document.getElementById('display-template-textarea');
-        const displayPreviewDiv = document.getElementById('display-template-preview');
-        const loadSampleDisplayBtn = document.getElementById('load-sample-display-template');
-
-        function updateDisplayPreview() {
-            const html = displayTextarea.value;
-            if (html.trim()) {
-                // Simple token replacement for preview (using sample data)
-                let processedHtml = html
-                    .replace(/{AMOUNT_BTC}/g, '0.00123456')
-                    .replace(/{AMOUNT_SATS}/g, '123,456')
-                    .replace(/{CLAIM_LINK}/g, 'https://example.com/claim/abc123')
-                    .replace(/{LNURL}/g, 'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns')
-                    .replace(/{QR_CODE}/g, '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" style="width: 300px; height: 300px; border: 2px solid #ddd; display: block; margin: 0 auto;" alt="QR Code">')
-                    .replace(/{COUNTDOWN_TIMER}/g, '<div class="countdown-timer">Hiding in 45 seconds</div>')
-                    .replace(/{DONE_BUTTON}/g, '<button class="done-button" onclick="alert(\'Done button clicked\')">✓ Done</button>');
-
-                displayPreviewDiv.innerHTML = processedHtml;
-            } else {
-                displayPreviewDiv.innerHTML = '<p class="text-muted mb-0">Click "Live Preview" to see how your display page will look.</p>';
-            }
-        }
-
-        // Update preview when tab is clicked
-        document.getElementById('display-preview-tab').addEventListener('click', updateDisplayPreview);
-
-        // Update preview when textarea changes
-        displayTextarea.addEventListener('input', function() {
-            if (document.getElementById('display-preview-tab').classList.contains('active')) {
-                updateDisplayPreview();
-            }
-        });
-
-        // Load sample display template
-        loadSampleDisplayBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const sampleDisplayTemplate = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bitcoin Reward</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .reward-container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            text-align: center;
-        }
-        h1 {
-            color: #333;
-            margin: 0 0 10px 0;
-            font-size: 32px;
-        }
-        .amount {
-            font-size: 48px;
-            color: #28a745;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        .qr-container {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
-        }
-        .instructions {
-            color: #6c757d;
-            margin: 20px 0;
-            font-size: 16px;
-        }
-        .done-button {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 18px;
-            border-radius: 50px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-        .countdown-timer {
-            color: #007bff;
-            font-size: 14px;
-            margin-top: 15px;
-        }
-    </style>
-</head>
-<body>
-    <div class="reward-container">
-        <h1>🎉 Reward Earned!</h1>
-        <div class="amount">{AMOUNT_SATS} sats</div>
-        <div class="qr-container">
-            {QR_CODE}
-        </div>
-        <div class="instructions">
-            Scan the QR code with your Lightning wallet to claim your reward
-        </div>
-        {COUNTDOWN_TIMER}
-        {DONE_BUTTON}
-    </div>
-</body>
-</html>`;
-
-            displayTextarea.value = sampleDisplayTemplate;
-            // Trigger preview update if preview tab is active
-            if (document.getElementById('display-preview-tab').classList.contains('active')) {
-                updateDisplayPreview();
-            }
-        });
-        
-        // Reset waiting template to default
-        function resetWaitingTemplate() {
-            if (!confirm('Reset waiting template to default? This will overwrite any customizations.')) {
-                return;
-            }
-            
-            const waitingTextarea = document.getElementById('waiting-template-textarea');
-            if (!waitingTextarea) return;
-            
-            // Load default waiting template
-            const defaultWaitingTemplate = @Html.Raw(Json.Serialize(BTCPayServer.Plugins.BitcoinRewards.Constants.DefaultTemplates.WaitingTemplate));
-            
-            waitingTextarea.value = defaultWaitingTemplate;
-            alert('Waiting template reset to default. Click Save to apply changes.');
-        }
-    </script>
-}
+</form>

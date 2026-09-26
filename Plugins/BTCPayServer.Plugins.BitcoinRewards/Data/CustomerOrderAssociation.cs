@@ -37,6 +37,9 @@ public class CustomerOrderAssociation
     [Required, MaxLength(64)]
     public string LightningAddressHash { get; set; } = string.Empty;
 
+    [Required, MaxLength(128)]
+    public string LightningAddress { get; set; } = string.Empty;
+
     [MaxLength(100)]
     public string? RegisterId { get; set; }
 

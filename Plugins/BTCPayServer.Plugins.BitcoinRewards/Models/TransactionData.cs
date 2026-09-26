@@ -7,9 +7,8 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Models;
 
 public enum TransactionPlatform
 {
-    Shopify = 0,
-    Square = 1,
-    Btcpay = 2
+    Square = 0,
+    Btcpay = 1
 }
 
 public class TransactionData
@@ -22,6 +21,7 @@ public class TransactionData
     public string? CustomerPhone { get; set; }
     public string? CustomerProfileId { get; set; }
     public string? LightningAddressHash { get; set; }
+    public string? LightningAddress { get; set; }
     public TransactionPlatform Platform { get; set; }
     public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
     public Dictionary<string, string> Metadata { get; set; } = new();

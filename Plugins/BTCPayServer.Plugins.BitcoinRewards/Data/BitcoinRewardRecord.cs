@@ -17,9 +17,8 @@ public enum RewardStatus
 
 public enum RewardPlatform
 {
-    Shopify = 0,
-    Square = 1,
-    Btcpay = 2
+    Square = 0,
+    Btcpay = 1
 }
 
 public enum RewardDeliveryMode

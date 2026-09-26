@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data;
 
@@ -10,16 +12,24 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     public static string DefaultPluginSchema = "BTCPayServer.Plugins.BitcoinRewards";
 
     public DbSet<BitcoinRewardRecord> BitcoinRewardRecords { get; set; } = null!;
-    public DbSet<BoltCardLink> BoltCardLinks { get; set; } = null!;
-    public DbSet<CustomerWallet> CustomerWallets { get; set; } = null!;
-    public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
-    public DbSet<PendingLnurlClaim> PendingLnurlClaims { get; set; } = null!;
-    public DbSet<Nip05Identity> Nip05Identities { get; set; } = null!;
     public DbSet<CustomerOrderAssociation> CustomerOrderAssociations { get; set; } = null!;
+    public DbSet<PendingLightningAddressCheckIn> PendingLightningAddressCheckIns { get; set; } = null!;
     public DbSet<RewardPayoutAttempt> RewardPayoutAttempts { get; set; } = null!;
-    
-    // Phase 2: Production Hardening - Error tracking
-    public DbSet<Models.RewardError> RewardErrors { get; set; } = null!;
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        // BTCPay treats EF Core warnings as errors. This plugin ships several
+        // hand-written migrations and historically let the model snapshot lag
+        // behind the runtime model, causing MigrateAsync() to abort before it
+        // can create the plugin schema/tables. Keep startup resilient: apply
+        // the explicit migrations we ship and do not let a snapshot drift
+        // warning disable the plugin at runtime.
+        // EF Core 9+ exposes this as RelationalEventId.PendingModelChangesWarning.
+        // This repository currently builds against EF Core 8, where that named
+        // constant does not exist yet, so use the stable event id directly.
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(new EventId(20409, "PendingModelChangesWarning")));
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +56,7 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
         {
             entity.ToTable("CustomerOrderAssociations");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.LightningAddress).HasMaxLength(128);
             entity.HasIndex(e => new { e.StoreId, e.SquareOrderId }).IsUnique();
             entity.HasIndex(e => new { e.StoreId, e.SquarePaymentId })
                 .IsUnique().HasFilter("\"SquarePaymentId\" IS NOT NULL");
@@ -62,110 +73,21 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Configure BoltCardLink entity
-        modelBuilder.Entity<BoltCardLink>(entity =>
+        modelBuilder.Entity<PendingLightningAddressCheckIn>(entity =>
         {
-            entity.ToTable("BoltCardLinks");
+            entity.ToTable("PendingLightningAddressCheckIns");
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.StoreId);
-            entity.HasIndex(e => e.PullPaymentId);
-            entity.HasIndex(e => e.BoltcardId);
-            entity.HasIndex(e => new { e.StoreId, e.PullPaymentId })
-                .IsUnique()
-                .HasDatabaseName("IX_BoltCardLinks_StoreId_PullPaymentId_Unique");
-        });
-
-        // Configure CustomerWallet entity
-        modelBuilder.Entity<CustomerWallet>(entity =>
-        {
-            entity.ToTable("CustomerWallets");
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.StoreId);
-            entity.HasIndex(e => e.PullPaymentId);
-            entity.HasIndex(e => e.BoltcardId);
-            entity.HasIndex(e => e.CardUid);
-            entity.HasIndex(e => e.ApiTokenHash);
-            entity.HasIndex(e => new { e.StoreId, e.PullPaymentId })
-                .IsUnique()
-                .HasDatabaseName("IX_CustomerWallets_StoreId_PullPaymentId_Unique");
-            entity.Property(e => e.CadBalanceCents).HasDefaultValue(0L);
-            entity.Property(e => e.SatsBalanceSatoshis).HasDefaultValue(0L);
-            entity.Property(e => e.AutoConvertToCad).HasDefaultValue(true);
-            entity.Property(e => e.TotalRewardedSatoshis).HasDefaultValue(0L);
-            entity.Property(e => e.TotalRewardedCadCents).HasDefaultValue(0L);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.Nip05Revoked).HasDefaultValue(false);
-            
-            // NIP-05 unique indexes
-            entity.HasIndex(e => e.Pubkey)
-                .IsUnique()
-                .HasFilter("Pubkey IS NOT NULL")
-                .HasDatabaseName("IX_CustomerWallets_Pubkey_Unique");
-            entity.HasIndex(e => e.Nip05Username)
-                .IsUnique()
-                .HasFilter("Nip05Username IS NOT NULL")
-                .HasDatabaseName("IX_CustomerWallets_Nip05Username_Unique");
-        });
-
-        // Configure Nip05Identity entity
-        modelBuilder.Entity<Nip05Identity>(entity =>
-        {
-            entity.ToTable("Nip05Identities");
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Pubkey)
-                .IsUnique()
-                .HasDatabaseName("IX_Nip05Identities_Pubkey_Unique");
-            entity.HasIndex(e => e.Username)
-                .IsUnique()
-                .HasDatabaseName("IX_Nip05Identities_Username_Unique");
-            entity.Property(e => e.Revoked).HasDefaultValue(false);
-        });
-
-        // Configure PendingLnurlClaim entity
-        modelBuilder.Entity<PendingLnurlClaim>(entity =>
-        {
-            entity.ToTable("PendingLnurlClaims");
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.IsCompleted, e.IsFailed, e.ExpiresAt })
-                .HasDatabaseName("IX_PendingLnurlClaims_Status_ExpiresAt");
-            entity.HasIndex(e => e.CustomerWalletId);
-            entity.Property(e => e.StoreId).HasMaxLength(50);
-            entity.Property(e => e.LightningInvoiceId).HasMaxLength(255);
-            entity.Property(e => e.Bolt11).HasMaxLength(2000);
-            entity.Property(e => e.K1Prefix).HasMaxLength(20);
-            entity.Property(e => e.IsCompleted).HasDefaultValue(false);
-            entity.Property(e => e.IsFailed).HasDefaultValue(false);
-        });
-
-        // Configure WalletTransaction entity
-        modelBuilder.Entity<WalletTransaction>(entity =>
-        {
-            entity.ToTable("WalletTransactions");
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.CustomerWalletId);
-            entity.HasIndex(e => e.CreatedAt);
-            entity.Property(e => e.SatsAmount).HasDefaultValue(0L);
-            entity.Property(e => e.CadCentsAmount).HasDefaultValue(0L);
-            entity.HasOne<CustomerWallet>()
-                .WithMany()
-                .HasForeignKey(e => e.CustomerWalletId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-        
-        // Configure RewardError entity (Phase 2: Error Tracking)
-        modelBuilder.Entity<Models.RewardError>(entity =>
-        {
-            entity.ToTable("RewardErrors");
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.ErrorType);
-            entity.HasIndex(e => e.StoreId);
-            entity.HasIndex(e => e.OrderId);
-            entity.HasIndex(e => e.RewardId);
-            entity.HasIndex(e => e.Timestamp);
-            entity.HasIndex(e => new { e.Resolved, e.Timestamp })
-                .HasDatabaseName("IX_RewardErrors_Resolved_Timestamp");
-            entity.Property(e => e.Resolved).HasDefaultValue(false);
-            entity.Property(e => e.RetryCount).HasDefaultValue(0);
+            entity.Property(e => e.LightningAddress).HasMaxLength(128).IsRequired();
+            entity.Property(e => e.LightningAddressHash).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.RegisterId).HasMaxLength(100);
+            entity.Property(e => e.DeviceId).HasMaxLength(100);
+            entity.Property(e => e.Source).HasMaxLength(50);
+            entity.Property(e => e.SquareOrderId).HasMaxLength(255);
+            entity.Property(e => e.SquarePaymentId).HasMaxLength(255);
+            entity.HasIndex(e => new { e.StoreId, e.State, e.CreatedAt });
+            entity.HasIndex(e => new { e.StoreId, e.ExpiresAt });
+            entity.HasIndex(e => new { e.StoreId, e.SquarePaymentId })
+                .IsUnique().HasFilter("\"SquarePaymentId\" IS NOT NULL");
         });
     }
 }

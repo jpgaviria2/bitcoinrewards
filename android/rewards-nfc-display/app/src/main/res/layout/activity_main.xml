@@ -31,6 +31,21 @@
         android:contentDescription="Settings"
         android:alpha="0.4" />
 
+    <!-- Native camera scanner for customer rewards profile Lightning-address QR -->
+    <Button
+        android:id="@+id/btn_scan_rewards_profile"
+        android:layout_width="wrap_content"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="24dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:text="Scan Rewards Profile"
+        android:textAllCaps="false"
+        android:textStyle="bold"
+        android:backgroundTint="#2E7D32"
+        android:textColor="#FFFFFF" />
+
     <!-- NFC tap feedback overlay -->
     <TextView
         android:id="@+id/nfc_tap_overlay"

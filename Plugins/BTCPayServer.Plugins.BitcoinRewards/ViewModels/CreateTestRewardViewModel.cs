@@ -19,7 +19,7 @@ public class CreateTestRewardViewModel
     public string Currency { get; set; } = StoreBlob.StandardDefaultCurrency;
 
     [Display(Name = "Platform")]
-    public TransactionPlatform Platform { get; set; } = TransactionPlatform.Shopify;
+    public TransactionPlatform Platform { get; set; } = TransactionPlatform.Square;
 
     [Display(Name = "Order ID (Optional)")]
     [MaxLength(255)]
@@ -33,5 +33,9 @@ public class CreateTestRewardViewModel
     [Display(Name = "Customer Phone (Optional)")]
     [Phone(ErrorMessage = "Invalid phone number")]
     public string? CustomerPhone { get; set; }
+
+    [Display(Name = "Lightning Address (Optional)")]
+    [MaxLength(128)]
+    public string? LightningAddress { get; set; }
 }
 

@@ -12,7 +12,7 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Enable Bitcoin Rewards")]
     public bool Enabled { get; set; }
     
-    [Display(Name = "Shopify / Square Reward Percentage")]
+    [Display(Name = "Square Reward Percentage")]
     [Range(0, 100, ErrorMessage = "Reward percentage must be between 0 and 100")]
     [Required(ErrorMessage = "Reward percentage is required")]
     public decimal ExternalRewardPercentage { get; set; }
@@ -25,21 +25,11 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Delivery Method")]
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Email;
     
-    [Display(Name = "Enable Shopify")]
-    public bool EnableShopify { get; set; }
-    
     [Display(Name = "Enable Square")]
     public bool EnableSquare { get; set; }
 
     [Display(Name = "Enable BTCPay payments")]
     public bool EnableBtcpay { get; set; }
-    
-    // Shopify Settings
-    [Display(Name = "Shopify Shop URL")]
-    public string? ShopifyShopUrl { get; set; }
-    
-    [Display(Name = "Shopify Access Token")]
-    public string? ShopifyAccessToken { get; set; }
     
     // Square Settings
     [Display(Name = "Square Application ID")]
@@ -75,6 +65,9 @@ public class BitcoinRewardsSettingsViewModel
 
     [Display(Name = "Keep legacy pull-payment fallback")]
     public bool LegacyPullPaymentFallbackEnabled { get; set; } = true;
+
+    [Display(Name = "Enable direct Lightning payouts for scanned in-person orders")]
+    public bool DirectLightningPayoutEnabled { get; set; }
     
     // Email Settings
     [Display(Name = "Email Subject Override (Optional)")]
@@ -173,7 +166,6 @@ public class BitcoinRewardsSettingsViewModel
     public PlatformFlags GetEnabledPlatforms()
     {
         PlatformFlags flags = PlatformFlags.None;
-        if (EnableShopify) flags |= PlatformFlags.Shopify;
         if (EnableSquare) flags |= PlatformFlags.Square;
         if (EnableBtcpay) flags |= PlatformFlags.Btcpay;
         return flags;
@@ -188,7 +180,6 @@ public class BitcoinRewardsSettingsViewModel
             ExternalRewardPercentage = 0m;
             BtcpayRewardPercentage = 0m;
             DeliveryMethod = DeliveryMethod.Email;
-            EnableShopify = false;
             EnableSquare = false;
             EnableBtcpay = false;
             return;
@@ -199,13 +190,8 @@ public class BitcoinRewardsSettingsViewModel
         BtcpayRewardPercentage = settings.BtcpayRewardPercentage > 0 ? settings.BtcpayRewardPercentage : settings.RewardPercentage;
         DeliveryMethod = settings.DeliveryMethod;
         
-        // Shopify temporarily disabled
-        EnableShopify = false;
         EnableSquare = (settings.EnabledPlatforms & PlatformFlags.Square) == PlatformFlags.Square;
         EnableBtcpay = (settings.EnabledPlatforms & PlatformFlags.Btcpay) == PlatformFlags.Btcpay;
-        
-        ShopifyShopUrl = settings.Shopify?.ShopUrl;
-        ShopifyAccessToken = settings.Shopify?.AccessToken;
         
         SquareApplicationId = settings.Square?.ApplicationId;
         SquareAccessToken = settings.Square?.AccessToken;
@@ -220,6 +206,7 @@ public class BitcoinRewardsSettingsViewModel
         CustomerProfileApiBaseUrl = settings.CustomerProfileApiBaseUrl;
         HasCustomerProfileApiToken = !string.IsNullOrWhiteSpace(settings.CustomerProfileApiToken);
         LegacyPullPaymentFallbackEnabled = settings.LegacyPullPaymentFallbackEnabled;
+        DirectLightningPayoutEnabled = settings.DirectLightningPayoutEnabled;
 
         // Never echo secrets back into the form fields
         SquareAccessToken = null;
@@ -282,8 +269,7 @@ public class BitcoinRewardsSettingsViewModel
         if (!string.IsNullOrWhiteSpace(CustomerProfileApiToken))
             settings.CustomerProfileApiToken = CustomerProfileApiToken.Trim();
         settings.LegacyPullPaymentFallbackEnabled = LegacyPullPaymentFallbackEnabled;
-        // No UI control may activate direct payout until the durable dispatcher is released.
-        settings.DirectLightningPayoutEnabled = false;
+        settings.DirectLightningPayoutEnabled = DirectLightningPayoutEnabled;
         
         settings.DisplayTimeoutSeconds = DisplayTimeoutSeconds;
         settings.DisplayAutoRefreshSeconds = DisplayAutoRefreshSeconds;
@@ -303,15 +289,6 @@ public class BitcoinRewardsSettingsViewModel
         settings.DefaultAutoConvertToCad = DefaultAutoConvertToCad;
         settings.SwapEnabled = SwapEnabled;
         settings.CadSpendingEnabled = CadSpendingEnabled;
-        
-        if (EnableShopify)
-        {
-            settings.Shopify = new ShopifyApiCredentials
-            {
-                ShopUrl = ShopifyShopUrl,
-                AccessToken = ShopifyAccessToken
-            };
-        }
         
         if (EnableSquare)
         {

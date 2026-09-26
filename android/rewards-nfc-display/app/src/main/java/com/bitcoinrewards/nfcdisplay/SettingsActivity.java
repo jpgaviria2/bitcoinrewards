@@ -343,6 +343,23 @@ public class SettingsActivity extends Activity {
         return url + "/plugins/bitcoin-rewards/" + storeId + "/display";
     }
 
+    public static String getBtcpayUrl(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_BTCPAY_URL, "");
+    }
+
+    public static String getStoreId(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_STORE_ID, "");
+    }
+
+    public static String getCheckInApiUrl(Context context) {
+        String url = getBtcpayUrl(context);
+        String storeId = getStoreId(context);
+        if (url.isEmpty() || storeId.isEmpty()) return null;
+        return url + "/plugins/bitcoin-rewards/" + storeId + "/check-in/api";
+    }
+
     public static String getLoginUrl(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(KEY_BTCPAY_URL, "") + "/login";

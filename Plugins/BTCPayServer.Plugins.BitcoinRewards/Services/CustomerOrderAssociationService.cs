@@ -53,6 +53,7 @@ public sealed class CustomerOrderAssociationService
             SquareOrderId = squareOrderId,
             CustomerProfileId = resolved.ProfileId,
             LightningAddressHash = resolved.LightningAddressHash,
+            LightningAddress = CustomerProfileClient.NormalizeLightningAddress(lightningAddress),
             RegisterId = Optional(registerId, 100),
             DeviceId = Optional(deviceId, 100),
             StaffActorId = Optional(staffActorId, 100)

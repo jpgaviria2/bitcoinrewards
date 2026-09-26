@@ -14,7 +14,7 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 {
     public override string Identifier => "BTCPayServer.Plugins.BitcoinRewards";
     public override string Name => "Bitcoin Rewards";
-    public override string Description => "Bitcoin rewards system for Square POS. Automatically sends Lightning rewards to customers via email or LNURL. Features: real-time analytics, error tracking, rate limiting, webhooks, health monitoring, and advanced reporting.";
+    public override string Description => "Square POS Bitcoin rewards for BTCPay Server. Processes verified Square payment webhooks and creates BTCPay pull-payment rewards.";
     
     public const string PluginNavKey = nameof(BitcoinRewardsPlugin) + "Nav";
     
@@ -29,79 +29,30 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        // Phase 2.7: Use BTCPay's existing memory cache (don't override)
-        // BTCPay Server already has MemoryCache configured
-        
-        // Other services
+        // Square-only core services. Keep the runtime small and avoid registering
+        // legacy/experimental features (customer wallets, LNURL/NIP-05,
+        // error dashboards, analytics, auto-recovery) that are not needed for the
+        // Square webhook -> BTCPay pull-payment reward path.
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
-        services.TryAddScoped<Services.DatabaseCleanupService>();
         services.TryAddScoped<Services.IEmailNotificationService, Services.EmailNotificationService>();
         services.TryAddScoped<Services.BitcoinRewardsService>();
         services.TryAddScoped<Services.RewardPullPaymentService>();
         services.TryAddScoped<Services.PayoutProcessorDiscoveryService>();
         services.TryAddScoped<Services.PullPaymentStatusService>();
-        services.TryAddScoped<Services.BoltCardRewardService>();
         services.TryAddScoped<Services.ExchangeRateService>();
-        services.TryAddScoped<Services.CustomerWalletService>();
         services.TryAddScoped<Services.CustomerOrderAssociationService>();
+        services.TryAddScoped<Services.PendingLightningAddressCheckInService>();
+        services.TryAddScoped<Services.DirectLightningPayoutService>();
         services.AddHttpClient<Services.CustomerProfileClient>();
         services.AddHttpClient<Clients.SquareApiClient>();
 
-        // Production hardening services (v2.0)
+        // Lightweight idempotency/metrics/rate limiting used by the Square path.
         services.AddSingleton<Services.IdempotencyService>();
-        
-        // Phase 2: Production Hardening
-        
-        // Health checks
-        services.AddHealthChecks()
-            .AddCheck<HealthChecks.BitcoinRewardsHealthCheck>(
-                "bitcoin-rewards",
-                tags: new[] { "bitcoin-rewards", "plugin" });
-        
-        // Error tracking
-        services.TryAddScoped<Services.ErrorTrackingService>();
-        
-        // Metrics and telemetry
         services.AddSingleton<Services.RewardMetrics>();
-        
-        // Rate limiting
         services.AddSingleton<Services.RateLimitService>();
-        
-        // Advanced logging (Phase 2.6)
-        services.AddSingleton<Logging.BitcoinRewardsLogEnricher>();
-        
-        // Performance optimization (Phase 2.7)
         services.AddSingleton<Services.CachingService>();
-        
-        // Phase 5: Feature Parity
-        services.TryAddScoped<Services.AnalyticsService>();
-        services.AddHttpClient<Services.WebhookOutService>();
-        services.TryAddScoped<Services.WebhookOutService>();
-        
-        // NIP-05 identity services
-        services.AddSingleton<Services.OffensiveWordFilter>();
-        services.TryAddScoped<Services.Nip05Service>();
-        
-        // Lightning Address resolver — hooks into BTCPay's /.well-known/lnurlp/{username}
-        services.AddSingleton<Services.LightningAddressResolverFilter>();
-        services.AddSingleton<Abstractions.Contracts.IPluginHookFilter>(sp =>
-            sp.GetRequiredService<Services.LightningAddressResolverFilter>());
+
         services.AddHttpContextAccessor();
-        
-        // BTCPay invoice listener
-        services.AddSingleton<HostedServices.BtcpayInvoiceRewardHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<HostedServices.BtcpayInvoiceRewardHostedService>());
-
-        // LNURL claim payment watcher (polls for late Lightning payments)
-        services.AddSingleton<HostedServices.LnurlClaimWatcherService>();
-        services.AddHostedService(sp => sp.GetRequiredService<HostedServices.LnurlClaimWatcherService>());
-
-        // Maintenance service (cleanup expired cache entries)
-        services.AddHostedService<HostedServices.MaintenanceService>();
-        
-        // Auto-recovery watchdog (Phase 2.5)
-        services.AddSingleton<Services.AutoRecoveryWatchdog>();
-        services.AddHostedService(sp => sp.GetRequiredService<Services.AutoRecoveryWatchdog>());
         
         // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
@@ -121,10 +72,7 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     public override void Execute(Microsoft.AspNetCore.Builder.IApplicationBuilder applicationBuilder,
         IServiceProvider serviceProvider)
     {
-        // Phase 2.6: Correlation ID middleware (must be early in pipeline)
-        applicationBuilder.UseMiddleware<Middleware.CorrelationIdMiddleware>();
-        
-        // Phase 2.4: Rate limiting middleware
+        // Request rate limiting for Square webhook endpoints.
         applicationBuilder.UseMiddleware<Middleware.RateLimitingMiddleware>();
         
         base.Execute(applicationBuilder, serviceProvider);

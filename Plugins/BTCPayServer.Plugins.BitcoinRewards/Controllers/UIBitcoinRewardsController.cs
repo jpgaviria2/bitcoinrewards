@@ -1,6 +1,6 @@
 #nullable enable
-using ServiceErrorStats = BTCPayServer.Plugins.BitcoinRewards.Services.ErrorStatistics;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
@@ -30,22 +30,20 @@ public class UIBitcoinRewardsController : Controller
     private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
     private readonly PullPaymentStatusService _pullPaymentStatusService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
-    private readonly ErrorTrackingService _errorTracking;
+
 
     public UIBitcoinRewardsController(
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
         PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
         PullPaymentStatusService pullPaymentStatusService,
-        ILogger<UIBitcoinRewardsController> logger,
-        ErrorTrackingService errorTracking)
+        ILogger<UIBitcoinRewardsController> logger)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
         _pullPaymentStatusService = pullPaymentStatusService;
         _logger = logger;
-        _errorTracking = errorTracking;
     }
 
     [HttpGet]
@@ -93,9 +91,6 @@ public class UIBitcoinRewardsController : Controller
             var enabledValues = Request.Form["Enabled"];
             vm.Enabled = enabledValues.Count > 0 && enabledValues.Contains("true");
             
-            // Shopify temporarily disabled
-            vm.EnableShopify = false;
-            
             var enableSquareValues = Request.Form["EnableSquare"];
             vm.EnableSquare = enableSquareValues.Count > 0 && enableSquareValues.Contains("true");
 
@@ -115,10 +110,11 @@ public class UIBitcoinRewardsController : Controller
             vm.CustomerProfileAssociationEnabled = associationValues.Count > 0 && associationValues.Contains("true");
             var legacyFallbackValues = Request.Form["LegacyPullPaymentFallbackEnabled"];
             vm.LegacyPullPaymentFallbackEnabled = legacyFallbackValues.Count > 0 && legacyFallbackValues.Contains("true");
+            var directPayoutValues = Request.Form["DirectLightningPayoutEnabled"];
+            vm.DirectLightningPayoutEnabled = directPayoutValues.Count > 0 && directPayoutValues.Contains("true");
             
             // Clear ModelState for checkboxes to use our explicitly read values
             ModelState.Remove(nameof(vm.Enabled));
-            ModelState.Remove(nameof(vm.EnableShopify));
             ModelState.Remove(nameof(vm.EnableSquare));
             ModelState.Remove(nameof(vm.EnableBtcpay));
             ModelState.Remove(nameof(vm.BoltCardEnabled));
@@ -127,6 +123,7 @@ public class UIBitcoinRewardsController : Controller
             ModelState.Remove(nameof(vm.CadSpendingEnabled));
             ModelState.Remove(nameof(vm.CustomerProfileAssociationEnabled));
             ModelState.Remove(nameof(vm.LegacyPullPaymentFallbackEnabled));
+            ModelState.Remove(nameof(vm.DirectLightningPayoutEnabled));
 
             if (vm.CustomerProfileAssociationEnabled)
             {
@@ -135,14 +132,12 @@ public class UIBitcoinRewardsController : Controller
                 if (string.IsNullOrWhiteSpace(vm.CustomerProfileApiToken) &&
                     string.IsNullOrWhiteSpace(existingSettings?.CustomerProfileApiToken))
                     ModelState.AddModelError(nameof(vm.CustomerProfileApiToken), "A profile service token is required when association is enabled");
-                if (!vm.LegacyPullPaymentFallbackEnabled)
-                    ModelState.AddModelError(nameof(vm.LegacyPullPaymentFallbackEnabled), "Legacy fallback must remain enabled until direct payout is approved");
             }
             
             // Log what we received from the form for debugging
             var enabledValuesStr = enabledValues.Count > 0 ? string.Join(",", enabledValues.ToArray()) : "none";
-            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}, EnableShopify={EnableShopify}, EnableSquare={EnableSquare}, EnableBtcpay={EnableBtcpay}", 
-                storeId, vm.Enabled, enabledValuesStr, vm.ExternalRewardPercentage, vm.BtcpayRewardPercentage, vm.EnableShopify, vm.EnableSquare, vm.EnableBtcpay);
+            _logger.LogInformation("POST EditSettings for store {StoreId}: Enabled={Enabled} (form values: {EnabledValues}), ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}, EnableSquare={EnableSquare}, EnableBtcpay={EnableBtcpay}", 
+                storeId, vm.Enabled, enabledValuesStr, vm.ExternalRewardPercentage, vm.BtcpayRewardPercentage, vm.EnableSquare, vm.EnableBtcpay);
             
             if (!ModelState.IsValid)
             {
@@ -152,13 +147,6 @@ public class UIBitcoinRewardsController : Controller
 
             // Only validate platform credentials if platforms are enabled
             // Allow plugin to be enabled without platforms configured (for manual testing)
-            if (vm.EnableShopify && string.IsNullOrWhiteSpace(vm.ShopifyAccessToken))
-            {
-                ModelState.AddModelError(nameof(vm.ShopifyAccessToken), "Shopify access token is required when Shopify is enabled");
-                ViewData.SetActivePage("BitcoinRewards", "Bitcoin Rewards Settings", "BitcoinRewards");
-                return View("EditSettings", vm);
-            }
-
             if (vm.EnableSquare)
             {
                 var existingSquare = existingSettings?.Square;
@@ -384,8 +372,14 @@ public class UIBitcoinRewardsController : Controller
             Currency = currency,
             CustomerEmail = vm.CustomerEmail,
             CustomerPhone = vm.CustomerPhone,
+            LightningAddress = string.IsNullOrWhiteSpace(vm.LightningAddress) ? null : vm.LightningAddress.Trim(),
             Platform = vm.Platform,
-            TransactionDate = DateTime.UtcNow
+            TransactionDate = DateTime.UtcNow,
+            Metadata = new Dictionary<string, string>
+            {
+                ["testReward"] = "true",
+                ["rewardPercentageOverride"] = "100"
+            }
         };
 
         try
@@ -638,42 +632,8 @@ public class UIBitcoinRewardsController : Controller
     [HttpGet]
     [Route("plugins/bitcoin-rewards/{storeId}/errors")]
     [Authorize(Policy = Policies.CanModifyStoreSettings)]
-    public async Task<IActionResult> ErrorDashboard(string storeId, int? days = 7, bool? resolved = null)
-    {
-        var errors = await _errorTracking.GetRecentErrorsAsync(
-            limit: 100, 
-            filterType: null, 
-            storeId: storeId, 
-            resolvedOnly: resolved);
-        var stats = await _errorTracking.GetErrorStatisticsAsync(
-            storeId: storeId, 
-            since: days.HasValue ? DateTime.UtcNow.AddDays(-days.Value) : null);
-        
-        // Map service statistics to view model statistics
-        var vmStats = new ViewModels.ErrorStatistics
-        {
-            TotalErrors = stats.TotalErrors,
-            UnresolvedErrors = stats.UnresolvedErrors,
-            RetryableErrors = errors.Count(e => e.IsRetryable),
-            ErrorsByType = stats.ErrorsByType,
-            ErrorsByOperation = errors
-                .Where(e => !string.IsNullOrEmpty(e.Operation))
-                .GroupBy(e => e.Operation!)
-                .ToDictionary(g => g.Key, g => g.Count())
-        };
-        
-        var vm = new ErrorDashboardViewModel
-        {
-            StoreId = storeId,
-            Errors = errors,
-            Statistics = vmStats,
-            DaysFilter = days ?? 7,
-            ResolvedFilter = resolved
-        };
-        
-        ViewData.SetActivePage("BitcoinRewards", "Error Dashboard", "BitcoinRewardsErrors");
-        return View("ErrorDashboard", vm);
-    }
+    public IActionResult ErrorDashboard(string storeId, int? days = 7, bool? resolved = null)
+        => NotFound();
     
     /// <summary>
     /// Mark an error as resolved
@@ -682,12 +642,7 @@ public class UIBitcoinRewardsController : Controller
     [Route("plugins/bitcoin-rewards/{storeId}/errors/{errorId}/resolve")]
     [Authorize(Policy = Policies.CanModifyStoreSettings)]
     [AutoValidateAntiforgeryToken]
-    public async Task<IActionResult> ResolveError(string storeId, string errorId)
-    {
-        await _errorTracking.ResolveErrorAsync(errorId, User.Identity?.Name ?? "system");
-        TempData[WellKnownTempData.SuccessMessage] = "Error marked as resolved";
-        return RedirectToAction(nameof(ErrorDashboard), new { storeId });
-    }
+    public IActionResult ResolveError(string storeId, string errorId) => NotFound();
     
     /// <summary>
     /// Admin interface for rate limit configuration

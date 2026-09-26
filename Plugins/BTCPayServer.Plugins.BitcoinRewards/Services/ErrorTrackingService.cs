@@ -256,7 +256,7 @@ public class ErrorTrackingService
             RewardErrorType.DatabaseConnectionFailed.ToString(),
             RewardErrorType.ExternalServiceTimeout.ToString(),
             RewardErrorType.SquareApiError.ToString(),
-            RewardErrorType.ShopifyApiError.ToString()
+            RewardErrorType.SquareApiError.ToString()
         };
         
         return await db.RewardErrors

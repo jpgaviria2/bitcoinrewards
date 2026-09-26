@@ -12,7 +12,6 @@ public enum RewardErrorType
 {
     // Webhook validation errors
     SquareWebhookValidationFailed,
-    ShopifyWebhookValidationFailed,
     WebhookSignatureInvalid,
     WebhookParsingFailed,
     
@@ -52,7 +51,6 @@ public enum RewardErrorType
     
     // External API errors
     SquareApiError,
-    ShopifyApiError,
     ExchangeRateApiFailed,
     ExternalServiceTimeout,
     
@@ -132,7 +130,6 @@ public class BitcoinRewardsException : Exception
             RewardErrorType.DatabaseConnectionFailed => true,
             RewardErrorType.ExternalServiceTimeout => true,
             RewardErrorType.SquareApiError => true,
-            RewardErrorType.ShopifyApiError => true,
             RewardErrorType.ExchangeRateApiFailed => true,
             
             // Configuration/business logic errors are not retryable

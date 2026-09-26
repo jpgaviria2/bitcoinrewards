@@ -11,10 +11,9 @@ public enum DeliveryMethod
 public enum PlatformFlags
 {
     None = 0,
-    Shopify = 1,
     Square = 2,
     Btcpay = 4,
-    All = Shopify | Square | Btcpay
+    All = Square | Btcpay
 }
 
 public class BitcoinRewardsStoreSettings
@@ -27,12 +26,12 @@ public class BitcoinRewardsStoreSettings
     public bool Enabled { get; set; } = false;
     
     /// <summary>
-    /// Reward percentage (0-100) for external platforms (Shopify/Square). Kept for backward compatibility.
+    /// Reward percentage (0-100) for Square. Kept for backward compatibility.
     /// </summary>
     public decimal RewardPercentage { get; set; } = 0m;
 
     /// <summary>
-    /// Reward percentage (0-100) for Shopify/Square.
+    /// Reward percentage (0-100) for Square.
     /// </summary>
     public decimal ExternalRewardPercentage { get; set; } = 0m;
 
@@ -47,14 +46,9 @@ public class BitcoinRewardsStoreSettings
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Email;
     
     /// <summary>
-    /// Platforms enabled (Shopify, Square, or Both)
+    /// Platforms enabled (Square and/or BTCPay)
     /// </summary>
     public PlatformFlags EnabledPlatforms { get; set; } = PlatformFlags.None;
-    
-    /// <summary>
-    /// Shopify API credentials (reuses existing Shopify plugin settings if available)
-    /// </summary>
-    public ShopifyApiCredentials? Shopify { get; set; }
     
     /// <summary>
     /// Square API credentials
@@ -129,6 +123,22 @@ public class BitcoinRewardsStoreSettings
     /// Keep the existing pull-payment reward path authoritative while Part B is being proven.
     /// </summary>
     public bool LegacyPullPaymentFallbackEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Enables the customer-facing wallet QR check-in page. A scanned Lightning address is
+    /// held briefly and consumed by the next Square completed payment for this store.
+    /// </summary>
+    public bool CustomerLightningCheckInEnabled { get; set; } = true;
+
+    /// <summary>
+    /// How long a scanned customer Lightning address can wait for the next Square order.
+    /// </summary>
+    public int CustomerLightningCheckInTtlMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Comma-separated Lightning address domains allowed for wallet QR check-in.
+    /// </summary>
+    public string CustomerLightningCheckInAllowedDomains { get; set; } = "pay.trailscoffee.com";
     
     // ── Bolt Card Settings ──
 
@@ -206,24 +216,18 @@ public class BitcoinRewardsStoreSettings
     public bool SwapEnabled { get; set; } = true;
 }
 
-public class ShopifyApiCredentials
-{
-    public string? ShopUrl { get; set; }
-    public string? AccessToken { get; set; }
-}
-
 public class SquareApiCredentials
 {
     public string? ApplicationId { get; set; }
     public string? AccessToken { get; set; }
     public string? LocationId { get; set; }
-    public string? Environment { get; set; } // "sandbox" or "production"
+    public string? Environment { get; set; }
     public string? WebhookSignatureKey { get; set; }
 }
 
 public class SmsProviderConfig
 {
-    public string? Provider { get; set; } // "twilio", "aws-sns", etc.
+    public string? Provider { get; set; }
     public string? ApiKey { get; set; }
     public string? ApiSecret { get; set; }
     public string? FromNumber { get; set; }

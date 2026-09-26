@@ -1,4 +1,5 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable enable
@@ -6,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(BitcoinRewardsPluginDbContext))]
+    [Migration("20260223000000_AddPendingLnurlClaims")]
     public partial class AddPendingLnurlClaims : Migration
     {
         /// <inheritdoc />

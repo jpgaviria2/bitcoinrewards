@@ -719,7 +719,7 @@ public class WalletApiController : ControllerBase
 
     // ── Admin endpoints (BTCPay auth) ──
 
-    [HttpGet("plugins/bitcoin-rewards/{storeId}/wallets")]
+    [HttpGet("api/v1/stores/{storeId}/bitcoin-rewards/wallets")]
     [Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie + "," + AuthenticationSchemes.Greenfield,
         Policy = Policies.CanViewStoreSettings)]
     public async Task<IActionResult> ListWallets(string storeId)
@@ -741,7 +741,7 @@ public class WalletApiController : ControllerBase
         }));
     }
 
-    [HttpPost("plugins/bitcoin-rewards/{storeId}/wallets/{walletId}/adjust")]
+    [HttpPost("api/v1/stores/{storeId}/bitcoin-rewards/wallets/{walletId}/adjust")]
     [Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie + "," + AuthenticationSchemes.Greenfield,
         Policy = Policies.CanModifyStoreSettings)]
     public async Task<IActionResult> Adjust(string storeId, Guid walletId, [FromBody] AdjustRequest request)
@@ -756,7 +756,7 @@ public class WalletApiController : ControllerBase
         return Ok(new { success = true });
     }
 
-    [HttpPost("plugins/bitcoin-rewards/{storeId}/wallets/{walletId}/spend-cad")]
+    [HttpPost("api/v1/stores/{storeId}/bitcoin-rewards/wallets/{walletId}/spend-cad")]
     [Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie + "," + AuthenticationSchemes.Greenfield,
         Policy = Policies.CanModifyStoreSettings)]
     public async Task<IActionResult> SpendCad(string storeId, Guid walletId, [FromBody] SpendCadRequest request)

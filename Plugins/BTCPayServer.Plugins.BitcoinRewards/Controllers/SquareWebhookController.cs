@@ -27,19 +27,22 @@ public class SquareWebhookController : Controller
     private readonly ILogger<SquareWebhookController> _logger;
     private readonly RewardMetrics _metrics;
     private readonly CustomerOrderAssociationService _associationService;
+    private readonly PendingLightningAddressCheckInService _checkInService;
 
     public SquareWebhookController(
         BitcoinRewardsService rewardsService,
         StoreRepository storeRepository,
         ILogger<SquareWebhookController> logger,
         RewardMetrics metrics,
-        CustomerOrderAssociationService associationService)
+        CustomerOrderAssociationService associationService,
+        PendingLightningAddressCheckInService checkInService)
     {
         _rewardsService = rewardsService;
         _storeRepository = storeRepository;
         _logger = logger;
         _metrics = metrics;
         _associationService = associationService;
+        _checkInService = checkInService;
     }
 
     // Helper to mask sensitive URL parts
@@ -225,16 +228,19 @@ public class SquareWebhookController : Controller
                             {
                                 transaction.CustomerProfileId = association.CustomerProfileId;
                                 transaction.LightningAddressHash = association.LightningAddressHash;
+                                transaction.LightningAddress = association.LightningAddress;
                             }
                         }
 
-                        // Direct payout intentionally remains fail-closed until the durable dispatcher and
-                        // reconciliation worker have passed the Part B payout gates.
-                        if (rewardSettings?.DirectLightningPayoutEnabled == true)
+                        if (string.IsNullOrWhiteSpace(transaction.LightningAddress))
                         {
-                            _logger.LogError("Direct Lightning payout was requested for store {StoreId}, but no approved dispatcher is installed", storeId);
-                            if (!rewardSettings.LegacyPullPaymentFallbackEnabled)
-                                return StatusCode(503, "Direct reward payout is not available");
+                            var checkIn = await _checkInService.ConsumeNextForSquarePaymentAsync(storeId, paymentId, orderId, HttpContext.RequestAborted);
+                            if (checkIn is not null)
+                            {
+                                transaction.LightningAddress = checkIn.LightningAddress;
+                                transaction.LightningAddressHash = checkIn.LightningAddressHash;
+                                _logger.LogInformation("Attached customer QR check-in {CheckInId} to Square payment {PaymentId}", checkIn.Id, paymentId);
+                            }
                         }
 
                         // Log high-value transactions for monitoring

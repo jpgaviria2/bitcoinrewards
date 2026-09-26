@@ -1,0 +1,142 @@
+@using BTCPayServer.Plugins.BitcoinRewards.ViewModels
+@model CustomerCheckInViewModel
+@{
+    ViewData["Title"] = "Bitcoin Rewards Check-In";
+    Layout = "_Layout";
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="text-center my-4">
+            <h1 class="h3 mb-2">Bitcoin Rewards Check-In</h1>
+            <p class="text-muted mb-0">Scan your wallet QR code before paying. Your next Square order will use this Lightning address for rewards.</p>
+        </div>
+
+        <partial name="_StatusMessage" />
+
+        @if (Model.Saved)
+        {
+            <div class="alert alert-success" role="alert">
+                <h2 class="h5">You're checked in</h2>
+                <p class="mb-1">@Model.Message</p>
+                @if (Model.ExpiresAt is not null)
+                {
+                    <small>This check-in expires at @Model.ExpiresAt.Value.ToString("HH:mm:ss") UTC.</small>
+                }
+            </div>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="small text-muted">Lightning address</div>
+                    <div class="text-break fw-semibold">@Model.LightningAddress</div>
+                </div>
+            </div>
+            <a class="btn btn-primary w-100" href="@Url.Action("Index", new { storeId = Model.StoreId, registerId = Model.RegisterId, deviceId = Model.DeviceId })">Check in another address</a>
+        }
+        else
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <button id="startScanner" type="button" class="btn btn-primary w-100 mb-3">Start camera scanner</button>
+                    <video id="qrVideo" class="w-100 rounded border d-none" muted playsinline></video>
+                    <div id="scannerStatus" class="small text-muted mt-2">Camera scanning works on HTTPS browsers that support BarcodeDetector. If it is unavailable, paste the Lightning address below.</div>
+                </div>
+            </div>
+
+            <form method="post" id="checkInForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="StoreId" />
+                <input type="hidden" asp-for="RegisterId" />
+                <input type="hidden" asp-for="DeviceId" />
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="form-group mb-4">
+                    <label asp-for="LightningAddress" class="form-label"></label>
+                    <input asp-for="LightningAddress" id="LightningAddress" class="form-control form-control-lg" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="user@pay.trailscoffee.com" />
+                    <span asp-validation-for="LightningAddress" class="text-danger"></span>
+                    <small class="form-text text-muted">The wallet QR should contain a Lightning address, not an invoice or link.</small>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg w-100">Save for next order</button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (!Model.Saved)
+{
+<script>
+(function () {
+    const button = document.getElementById('startScanner');
+    const video = document.getElementById('qrVideo');
+    const input = document.getElementById('LightningAddress');
+    const form = document.getElementById('checkInForm');
+    const status = document.getElementById('scannerStatus');
+    let stream;
+    let stopped = false;
+
+    function setStatus(message, isError) {
+        status.textContent = message;
+        status.classList.toggle('text-danger', !!isError);
+        status.classList.toggle('text-muted', !isError);
+    }
+
+    function normalizeQr(text) {
+        let value = (text || '').trim();
+        if (value.toLowerCase().startsWith('lightning:')) {
+            value = decodeURIComponent(value.slice('lightning:'.length).trim());
+        }
+        return value.trim().toLowerCase();
+    }
+
+    async function stopCamera() {
+        stopped = true;
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    async function scanLoop(detector) {
+        if (stopped) return;
+        try {
+            const codes = await detector.detect(video);
+            if (codes && codes.length > 0) {
+                const value = normalizeQr(codes[0].rawValue || '');
+                input.value = value;
+                setStatus('QR detected. Saving check-in...', false);
+                await stopCamera();
+                form.submit();
+                return;
+            }
+        } catch (e) {
+            setStatus('Scanner error. Paste the Lightning address manually.', true);
+            await stopCamera();
+            return;
+        }
+        window.requestAnimationFrame(function () { scanLoop(detector); });
+    }
+
+    button && button.addEventListener('click', async function () {
+        try {
+            if (!('BarcodeDetector' in window)) {
+                setStatus('This browser does not support camera QR scanning. Paste the Lightning address manually.', true);
+                return;
+            }
+            const formats = await BarcodeDetector.getSupportedFormats();
+            if (formats.indexOf('qr_code') === -1) {
+                setStatus('This browser camera API does not support QR codes. Paste the Lightning address manually.', true);
+                return;
+            }
+            stopped = false;
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            video.srcObject = stream;
+            video.classList.remove('d-none');
+            await video.play();
+            setStatus('Point the camera at the wallet Lightning address QR.', false);
+            scanLoop(new BarcodeDetector({ formats: ['qr_code'] }));
+        } catch (e) {
+            setStatus('Camera unavailable. Paste the Lightning address manually.', true);
+        }
+    });
+})();
+</script>
+}

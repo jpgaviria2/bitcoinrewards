@@ -53,11 +53,12 @@ public class BitcoinRewardsService
     private readonly BitcoinRewardsRepository _repository;
     private readonly IEmailNotificationService _emailService;
     private readonly RewardPullPaymentService _pullPaymentService;
+    private readonly DirectLightningPayoutService _directLightningPayoutService;
     private readonly ILogger<BitcoinRewardsService> _logger;
     private readonly RateFetcher _rateFetcher;
     private readonly DefaultRulesCollection _defaultRules;
     private readonly RewardMetrics _metrics;
-    private readonly ErrorTrackingService _errorTracking;
+
 
     public BitcoinRewardsService(
         StoreRepository storeRepository,
@@ -65,20 +66,20 @@ public class BitcoinRewardsService
         IEmailNotificationService emailService,
         ILogger<BitcoinRewardsService> logger,
         RewardPullPaymentService pullPaymentService,
+        DirectLightningPayoutService directLightningPayoutService,
         RateFetcher rateFetcher,
         DefaultRulesCollection defaultRules,
-        RewardMetrics metrics,
-        ErrorTrackingService errorTracking)
+        RewardMetrics metrics)
     {
         _storeRepository = storeRepository;
         _repository = repository;
         _emailService = emailService;
         _pullPaymentService = pullPaymentService;
+        _directLightningPayoutService = directLightningPayoutService;
         _logger = logger;
         _rateFetcher = rateFetcher;
         _defaultRules = defaultRules;
         _metrics = metrics;
-        _errorTracking = errorTracking;
     }
 
     public async Task<bool> ProcessRewardAsync(string storeId, TransactionData transaction)
@@ -111,7 +112,6 @@ public class BitcoinRewardsService
             {
                 var platform = transaction.Platform switch
                 {
-                    TransactionPlatform.Shopify => PlatformFlags.Shopify,
                     TransactionPlatform.Square => PlatformFlags.Square,
                     TransactionPlatform.Btcpay => PlatformFlags.Btcpay,
                     _ => PlatformFlags.None
@@ -146,10 +146,9 @@ public class BitcoinRewardsService
             // Check if transaction already processed
             var platformEnum = transaction.Platform switch
             {
-                TransactionPlatform.Shopify => RewardPlatform.Shopify,
                 TransactionPlatform.Square => RewardPlatform.Square,
                 TransactionPlatform.Btcpay => RewardPlatform.Btcpay,
-                _ => RewardPlatform.Shopify
+                _ => RewardPlatform.Square
             };
             
             if (await _repository.TransactionExistsAsync(storeId, transaction.TransactionId, platformEnum))
@@ -165,6 +164,12 @@ public class BitcoinRewardsService
             var percentage = transaction.Platform == TransactionPlatform.Btcpay
                 ? settings.BtcpayRewardPercentage
                 : settings.ExternalRewardPercentage > 0 ? settings.ExternalRewardPercentage : settings.RewardPercentage;
+            if (transaction.Metadata.TryGetValue("rewardPercentageOverride", out var percentageOverride) &&
+                decimal.TryParse(percentageOverride, out var overrideValue) &&
+                overrideValue >= 0m && overrideValue <= 100m)
+            {
+                percentage = overrideValue;
+            }
             rewardAmount = CalculateRewardAmount(transaction.Amount, percentage);
             _logger.LogInformation("Reward calculation for {Platform} transaction {TransactionId}: Amount={Amount} {Currency}, Percentage={Percentage}%, RewardAmount={RewardAmount}",
                 transaction.Platform, transaction.TransactionId, transaction.Amount, transaction.Currency, percentage, rewardAmount);
@@ -222,7 +227,12 @@ public class BitcoinRewardsService
                 CustomerPhone = transaction.CustomerPhone,
                 CustomerProfileId = transaction.CustomerProfileId,
                 LightningAddressHash = transaction.LightningAddressHash,
-                DeliveryMode = RewardDeliveryMode.LegacyPullPayment,
+                DeliveryMode = settings.DirectLightningPayoutEnabled && !string.IsNullOrWhiteSpace(transaction.LightningAddress)
+                    ? RewardDeliveryMode.DirectLightning
+                    : RewardDeliveryMode.LegacyPullPayment,
+                DirectPayoutState = settings.DirectLightningPayoutEnabled && !string.IsNullOrWhiteSpace(transaction.LightningAddress)
+                    ? RewardPayoutState.Queued
+                    : null,
                 TransactionAmount = transaction.Amount,
                 Currency = transaction.Currency,
                 RewardAmount = rewardAmount,
@@ -245,6 +255,44 @@ public class BitcoinRewardsService
                 _metrics.RecordError("database", storeId, "duplicate_key_violation");
                 return false;
             }
+
+            if (reward.DeliveryMode == RewardDeliveryMode.DirectLightning)
+            {
+                var payoutResult = await _directLightningPayoutService.QueueAsync(
+                    storeId,
+                    reward,
+                    transaction.LightningAddress!,
+                    CancellationToken.None);
+                if (payoutResult.Success)
+                {
+                    reward.PayoutId = payoutResult.PayoutId;
+                    reward.Status = RewardStatus.Sent;
+                    reward.SentAt = DateTime.UtcNow;
+                    reward.DirectPayoutState = RewardPayoutState.Paying;
+                    await _repository.UpdateRewardAsync(reward);
+                    _metrics.RecordLightningOperation("direct_lightning_payout_queued", storeId, true);
+                    _logger.LogInformation("Direct Lightning reward payout queued for store {StoreId}, transaction {TransactionId}, payout {PayoutId}",
+                        storeId, transaction.TransactionId, payoutResult.PayoutId);
+                    return true;
+                }
+
+                reward.ErrorMessage = payoutResult.Error;
+                reward.DirectPayoutState = RewardPayoutState.RetryableFailure;
+                await _repository.UpdateRewardAsync(reward);
+                _metrics.RecordLightningOperation("direct_lightning_payout_queued", storeId, false);
+                if (!settings.LegacyPullPaymentFallbackEnabled)
+                {
+                    _logger.LogWarning("Direct Lightning reward payout failed and fallback is disabled for store {StoreId}: {Error}",
+                        storeId, payoutResult.Error);
+                    return false;
+                }
+
+                _logger.LogWarning("Direct Lightning reward payout failed for store {StoreId}, falling back to email pull payment: {Error}",
+                    storeId, payoutResult.Error);
+                reward.DeliveryMode = RewardDeliveryMode.LegacyPullPayment;
+                reward.DirectPayoutState = RewardPayoutState.RetryableFailure;
+            }
+
             var pullPaymentResult = await _pullPaymentService.CreatePullPaymentAsync(
                 storeId,
                 rewardSatoshis,
@@ -333,23 +381,6 @@ public class BitcoinRewardsService
             _logger.LogError(ex, "Error processing reward for transaction {TransactionId} in store {StoreId}", 
                 transaction.TransactionId, storeId);
             _metrics.RecordError("general", storeId, ex.GetType().Name);
-            
-            // Track error in database
-            var errorType = ex is Exceptions.BitcoinRewardsException brEx 
-                ? Exceptions.RewardErrorType.InvoiceAlreadyProcessed 
-                : Exceptions.RewardErrorType.InvoiceAlreadyProcessed;
-            
-            await _errorTracking.LogExceptionAsync(
-                ex,
-                errorType,
-                orderId: transaction.TransactionId,
-                storeId: storeId,
-                userId: null,
-                context: new Dictionary<string, object>
-                {
-                    ["TransactionId"] = transaction.TransactionId,
-                    ["Platform"] = transaction.Platform.ToString()
-                });
             
             return false;
         }
