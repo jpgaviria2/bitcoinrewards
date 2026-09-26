@@ -164,7 +164,7 @@ public class WalletApiController : ControllerBase
                 string? lud16 = null;
                 if (!string.IsNullOrWhiteSpace(existingWallet.Nip05Username))
                 {
-                    nip05 = $"{existingWallet.Nip05Username}@trailscoffee.com";
+                    nip05 = $"{existingWallet.Nip05Username}@example.com";
                     lud16 = $"{existingWallet.Nip05Username}@{Request.Host.Value}";
                 }
 
@@ -230,7 +230,7 @@ public class WalletApiController : ControllerBase
             }
 
             await _nip05Service.SetWalletNip05(wallet.Id, request.Pubkey, username);
-            newNip05 = $"{username}@trailscoffee.com";
+            newNip05 = $"{username}@example.com";
 
             var newToken = await _walletService.GenerateWalletTokenAsync(wallet.Id);
             var newBalance = await _walletService.GetBalanceAsync(wallet.Id);

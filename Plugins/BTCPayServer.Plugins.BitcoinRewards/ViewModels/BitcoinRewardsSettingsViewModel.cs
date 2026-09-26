@@ -56,7 +56,7 @@ public class BitcoinRewardsSettingsViewModel
 
     [Display(Name = "Customer Profile API URL")]
     [Url]
-    public string CustomerProfileApiBaseUrl { get; set; } = "https://api.trailscoffee.com";
+    public string CustomerProfileApiBaseUrl { get; set; } = string.Empty;
 
     [Display(Name = "Customer Profile service token")]
     public string? CustomerProfileApiToken { get; set; }
@@ -264,7 +264,7 @@ public class BitcoinRewardsSettingsViewModel
         settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();
         settings.CustomerProfileAssociationEnabled = CustomerProfileAssociationEnabled;
         settings.CustomerProfileApiBaseUrl = string.IsNullOrWhiteSpace(CustomerProfileApiBaseUrl)
-            ? "https://api.trailscoffee.com"
+            ? string.Empty
             : CustomerProfileApiBaseUrl.Trim();
         if (!string.IsNullOrWhiteSpace(CustomerProfileApiToken))
             settings.CustomerProfileApiToken = CustomerProfileApiToken.Trim();

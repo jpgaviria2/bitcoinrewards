@@ -56,7 +56,6 @@ import java.util.regex.Pattern;
  */
 public class MainActivity extends Activity {
     private static final String TAG = "RewardsNFC";
-    private static final String BTCPAY_TAP_URL = "https://btcpay.anmore.me/plugins/bitcoin-rewards/wallet/%s/tap";
     // Wallet ID pattern: 8+ char hex or UUID-style
     private static final Pattern WALLET_ID_PATTERN = Pattern.compile("^[a-fA-F0-9\\-]{8,}$");
 
@@ -240,6 +239,15 @@ public class MainActivity extends Activity {
         String email = prefs.getString(SettingsActivity.KEY_EMAIL, "");
         String password = prefs.getString(SettingsActivity.KEY_PASSWORD, "");
         String apiKey = prefs.getString(SettingsActivity.KEY_API_KEY, "");
+
+        String authMethod = prefs.getString(SettingsActivity.KEY_AUTH_METHOD, SettingsActivity.AUTH_METHOD_PASSWORD);
+        if (SettingsActivity.AUTH_METHOD_LOGIN_CODE.equals(authMethod)) {
+            String displayUrl = SettingsActivity.getDisplayUrl(this);
+            if (displayUrl != null) {
+                webView.loadUrl(displayUrl);
+            }
+            return;
+        }
 
         if (btcpayUrl.isEmpty() || email.isEmpty()) {
             startActivity(new Intent(this, SettingsActivity.class));
@@ -575,7 +583,10 @@ public class MainActivity extends Activity {
 
     private void creditWallet(String walletId) {
         try {
-            String url = String.format(BTCPAY_TAP_URL, walletId);
+            String url = SettingsActivity.getWalletTapUrl(this, walletId);
+            if (url == null) {
+                throw new IllegalStateException("BTCPay URL and store ID are not configured");
+            }
             Log.i(TAG, "Crediting wallet via: " + url);
 
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();

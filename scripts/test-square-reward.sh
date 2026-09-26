@@ -9,7 +9,7 @@ echo "=========================================="
 echo ""
 
 # Configuration
-STORE_ID="${STORE_ID:-DWJ4gyqwVYkSQBgDD7py2DW5izoNnCD9PBbK7P332hW8}"
+STORE_ID="${STORE_ID:-EXAMPLE_STORE_ID}"
 BTCPAY_URL="${BTCPAY_URL:-http://localhost:81}"
 AMOUNT="${AMOUNT:-10.00}"
 CURRENCY="${CURRENCY:-CAD}"

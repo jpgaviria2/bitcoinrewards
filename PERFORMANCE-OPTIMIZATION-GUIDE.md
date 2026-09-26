@@ -132,11 +132,11 @@ PostgreSQL connection pooling is configured in `appsettings.json`:
 ```bash
 # Test webhook endpoint (100 requests, 10 concurrent)
 ab -n 100 -c 10 -p webhook-payload.json -T application/json \
-   https://anmore.cash/plugins/bitcoin-rewards/{storeId}/webhooks/square
+   https://btcpay.example.com/plugins/bitcoin-rewards/{storeId}/webhooks/square
 
 # Test metrics endpoint
 ab -n 1000 -c 50 \
-   https://anmore.cash/api/v1/bitcoin-rewards/metrics
+   https://btcpay.example.com/api/v1/bitcoin-rewards/metrics
 ```
 
 ### k6 (Advanced Load Testing)
@@ -158,7 +158,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get('https://anmore.cash/api/v1/bitcoin-rewards/metrics');
+  const res = http.get('https://btcpay.example.com/api/v1/bitcoin-rewards/metrics');
   check(res, {
     'status is 200': (r) => r.status === 200,
     'response time < 500ms': (r) => r.timings.duration < 500,

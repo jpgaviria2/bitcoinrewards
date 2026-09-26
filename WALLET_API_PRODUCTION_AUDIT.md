@@ -256,7 +256,7 @@
 - [x] Fix wallet/create pull payment issue
 - [ ] Fix pay-invoice synchronous confirmation
 - [ ] Add transaction rollback support
-- [ ] Deploy to wallet server (btcpay.anmore.me)
+- [ ] Deploy to wallet server (btcpay.example.com)
 
 ### Phase 2: Comprehensive Testing (NEXT)
 - [ ] Write all unit tests

@@ -59,7 +59,7 @@ public class CustomerWallet
     [MaxLength(64)]
     public string? Pubkey { get; set; }
 
-    /// <summary>NIP-05 username (becomes username@trailscoffee.com).</summary>
+    /// <summary>NIP-05 username (becomes username@example.com).</summary>
     [MaxLength(20)]
     public string? Nip05Username { get; set; }
 

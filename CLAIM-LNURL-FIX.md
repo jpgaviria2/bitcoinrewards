@@ -72,7 +72,7 @@ When the 15-second poll doesn't find payment:
 - .NET SDK: `/home/ln/.dotnet` (8.0.418)
 - Plugin source: `/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/Plugins/BTCPayServer.Plugins.BitcoinRewards/`
 - BTCPay Docker: `/home/ln/.openclaw/workspace/btcpay-dev/docker-compose.yml`
-- Dev server: `http://localhost:49392` (btcpay.anmore.me)
+- Dev server: `http://localhost:49392` (btcpay.example.com)
 - Test wallet: `9cc0a5bb-a59d-4ad9-8c01-24882b84c5f4`
 
 ## DO NOT

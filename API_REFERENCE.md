@@ -29,7 +29,7 @@ Creates a new customer wallet with dual CAD + sats balance.
 **Request:**
 ```json
 {
-  "storeId": "9TipzyZe9J2RYjQNXeGyr9FRuzjBijYZCo2YA4ggsr1c",
+  "storeId": "EXAMPLE_STORE_ID",
   "autoConvertToCad": true
 }
 ```
@@ -395,7 +395,7 @@ try {
 
 ### Sandbox Environment
 
-**URL:** `https://btcpay.anmore.me/plugins/bitcoin-rewards`
+**URL:** `https://btcpay.example.com/plugins/bitcoin-rewards`
 
 Test wallets available for development. Contact support for test credentials.
 
@@ -403,14 +403,14 @@ Test wallets available for development. Contact support for test credentials.
 
 **Create wallet:**
 ```bash
-curl -X POST https://btcpay.anmore.me/plugins/bitcoin-rewards/wallet/create \
+curl -X POST https://btcpay.example.com/plugins/bitcoin-rewards/wallet/create \
   -H "Content-Type: application/json" \
-  -d '{"storeId":"9TipzyZe9J2RYjQNXeGyr9FRuzjBijYZCo2YA4ggsr1c","autoConvertToCad":true}'
+  -d '{"storeId":"EXAMPLE_STORE_ID","autoConvertToCad":true}'
 ```
 
 **Pay invoice:**
 ```bash
-curl -X POST https://btcpay.anmore.me/plugins/bitcoin-rewards/wallet/{walletId}/pay-invoice \
+curl -X POST https://btcpay.example.com/plugins/bitcoin-rewards/wallet/{walletId}/pay-invoice \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \

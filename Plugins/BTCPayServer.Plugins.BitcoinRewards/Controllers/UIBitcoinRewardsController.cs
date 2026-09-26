@@ -127,8 +127,14 @@ public class UIBitcoinRewardsController : Controller
 
             if (vm.CustomerProfileAssociationEnabled)
             {
-                if (!string.Equals(vm.CustomerProfileApiBaseUrl?.Trim(), "https://api.trailscoffee.com", StringComparison.OrdinalIgnoreCase))
-                    ModelState.AddModelError(nameof(vm.CustomerProfileApiBaseUrl), "The profile API must be https://api.trailscoffee.com");
+                try
+                {
+                    CustomerProfileClient.ValidateBaseUri(vm.CustomerProfileApiBaseUrl);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ModelState.AddModelError(nameof(vm.CustomerProfileApiBaseUrl), ex.Message);
+                }
                 if (string.IsNullOrWhiteSpace(vm.CustomerProfileApiToken) &&
                     string.IsNullOrWhiteSpace(existingSettings?.CustomerProfileApiToken))
                     ModelState.AddModelError(nameof(vm.CustomerProfileApiToken), "A profile service token is required when association is enabled");
@@ -594,7 +600,7 @@ public class UIBitcoinRewardsController : Controller
         if (!Uri.TryCreate(claimLink, UriKind.Absolute, out var uri))
             return null;
 
-        // Extract pull payment ID from URL like: https://anmore.cash/pull-payments/{ppId}
+        // Extract pull payment ID from URL like: https://btcpay.example.com/pull-payments/{ppId}
         var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var ppIndex = Array.FindIndex(segments, s => s.Equals("pull-payments", StringComparison.OrdinalIgnoreCase));
         if (ppIndex < 0 || ppIndex + 1 >= segments.Length)

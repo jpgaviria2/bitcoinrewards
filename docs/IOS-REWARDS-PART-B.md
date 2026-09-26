@@ -2,7 +2,7 @@
 
 ## Status
 
-Version 1.6.0 is an **unreleased, default-off foundation**. It aligns the Bitcoin Rewards plugin with the signed customer profiles introduced by the Trails Coffee iOS app without changing the authoritative reward-delivery path.
+Version 1.6.0 is an **unreleased, default-off foundation**. It aligns the Bitcoin Rewards plugin with the signed customer profiles introduced by the Example Merchant iOS app without changing the authoritative reward-delivery path.
 
 The existing Bitcoin Rewards plugin and LNURL-withdraw pull-payment flow remain authoritative. Direct Lightning payout is intentionally unavailable in this release.
 
@@ -10,7 +10,7 @@ The existing Bitcoin Rewards plugin and LNURL-withdraw pull-payment flow remain 
 
 1. An authenticated store operator associates one exact Square order ID with one app-managed Lightning address.
 2. The plugin resolves that address through the Trails profile API using a server-to-server bearer credential.
-3. The profile API accepts only canonical `user@pay.trailscoffee.com` addresses and returns an exact signed-profile match.
+3. The profile API accepts only canonical `user@pay.example.com` addresses and returns an exact signed-profile match.
 4. The plugin stores the profile ID and a keyed address hash, never the plaintext Lightning address.
 5. A completed Square webhook binds the association to the exact Square payment ID carried by that order.
 6. The existing reward service creates the legacy pull payment. Only after successful reward processing is the association marked consumed.
@@ -29,7 +29,7 @@ There is no “next payment” or timing-window customer match.
 - `CustomerProfileAssociationEnabled`: default `false`.
 - `DirectLightningPayoutEnabled`: default `false` and forcibly reset to `false` by the current settings UI.
 - `LegacyPullPaymentFallbackEnabled`: default `true` and required whenever profile association is enabled.
-- Profile API origin is pinned to `https://api.trailscoffee.com`.
+- Profile API origin is pinned to `https://profiles.example.com`.
 - The server-to-server token is write-only in the settings form and must be entered locally; it must never be committed or pasted into support channels.
 
 ## Required production inventory before deployment

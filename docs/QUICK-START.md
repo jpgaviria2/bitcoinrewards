@@ -95,7 +95,7 @@ docker restart generated_btcpayserver_1
    https://your-btcpay-domain.com/plugins/bitcoin-rewards/YOUR_STORE_ID/webhooks/square
    ```
    
-   **Find YOUR_STORE_ID:** Store → Settings → Store ID (e.g., `DWJ4gyqw...`)
+   **Find YOUR_STORE_ID:** Store → Settings → Store ID (e.g., `EXAMPLE_STORE_ID`)
 
 4. Subscribe to: **`payment.updated`**
 5. Click **Save**

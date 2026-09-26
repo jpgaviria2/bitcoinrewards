@@ -9,7 +9,7 @@
 
 The plugin **already generates everything needed**:
 
-- `BitcoinRewardsService.ProcessRewardAsync()` → creates a pull payment → produces a `ClaimLink` like `https://anmore.cash/pull-payments/{ppId}`
+- `BitcoinRewardsService.ProcessRewardAsync()` → creates a pull payment → produces a `ClaimLink` like `https://btcpay.example.com/pull-payments/{ppId}`
 - `UIBitcoinRewardsController` (line ~558) → `GetLnurlBech32FromClaimLink()` converts that into an LNURL-withdraw bech32 string: builds `/BTC/lnurl/withdraw/pp/{ppId}` endpoint → encodes via `LNURL.LNURL.EncodeUri()`
 - `DisplayRewardsViewModel.LnurlString` — the raw LNURL bech32 string (e.g., `lnurl1dp68gurn8ghj7...`)
 - The display page (`DisplayRewards.cshtml`) already shows a QR code of the LNURL and has a Bolt Card NFC tap section
@@ -30,7 +30,7 @@ An LNURL-withdraw string for NFC should be written as an **NDEF URI Record**:
 - Total payload size: ~200-300 bytes for a typical LNURL string (fits in any NFC tag ≥ NTAG213)
 
 ### Option B: HTTPS URL to pull payment page (fallback)
-- NDEF URI Record with the ClaimLink directly: `https://anmore.cash/pull-payments/{ppId}`
+- NDEF URI Record with the ClaimLink directly: `https://btcpay.example.com/pull-payments/{ppId}`
 - Opens in browser → BTCPay pull payment page
 - Less smooth UX but works without a Lightning wallet
 

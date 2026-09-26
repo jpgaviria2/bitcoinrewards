@@ -1,10 +1,10 @@
 #!/bin/bash
 # Comprehensive API Testing Script for Bitcoin Rewards Plugin
-# Tests all endpoints with real requests to btcpay.anmore.me
+# Tests all endpoints with real requests to btcpay.example.com
 
 set -e
-API_BASE="https://btcpay.anmore.me/plugins/bitcoin-rewards"
-STORE_ID="9TipzyZe9J2RYjQNXeGyr9FRuzjBijYZCo2YA4ggsr1c"
+API_BASE="https://btcpay.example.com/plugins/bitcoin-rewards"
+STORE_ID="EXAMPLE_STORE_ID"
 
 echo "========================================="
 echo "Bitcoin Rewards Plugin - Full API Test"

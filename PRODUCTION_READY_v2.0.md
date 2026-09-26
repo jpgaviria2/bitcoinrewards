@@ -141,7 +141,7 @@ The Bitcoin Rewards plugin has been upgraded from **42% → 85% production ready
 ### ✅ Safe to Deploy Now
 
 **Current state is production-ready for:**
-- Single-server deployments (btcpay.anmore.me)
+- Single-server deployments (btcpay.example.com)
 - iOS & Android mobile apps
 - Up to 1000 daily active users
 - Trusted user base (rate limiting prevents abuse)
@@ -309,7 +309,7 @@ sudo docker restart btcpay-dev
 ---
 
 **Next Steps:**
-1. Deploy v2.0 to wallet server (btcpay.anmore.me)
+1. Deploy v2.0 to wallet server (btcpay.example.com)
 2. Test with iOS/Android apps
 3. Monitor for 24 hours
 4. Consider Phase 3 hardening if needed for scale

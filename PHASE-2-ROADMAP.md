@@ -486,7 +486,7 @@ docker restart generated_btcpayserver_1
 scrape_configs:
   - job_name: 'btcpay-bitcoin-rewards'
     static_configs:
-      - targets: ['anmore.cash:443']
+      - targets: ['btcpay.example.com:443']
     metrics_path: /api/v1/bitcoin-rewards/metrics
     scheme: https
 ```
@@ -589,7 +589,7 @@ cd /datadir/Plugins/BTCPayServer.Plugins.BitcoinRewards
 ### Team
 - **Development:** Agent-assisted development (Overseer 🎯)
 - **Product Owner:** JP
-- **Environment:** BTCPay Server v2.3.4 on anmore.cash
+- **Environment:** BTCPay Server v2.3.4 on btcpay.example.com
 
 ---
 
@@ -615,8 +615,8 @@ cd /datadir/Plugins/BTCPayServer.Plugins.BitcoinRewards
 
 For questions or issues, see:
 - **GitHub:** https://github.com/jpgaviria2/bitcoinrewards
-- **Production URL:** https://anmore.cash
-- **Store ID:** `DWJ4gyqwVYkSQBgDD7py2DW5izoNnCD9PBbK7P332hW8`
+- **Production URL:** https://btcpay.example.com
+- **Store ID:** `EXAMPLE_STORE_ID`
 
 ---
 

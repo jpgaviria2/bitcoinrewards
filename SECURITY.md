@@ -15,7 +15,7 @@
 
 ### Reporting Process
 
-1. **Email:** jp@trailscoffee.com
+1. **Email:** jp@example.com
 2. **Subject:** `[SECURITY] Bitcoin Rewards Plugin - Brief Description`
 3. **Include:**
    - Description of the vulnerability

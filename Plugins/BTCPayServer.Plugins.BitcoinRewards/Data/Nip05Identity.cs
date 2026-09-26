@@ -18,7 +18,7 @@ public class Nip05Identity
     [MaxLength(64)]
     public string Pubkey { get; set; } = string.Empty;
 
-    /// <summary>NIP-05 username (becomes username@trailscoffee.com).</summary>
+    /// <summary>NIP-05 username (becomes username@example.com).</summary>
     [Required]
     [MaxLength(20)]
     public string Username { get; set; } = string.Empty;

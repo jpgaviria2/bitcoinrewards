@@ -38,7 +38,7 @@
 - **Production Plugin**: Deployed to `/root/.btcpayserver/Plugins/` inside Docker container
 - **BTCPay Version**: 2.3.3 in Docker (container: generated_btcpayserver_1)
 - **Database**: btcpayrewards schema in PostgreSQL
-- **Store ID**: DWJ4gyqwVYkSQBgDD7py2DW5izoNnCD9PBbK7P332hW8
+- **Store ID**: EXAMPLE_STORE_ID
 - **Test Status**: Manual test rewards working, CAD rate fetch successful (120890.187 CAD/BTC)
 
 ---

@@ -2,7 +2,7 @@
 
 **Release Date:** March 21, 2026  
 **Status:** ✅ Production Ready  
-**Server:** btcpay.anmore.me  
+**Server:** btcpay.example.com  
 
 ---
 
@@ -10,7 +10,7 @@
 
 ### NIP-05 Identity System
 
-Users can now claim human-readable Nostr identities (`username@trailscoffee.com`) when creating Bitcoin Rewards wallets.
+Users can now claim human-readable Nostr identities (`username@example.com`) when creating Bitcoin Rewards wallets.
 
 **Key Features:**
 - **8 new API endpoints** for identity management
@@ -32,7 +32,7 @@ Users can now claim human-readable Nostr identities (`username@trailscoffee.com`
    GET /plugins/bitcoin-rewards/nip05/nostr.json
    GET /plugins/bitcoin-rewards/nip05/nostr.json?name=username
    ```
-   Returns: `{"names": {"username": "pubkey"...}, "relays": ["wss://relay.anmore.me"]}`
+   Returns: `{"names": {"username": "pubkey"...}, "relays": ["wss://relay.example.com"]}`
 
 2. **Check Username Availability**
    ```
@@ -44,7 +44,7 @@ Users can now claim human-readable Nostr identities (`username@trailscoffee.com`
    ```
    GET /plugins/bitcoin-rewards/nip05/lookup?pubkey=hex
    ```
-   Returns: `{"username": "...", "pubkey": "...", "nip05": "username@trailscoffee.com", "revoked": false}`
+   Returns: `{"username": "...", "pubkey": "...", "nip05": "username@example.com", "revoked": false}`
 
 4. **Create Wallet with NIP-05** (Extended)
    ```
@@ -55,7 +55,7 @@ Users can now claim human-readable Nostr identities (`username@trailscoffee.com`
      "username": "desired-username"
    }
    ```
-   Returns: Wallet response with `"nip05": "username@trailscoffee.com"`
+   Returns: Wallet response with `"nip05": "username@example.com"`
 
 ### Authenticated Endpoints
 
@@ -137,25 +137,25 @@ Users can now claim human-readable Nostr identities (`username@trailscoffee.com`
 
 ### Current Support
 Mobile apps **already have NIP-05 support** via `NostrIdentitySection.swift`:
-- Username input with `@trailscoffee.com` suffix
+- Username input with `@example.com` suffix
 - Verified badge display
 - Settings screen integration
 
 ### API Integration
 ```swift
 // Check username availability
-GET https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/check?name=username
+GET https://btcpay.example.com/plugins/bitcoin-rewards/nip05/check?name=username
 
 // Create wallet with NIP-05
-POST https://btcpay.anmore.me/plugins/bitcoin-rewards/wallet/create
+POST https://btcpay.example.com/plugins/bitcoin-rewards/wallet/create
 {
-  "storeId": "9TipzyZe9J2RYjQNXeGyr9FRuzjBijYZCo2YA4ggsr1c",
+  "storeId": "EXAMPLE_STORE_ID",
   "pubkey": "hex_pubkey",
   "username": "desired-username"
 }
 
 // Update username
-POST https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/update
+POST https://btcpay.example.com/plugins/bitcoin-rewards/nip05/update
 Headers: Authorization: Bearer <wallet-token>
 {
   "walletId": "uuid",
@@ -223,7 +223,7 @@ ALTER TABLE CustomerWallets
 **Integration:**
 - ✅ Mobile app compatibility verified
 - ✅ Nostr client compatibility verified
-- ✅ DNS proxy working (trailscoffee.com/.well-known/nostr.json)
+- ✅ DNS proxy working (example.com/.well-known/nostr.json)
 - ✅ Backup automation tested
 
 ---
@@ -231,14 +231,14 @@ ALTER TABLE CustomerWallets
 ## 🚀 Deployment
 
 ### Production Server
-**btcpay.anmore.me** (wallet server for mobile apps)
+**btcpay.example.com** (wallet server for mobile apps)
 - Docker container: `btcpay-dev`
 - Plugin path: `/root/.btcpayserver/Plugins/BTCPayServer.Plugins.BitcoinRewards/`
 
 ### Environment Variables
 ```bash
 # Admin API key for moderation endpoints
-BTCPAY_ADMIN_API_KEY=da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72
+BTCPAY_ADMIN_API_KEY=[REDACTED_EXAMPLE_ADMIN_KEY]
 ```
 
 ### Deployment Commands
@@ -255,7 +255,7 @@ docker restart btcpay-dev
 ### Verify Deployment
 ```bash
 # Check plugin loaded
-curl -s https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/nostr.json | jq '.names | length'
+curl -s https://btcpay.example.com/plugins/bitcoin-rewards/nip05/nostr.json | jq '.names | length'
 
 # Expected: 8+ (pre-seeded users + any registered users)
 ```
@@ -386,7 +386,7 @@ None. All known issues resolved before release.
 - [x] Code merged to main
 - [x] Tagged as v2.1.0
 - [x] Pushed to GitHub
-- [x] Deployed to production (btcpay.anmore.me)
+- [x] Deployed to production (btcpay.example.com)
 - [x] Backup automation configured
 - [x] Admin API key configured
 - [x] Mobile app integration verified

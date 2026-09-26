@@ -121,7 +121,7 @@ public class RewardsProfileScanActivity extends Activity {
             throw new IllegalArgumentException("Scan the wallet Lightning address QR, not an invoice, LNURL, link, or Nostr key.");
         }
         if (value.length() > 128 || !LIGHTNING_ADDRESS.matcher(value).matches()) {
-            throw new IllegalArgumentException("QR must contain a Lightning address like user@pay.trailscoffee.com.");
+            throw new IllegalArgumentException("QR must contain a Lightning address like user@example.com.");
         }
         return value;
     }

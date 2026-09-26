@@ -12,8 +12,8 @@ public class OffensiveWordFilter
     
     private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "admin", "moderator", "support", "official", "trails", "trailscoffee",
-        "coffee", "manager", "staff", "team", "help", "info", "system", "bot", "root"
+        "admin", "moderator", "support", "official",
+        "manager", "staff", "team", "help", "info", "system", "bot", "root"
     };
 
     public OffensiveWordFilter()

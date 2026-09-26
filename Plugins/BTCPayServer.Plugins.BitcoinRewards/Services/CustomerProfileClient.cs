@@ -67,12 +67,14 @@ public sealed class CustomerProfileClient
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
             uri.Scheme != Uri.UriSchemeHttps ||
-            !string.Equals(uri.Host, "api.trailscoffee.com", StringComparison.OrdinalIgnoreCase) ||
-            !string.IsNullOrEmpty(uri.UserInfo) || uri.Query.Length > 0 || uri.Fragment.Length > 0)
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            uri.Query.Length > 0 ||
+            uri.Fragment.Length > 0)
         {
-            throw new InvalidOperationException("Customer profile API must use https://api.trailscoffee.com.");
+            throw new InvalidOperationException("Customer profile API must be an HTTPS origin with no credentials, query string, or fragment.");
         }
-        return new Uri("https://api.trailscoffee.com");
+
+        return new Uri($"{uri.Scheme}://{uri.Authority}/");
     }
 
     public static string NormalizeLightningAddress(string value)
@@ -80,8 +82,8 @@ public sealed class CustomerProfileClient
         var normalized = value?.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(normalized) || normalized.Length > 128 ||
             !System.Text.RegularExpressions.Regex.IsMatch(normalized,
-                "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?@pay\\.trailscoffee\\.com$"))
-            throw new ArgumentException("A Trails app Lightning address is required.", nameof(value));
+                "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?@[a-z0-9.-]+\\.[a-z]{2,}$"))
+            throw new ArgumentException("A valid Lightning address is required.", nameof(value));
         return normalized;
     }
 

@@ -586,7 +586,7 @@ public class MainActivity extends Activity {
     private static final String TAG = "RewardsNFC";
 
     // CONFIGURE THIS: your BTCPay display URL
-    private static final String DISPLAY_URL = "https://anmore.cash/plugins/bitcoin-rewards/{STORE_ID}/display";
+    private static final String DISPLAY_URL = "https://btcpay.example.com/plugins/bitcoin-rewards/{STORE_ID}/display";
 
     private WebView webView;
     private TextView nfcTapOverlay;
@@ -1087,7 +1087,7 @@ dependencies {
 Before building, edit `MainActivity.java` to set the correct display URL:
 
 ```java
-private static final String DISPLAY_URL = "https://anmore.cash/plugins/bitcoin-rewards/YOUR_STORE_ID/display";
+private static final String DISPLAY_URL = "https://btcpay.example.com/plugins/bitcoin-rewards/YOUR_STORE_ID/display";
 ```
 
 Or make it configurable via a settings screen / SharedPreferences (future enhancement).

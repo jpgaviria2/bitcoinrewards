@@ -6,7 +6,7 @@ All notable changes to the Bitcoin Rewards Plugin will be documented in this fil
 
 ### Added
 - Exact Square order-to-payment associations for signed Trails customer profiles.
-- Server-to-server resolution of app-managed `@pay.trailscoffee.com` Lightning addresses.
+- Server-to-server resolution of app-managed `@pay.example.com` Lightning addresses.
 - Durable, replay-safe customer association and direct-payout attempt records.
 - Default-off Part B controls with an explicit legacy pull-payment fallback.
 

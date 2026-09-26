@@ -46,8 +46,8 @@ services:
       NBXPLORER_CHAINS: "btc"
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
-      NBXPLORER_BTCRPCUSER: ceiwHEbqWI83
-      NBXPLORER_BTCRPCPASSWORD: DwubwWsoo3
+      NBXPLORER_BTCRPCUSER: ${BITCOIN_RPC_USER:-bitcoinrpc}
+      NBXPLORER_BTCRPCPASSWORD: ${BITCOIN_RPC_PASSWORD:-changeme-regtest-only}
       NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_MINGAPSIZE: 5
       NBXPLORER_MAXGAPSIZE: 10
@@ -65,8 +65,8 @@ services:
       BITCOIN_NETWORK: regtest
       BITCOIN_WALLETDIR: "/data/wallets"
       BITCOIN_EXTRA_ARGS: |-
-        rpcuser=ceiwHEbqWI83
-        rpcpassword=DwubwWsoo3
+        rpcuser=${BITCOIN_RPC_USER:-bitcoinrpc}
+        rpcpassword=${BITCOIN_RPC_PASSWORD:-changeme-regtest-only}
         rpcport=43782
         rpcbind=0.0.0.0:43782
         rpcallowip=0.0.0.0/0

@@ -264,7 +264,7 @@ After the BoltCard section (`@if (Model.BoltCardEnabled) { ... }`), add:
             await nfcWriter.write({
                 records: [{
                     recordType: "url",
-                    data: "https://anmore.cash"
+                    data: "https://btcpay.example.com"
                 }]
             });
         } catch (err) {

@@ -107,7 +107,7 @@ Rate providers fetch current BTC exchange rates:
 ### Step 1: Get Store ID
 
 1. In BTCPay, go to **Stores** → [Your Store] → **Settings**
-2. Copy your Store ID (e.g., `DWJ4gyqwVYkSQBgDD7py2DW5izoNnCD9PBbK7P332hW8`)
+2. Copy your Store ID (e.g., `EXAMPLE_STORE_ID`)
 
 ### Step 2: Configure Square Webhook
 

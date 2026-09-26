@@ -104,8 +104,8 @@ public class BitcoinRewardsStoreSettings
     /// </summary>
     public bool CustomerProfileAssociationEnabled { get; set; } = false;
 
-    /// <summary>Base URL of the Trails customer profile service.</summary>
-    public string CustomerProfileApiBaseUrl { get; set; } = "https://api.trailscoffee.com";
+    /// <summary>Base URL of the optional customer profile service.</summary>
+    public string CustomerProfileApiBaseUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Service credential used only for server-to-server profile resolution. It is never
@@ -138,7 +138,7 @@ public class BitcoinRewardsStoreSettings
     /// <summary>
     /// Comma-separated Lightning address domains allowed for wallet QR check-in.
     /// </summary>
-    public string CustomerLightningCheckInAllowedDomains { get; set; } = "pay.trailscoffee.com";
+    public string CustomerLightningCheckInAllowedDomains { get; set; } = string.Empty;
     
     // ── Bolt Card Settings ──
 

@@ -1,7 +1,7 @@
 # NIP-05 Identity System - Final QA Report ✅
 
 **Date:** March 21, 2026  
-**Server:** btcpay.anmore.me (production wallet server)  
+**Server:** btcpay.example.com (production wallet server)  
 **Status:** ✅ **READY FOR PRODUCTION**  
 **Branch:** feature/nip05-identity-system  
 
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-NIP-05 identity system (`username@trailscoffee.com`) is **production-ready** and deployed to btcpay.anmore.me. All critical functionality tested and working. Mobile apps already have NIP-05 support. DNS proxy configured. Automated backups running.
+NIP-05 identity system (`username@example.com`) is **production-ready** and deployed to btcpay.example.com. All critical functionality tested and working. Mobile apps already have NIP-05 support. DNS proxy configured. Automated backups running.
 
 ---
 
@@ -84,7 +84,7 @@ k" variations |
 | Component | Status |
 |-----------|--------|
 | Mobile app NIP-05 support | ✅ Already implemented (NostrIdentitySection.swift) |
-| DNS proxy (trailscoffee.com) | ✅ Working, serves nostr.json |
+| DNS proxy (example.com) | ✅ Working, serves nostr.json |
 | Nostr client compatibility | ✅ Verified with curl + JSON format |
 | CORS for web clients | ✅ Headers present |
 
@@ -99,7 +99,7 @@ k" variations |
 **Details:**
 - Replaced custom middleware with BTCPay's native `[RateLimitsFilter]` attributes ✅
 - Code now follows BTCPay plugin patterns ✅
-- Dev server (`btcpay.anmore.me`) doesn't have rate limiting infrastructure enabled
+- Dev server (`btcpay.example.com`) doesn't have rate limiting infrastructure enabled
 - This is expected for dev/test environments
 - Production servers typically enable rate limiting via BTCPay configuration
 
@@ -126,11 +126,11 @@ k" variations |
 **Examples:**
 ```bash
 # Working (proper encoding):
-curl "https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/check?name=caf%C3%A9"
+curl "https://btcpay.example.com/plugins/bitcoin-rewards/nip05/check?name=caf%C3%A9"
 # {"available": false, "reason": "Username must be 3-20 characters...", "suggestion": "coffeelover..."}
 
 # Framework rejection (malformed):
-curl "https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/check?name=café☕"
+curl "https://btcpay.example.com/plugins/bitcoin-rewards/nip05/check?name=café☕"
 # HTTP 400 (empty body)
 ```
 
@@ -160,12 +160,12 @@ curl "https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/check?name=café☕
 
 ### Integration
 - [x] Mobile app support ready (already implemented)
-- [x] DNS proxy working (trailscoffee.com/.well-known/nostr.json)
+- [x] DNS proxy working (example.com/.well-known/nostr.json)
 - [x] Nostr client compatibility verified
 - [x] Documentation complete
 
 ### Deployment
-- [x] Code deployed to btcpay.anmore.me
+- [x] Code deployed to btcpay.example.com
 - [x] Docker compose env vars configured
 - [x] Backup cron configured
 - [x] GitHub backup destination verified
@@ -191,7 +191,7 @@ curl "https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/check?name=café☕
 
 ## 🚀 Deployment Commands
 
-### Dev Server (btcpay.anmore.me) - Already Deployed ✅
+### Dev Server (btcpay.example.com) - Already Deployed ✅
 ```bash
 cd /home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards
 dotnet build -c Release Plugins/BTCPayServer.Plugins.BitcoinRewards/BTCPayServer.Plugins.BitcoinRewards.csproj
@@ -204,7 +204,7 @@ docker restart btcpay-dev
 ### Verify Deployment
 ```bash
 # Check plugin loaded
-curl -s https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/nostr.json | jq '.names | length'
+curl -s https://btcpay.example.com/plugins/bitcoin-rewards/nip05/nostr.json | jq '.names | length'
 # Expected: 11+ (8 pre-seeded + any test users)
 
 # Check migration
@@ -212,8 +212,8 @@ docker logs btcpay-dev --since=5m 2>&1 | grep "Bitcoin Rewards plugin migrations
 # Expected: "migrations completed successfully"
 
 # Test admin endpoint
-curl -s https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/list \
-  -H "Authorization: Bearer da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72" \
+curl -s https://btcpay.example.com/plugins/bitcoin-rewards/nip05/list \
+  -H "Authorization: Bearer [REDACTED_EXAMPLE_ADMIN_KEY]" \
   | jq 'length'
 # Expected: 11+
 ```
@@ -225,7 +225,7 @@ curl -s https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/list \
 ### Current Status
 Mobile app **already has NIP-05 support**:
 - File: `NostrIdentitySection.swift`
-- Features: Username input with `@trailscoffee.com` suffix
+- Features: Username input with `@example.com` suffix
 - Flow: User enters username → DM sent to moderator → Approval → Verified badge
 
 ### Enhancement Opportunities
@@ -236,18 +236,18 @@ Mobile app **already has NIP-05 support**:
 ### API Endpoints for Mobile
 ```swift
 // Check username availability
-GET https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/check?name=USERNAME
+GET https://btcpay.example.com/plugins/bitcoin-rewards/nip05/check?name=USERNAME
 
 // Create wallet with NIP-05
-POST https://btcpay.anmore.me/plugins/bitcoin-rewards/wallet/create
+POST https://btcpay.example.com/plugins/bitcoin-rewards/wallet/create
 {
-  "storeId": "9TipzyZe9J2RYjQNXeGyr9FRuzjBijYZCo2YA4ggsr1c",
+  "storeId": "EXAMPLE_STORE_ID",
   "pubkey": "HEX_PUBKEY",
   "username": "desired-username"
 }
 
 // Update username
-POST https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/update
+POST https://btcpay.example.com/plugins/bitcoin-rewards/nip05/update
 {
   "walletId": "WALLET_UUID",
   "newUsername": "new-username"
@@ -255,7 +255,7 @@ POST https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/update
 Headers: Authorization: Bearer WALLET_TOKEN
 
 // Lookup by pubkey (for verification)
-GET https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/lookup?pubkey=HEX_PUBKEY
+GET https://btcpay.example.com/plugins/bitcoin-rewards/nip05/lookup?pubkey=HEX_PUBKEY
 ```
 
 ---
@@ -264,23 +264,23 @@ GET https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/lookup?pubkey=HEX_PUB
 
 ### List All Identities
 ```bash
-curl https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/list \
-  -H "Authorization: Bearer da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72"
+curl https://btcpay.example.com/plugins/bitcoin-rewards/nip05/list \
+  -H "Authorization: Bearer [REDACTED_EXAMPLE_ADMIN_KEY]"
 ```
 
 ### Revoke Identity (Moderation)
 ```bash
-curl -X POST https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/revoke \
+curl -X POST https://btcpay.example.com/plugins/bitcoin-rewards/nip05/revoke \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72" \
+  -H "Authorization: Bearer [REDACTED_EXAMPLE_ADMIN_KEY]" \
   -d '{"pubkey": "PUBKEY_TO_REVOKE"}'
 ```
 
 ### Restore Identity
 ```bash
-curl -X POST https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/restore \
+curl -X POST https://btcpay.example.com/plugins/bitcoin-rewards/nip05/restore \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72" \
+  -H "Authorization: Bearer [REDACTED_EXAMPLE_ADMIN_KEY]" \
   -d '{"pubkey": "PUBKEY_TO_RESTORE"}'
 ```
 

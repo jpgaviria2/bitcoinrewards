@@ -15,26 +15,26 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Tests;
 public sealed class RewardsPartBFoundationTests
 {
     [Theory]
-    [InlineData("alice@pay.trailscoffee.com", "alice@pay.trailscoffee.com")]
-    [InlineData(" ALICE@PAY.TRAILSCOFFEE.COM ", "alice@pay.trailscoffee.com")]
-    public void Lightning_address_normalization_accepts_only_the_app_domain(string input, string expected) =>
+    [InlineData("alice@pay.example.com", "alice@pay.example.com")]
+    [InlineData(" ALICE@PAY.EXAMPLE.COM ", "alice@pay.example.com")]
+    [InlineData("alice@example.org", "alice@example.org")]
+    public void Lightning_address_normalization_accepts_valid_lightning_addresses(string input, string expected) =>
         Assert.Equal(expected, CustomerProfileClient.NormalizeLightningAddress(input));
 
     [Theory]
     [InlineData("npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")]
-    [InlineData("alice@example.com")]
-    [InlineData("https://pay.trailscoffee.com/alice")]
+    [InlineData("https://pay.example.com/alice")]
     [InlineData("")]
-    public void Lightning_address_normalization_rejects_non_app_identities(string input) =>
+    public void Lightning_address_normalization_rejects_non_lightning_addresses(string input) =>
         Assert.Throws<ArgumentException>(() => CustomerProfileClient.NormalizeLightningAddress(input));
 
     [Fact]
-    public void Profile_api_base_url_is_pinned_against_ssrf()
+    public void Profile_api_base_url_rejects_unsafe_origins()
     {
-        Assert.Equal("https://api.trailscoffee.com/", CustomerProfileClient.ValidateBaseUri("https://api.trailscoffee.com").ToString());
-        Assert.Throws<InvalidOperationException>(() => CustomerProfileClient.ValidateBaseUri("http://api.trailscoffee.com"));
-        Assert.Throws<InvalidOperationException>(() => CustomerProfileClient.ValidateBaseUri("https://api.trailscoffee.com.example"));
-        Assert.Throws<InvalidOperationException>(() => CustomerProfileClient.ValidateBaseUri("https://api.trailscoffee.com@127.0.0.1"));
+        Assert.Equal("https://profiles.example.com/", CustomerProfileClient.ValidateBaseUri("https://profiles.example.com/path").ToString());
+        Assert.Throws<InvalidOperationException>(() => CustomerProfileClient.ValidateBaseUri("http://profiles.example.com"));
+        Assert.Throws<InvalidOperationException>(() => CustomerProfileClient.ValidateBaseUri("https://user:pass@profiles.example.com"));
+        Assert.Throws<InvalidOperationException>(() => CustomerProfileClient.ValidateBaseUri("https://profiles.example.com?token=secret"));
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class RewardsPartBFoundationTests
         var model = new BitcoinRewardsSettingsViewModel
         {
             CustomerProfileAssociationEnabled = true,
-            CustomerProfileApiBaseUrl = "https://api.trailscoffee.com",
+            CustomerProfileApiBaseUrl = "https://profiles.example.com",
             CustomerProfileApiToken = null,
             LegacyPullPaymentFallbackEnabled = true
         };

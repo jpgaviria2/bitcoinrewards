@@ -7,3 +7,10 @@ monero_wallet/
 .env
 *.DotSettings.user
 android/rewards-nfc-display/release-keystore.jks
+android/rewards-nfc-display/.gradle/
+android/rewards-nfc-display/app/build/
+output/
+*.btcpay
+*.apk
+*.jks
+.hermes/

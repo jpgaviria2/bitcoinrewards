@@ -243,7 +243,7 @@ New:
 
 ---
 
-## PWA Changes (wallet.trailscoffee.com)
+## PWA Changes (wallet.example.com)
 
 ### Repurpose existing PWA
 - Remove all LNbits code
@@ -291,7 +291,7 @@ public bool SwapEnabled { get; set; } = true;
 4. Add wallet API controller with balance, swap, settings, history endpoints
 5. Modify reward processing to check auto-convert flag
 6. Add wallet token auth
-7. **Test on dev server** (btcpay.anmore.me)
+7. **Test on dev server** (btcpay.example.com)
 
 ### Phase 2: PWA (Week 1-2)
 1. Strip LNbits/Blink code from wallet PWA
@@ -299,7 +299,7 @@ public bool SwapEnabled { get; set; } = true;
 3. Implement NFC → wallet token flow
 4. Two balance cards with live rates
 5. Swap UI
-6. Deploy to wallet.trailscoffee.com
+6. Deploy to wallet.example.com
 
 ### Phase 3: POS Integration (Week 2-3)
 1. Admin page to view/manage customer wallets
@@ -353,10 +353,10 @@ Controllers/BoltCardRewardsController.cs — Return wallet token on tap
 
 ## Agent Configuration
 
-Repurpose the **Trails Coffee Wallet Engineer** sub-agent:
+Repurpose the **Example Merchant Wallet Engineer** sub-agent:
 - **New purpose**: Bitcoin Rewards Plugin development (C# / .NET)
 - **Workspace**: `/home/ln/.openclaw/workspace/btcpay-research/bitcoinrewards/`
-- **Dev server**: `btcpay.anmore.me` (Docker on P50, port 49392)
+- **Dev server**: `btcpay.example.com` (Docker on P50, port 49392)
 - **Build**: `dotnet build` in plugin directory
 - **Deploy to dev**: Copy .btcpay to Docker volume, restart container
 - **Test**: Greenfield API calls against dev server

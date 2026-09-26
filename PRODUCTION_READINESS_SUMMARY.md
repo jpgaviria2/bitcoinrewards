@@ -1,7 +1,7 @@
 # Wallet API Production Readiness Summary
 **Date:** 2026-03-20  
 **Status:** CRITICAL FIX DEPLOYED - TESTING IN PROGRESS  
-**Server:** btcpay.anmore.me (P50 Wallet Server)
+**Server:** btcpay.example.com (P50 Wallet Server)
 
 ---
 
@@ -165,7 +165,7 @@
 - [ ] Add rate limiting
 - [ ] Add idempotency for payments
 - [ ] Load testing (1000 concurrent users)
-- [ ] Deploy to production (anmore.cash)
+- [ ] Deploy to production (btcpay.example.com)
 
 ### Phase 2: Important (Within 1 Week)
 - [ ] Add transaction rollback support

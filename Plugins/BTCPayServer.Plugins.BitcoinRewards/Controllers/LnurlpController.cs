@@ -21,7 +21,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Controllers;
 
 /// <summary>
 /// LNURL-pay (LUD-16) endpoints: gives every NIP-05 user a Lightning Address.
-/// username@btcpay.anmore.me resolves via /.well-known/lnurlp/{username}
+/// username@btcpay.example.com resolves via /.well-known/lnurlp/{username}
 /// </summary>
 [ApiController]
 public class LnurlpController : ControllerBase

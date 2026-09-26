@@ -146,7 +146,7 @@ public sealed class PendingLightningAddressCheckInService
 
         var parts = value.Split('@');
         if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || string.IsNullOrWhiteSpace(parts[1]))
-            throw new ArgumentException("A Lightning address like user@pay.trailscoffee.com is required.", nameof(payload));
+            throw new ArgumentException("A Lightning address like user@example.com is required.", nameof(payload));
 
         var local = parts[0];
         var domain = parts[1];
@@ -154,7 +154,7 @@ public sealed class PendingLightningAddressCheckInService
             !System.Text.RegularExpressions.Regex.IsMatch(domain, "^[a-z0-9.-]+\\.[a-z]{2,}$"))
             throw new ArgumentException("A valid Lightning address is required.", nameof(payload));
 
-        var domains = (allowedDomains ?? "pay.trailscoffee.com")
+        var domains = (allowedDomains ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(d => d.ToLowerInvariant())
             .Where(d => d.Length > 0)

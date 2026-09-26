@@ -1,8 +1,8 @@
 # NIP-05 Identity System - Deployment Notes
 
 **Deployed:** 2026-03-21  
-**Server:** btcpay.anmore.me  
-**Domain:** trailscoffee.com  
+**Server:** btcpay.example.com  
+**Domain:** example.com  
 
 ## Endpoints
 
@@ -29,16 +29,16 @@
 
 ## Admin API Key Setup
 
-Generated key: `da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72`
+Generated key: `[REDACTED_EXAMPLE_ADMIN_KEY]`
 
 To configure, add to BTCPay environment:
 ```bash
 # Option 1: Docker compose env
 # Add to docker-compose.yml under btcpayserver environment:
-#   BTCPAY_BITCOINREWARDS_ADMINKEY: da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72
+#   BTCPAY_BITCOINREWARDS_ADMINKEY: [REDACTED_EXAMPLE_ADMIN_KEY]
 
 # Option 2: Docker run env
-sudo docker exec btcpay-dev bash -c 'export BTCPAY_BITCOINREWARDS_ADMINKEY=da0f2f4277c78b215f9673d8ed22a7c4eef9e020bf0efa1160445f6ca5d5cf72'
+sudo docker exec btcpay-dev bash -c 'export BTCPAY_BITCOINREWARDS_ADMINKEY=[REDACTED_EXAMPLE_ADMIN_KEY]'
 ```
 
 Use in requests: `Authorization: Bearer <key>`
@@ -47,7 +47,7 @@ Use in requests: `Authorization: Bearer <key>`
 
 ```bash
 # Check plugin loaded
-curl -s https://btcpay.anmore.me/plugins/bitcoin-rewards/nip05/nostr.json | jq '.names | length'
+curl -s https://btcpay.example.com/plugins/bitcoin-rewards/nip05/nostr.json | jq '.names | length'
 # Expected: 8+
 
 # Check migration

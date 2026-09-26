@@ -3,14 +3,6 @@ plugins {
 }
 
 android {
-    signingConfigs {
-        release {
-            storeFile file('../release-keystore.jks')
-            storePassword 'rewardsnfc123'
-            keyAlias 'rewards-nfc'
-            keyPassword 'rewardsnfc123'
-        }
-    }
     namespace 'com.bitcoinrewards.nfcdisplay'
     compileSdk 34
 
@@ -18,8 +10,21 @@ android {
         applicationId "com.bitcoinrewards.nfcdisplay"
         minSdk 19
         targetSdk 34
-        versionCode 11
-        versionName "1.10.0"
+        versionCode 12
+        versionName "1.11.0"
+    }
+
+    signingConfigs {
+        release {
+            def keystorePath = project.findProperty('REWARDS_NFC_KEYSTORE') ?: System.getenv('REWARDS_NFC_KEYSTORE') ?: '../release-keystore.jks'
+            def keystorePassword = project.findProperty('REWARDS_NFC_KEYSTORE_PASSWORD') ?: System.getenv('REWARDS_NFC_KEYSTORE_PASSWORD')
+            def keyAliasValue = project.findProperty('REWARDS_NFC_KEY_ALIAS') ?: System.getenv('REWARDS_NFC_KEY_ALIAS') ?: 'rewards-nfc'
+            def keyPasswordValue = project.findProperty('REWARDS_NFC_KEY_PASSWORD') ?: System.getenv('REWARDS_NFC_KEY_PASSWORD')
+            storeFile file(keystorePath)
+            storePassword keystorePassword
+            keyAlias keyAliasValue
+            keyPassword keyPasswordValue
+        }
     }
 
     buildTypes {

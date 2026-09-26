@@ -117,7 +117,7 @@ public class Nip05ApiController : ControllerBase
         return Ok(new Nip05LookupResponse
         {
             WalletId = walletId,
-            Nip05 = $"{identity.Username}@trailscoffee.com",
+            Nip05 = $"{identity.Username}@example.com",
             CreatedAt = identity.CreatedAt,
             Revoked = identity.Revoked
         });
@@ -148,7 +148,7 @@ public class Nip05ApiController : ControllerBase
 
         var host = Request.Host.Value;
         _logger.LogInformation("Updated NIP-05 username for wallet {WalletId} to {Username}", wallet.Id, lower);
-        return Ok(new { success = true, nip05 = $"{lower}@trailscoffee.com", lud16 = $"{lower}@{host}" });
+        return Ok(new { success = true, nip05 = $"{lower}@example.com", lud16 = $"{lower}@{host}" });
     }
 
     /// <summary>User self-revoke: release NIP-05 identity with 7-day cooldown.</summary>
