@@ -1,6 +1,6 @@
-# Rewards NFC Display v1.11.2
+# Rewards NFC Display v1.11.3
 
-Production/Zapstore readiness update.
+Production/Zapstore readiness update with persistent release signing for future APK updates.
 
 - Added production launcher icon and round icon.
 - Added Zapstore metadata/config and store-ready promotional assets.

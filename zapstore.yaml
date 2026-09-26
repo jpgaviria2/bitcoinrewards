@@ -1,5 +1,5 @@
 repository: https://github.com/jpgaviria2/bitcoinrewards
-release_source: https://github.com/jpgaviria2/bitcoinrewards/releases/download/v1.7.3-login-code-cleanup/rewards-nfc-display-1.11.2-production-zapstore.apk
+release_source: https://github.com/jpgaviria2/bitcoinrewards/releases/download/v1.7.3-login-code-cleanup/rewards-nfc-display-1.11.3-production-zapstore.apk
 match: "rewards-nfc-display-.*\\.apk$"
 pubkey: npub13xxh7qmxlean3xspxyjryl3y8ppsl300f998mq2qvc7vmzwatvfqt9s4p0
 name: Rewards NFC Display
