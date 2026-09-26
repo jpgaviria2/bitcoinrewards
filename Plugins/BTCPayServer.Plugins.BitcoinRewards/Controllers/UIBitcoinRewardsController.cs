@@ -113,6 +113,8 @@ public class UIBitcoinRewardsController : Controller
             vm.CadSpendingEnabled = cadSpendingValues.Count > 0 && cadSpendingValues.Contains("true");
             var associationValues = Request.Form["CustomerProfileAssociationEnabled"];
             vm.CustomerProfileAssociationEnabled = associationValues.Count > 0 && associationValues.Contains("true");
+            var rewardNotificationValues = Request.Form["CustomerRewardNotificationsEnabled"];
+            vm.CustomerRewardNotificationsEnabled = rewardNotificationValues.Count > 0 && rewardNotificationValues.Contains("true");
             var legacyFallbackValues = Request.Form["LegacyPullPaymentFallbackEnabled"];
             vm.LegacyPullPaymentFallbackEnabled = legacyFallbackValues.Count > 0 && legacyFallbackValues.Contains("true");
             
@@ -126,6 +128,7 @@ public class UIBitcoinRewardsController : Controller
             ModelState.Remove(nameof(vm.SwapEnabled));
             ModelState.Remove(nameof(vm.CadSpendingEnabled));
             ModelState.Remove(nameof(vm.CustomerProfileAssociationEnabled));
+            ModelState.Remove(nameof(vm.CustomerRewardNotificationsEnabled));
             ModelState.Remove(nameof(vm.LegacyPullPaymentFallbackEnabled));
 
             if (vm.CustomerProfileAssociationEnabled)
@@ -137,6 +140,11 @@ public class UIBitcoinRewardsController : Controller
                     ModelState.AddModelError(nameof(vm.CustomerProfileApiToken), "A profile service token is required when association is enabled");
                 if (!vm.LegacyPullPaymentFallbackEnabled)
                     ModelState.AddModelError(nameof(vm.LegacyPullPaymentFallbackEnabled), "Legacy fallback must remain enabled until direct payout is approved");
+            }
+            else if (vm.CustomerRewardNotificationsEnabled)
+            {
+                ModelState.AddModelError(nameof(vm.CustomerRewardNotificationsEnabled),
+                    "Exact customer/order association must be enabled before reward notifications.");
             }
             
             // Log what we received from the form for debugging

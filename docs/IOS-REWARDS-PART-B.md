@@ -2,7 +2,7 @@
 
 ## Status
 
-Version 1.6.0 is an **unreleased, default-off foundation**. It aligns the Bitcoin Rewards plugin with the signed customer profiles introduced by the Trails Coffee iOS app without changing the authoritative reward-delivery path.
+Version 1.6.4 is an **unreleased, default-off notification candidate**. It aligns the Bitcoin Rewards plugin with signed customer profiles and adds a durable server notification event after the authoritative legacy pull payment settles.
 
 The existing Bitcoin Rewards plugin and LNURL-withdraw pull-payment flow remain authoritative. Direct Lightning payout is intentionally unavailable in this release.
 
@@ -14,6 +14,8 @@ The existing Bitcoin Rewards plugin and LNURL-withdraw pull-payment flow remain 
 4. The plugin stores the profile ID and a keyed address hash, never the plaintext Lightning address.
 5. A completed Square webhook binds the association to the exact Square payment ID carried by that order.
 6. The existing reward service creates the legacy pull payment. Only after successful reward processing is the association marked consumed.
+7. A hosted worker confirms the pull payment is fully claimed, atomically marks the reward redeemed, and inserts one stable `reward:<reward-id>:settled` outbox event.
+8. A separate retrying dispatcher publishes that event to the Trails API. It never changes or duplicates the reward payment itself.
 
 There is no “next payment” or timing-window customer match.
 
@@ -21,12 +23,14 @@ There is no “next payment” or timing-window customer match.
 
 - `CustomerOrderAssociations` has unique `(StoreId, SquareOrderId)` and unique non-null `(StoreId, SquarePaymentId)` constraints.
 - `RewardPayoutAttempts` has a unique `(RewardId, AttemptNumber)` constraint and durable retry/reconciliation fields for a later dispatcher.
+- `RewardNotificationOutbox` has unique reward and event IDs, leases, bounded retry state, terminal suppression/failure state, and no wallet balance or transaction history.
 - Reward records add profile ID, keyed address hash, delivery mode, and optional direct-payout state.
 - The migration is additive and reversible; existing reward rows default to `LegacyPullPayment`.
 
 ## Rollout controls
 
 - `CustomerProfileAssociationEnabled`: default `false`.
+- `CustomerRewardNotificationsEnabled`: default `false`; enabling it requires exact customer/order association.
 - `DirectLightningPayoutEnabled`: default `false` and forcibly reset to `false` by the current settings UI.
 - `LegacyPullPaymentFallbackEnabled`: default `true` and required whenever profile association is enabled.
 - Profile API origin is pinned to `https://api.trailscoffee.com`.
@@ -34,7 +38,7 @@ There is no “next payment” or timing-window customer match.
 
 ## Required production inventory before deployment
 
-Do not install version 1.6.0 until all of the following are captured from the deployed BTCPay host:
+Do not install version 1.6.4 until all of the following are captured from the deployed BTCPay host:
 
 - BTCPay Server version and container/image digest.
 - Installed Bitcoin Rewards plugin version plus SHA-256 of the deployed plugin package/assembly.
@@ -54,6 +58,7 @@ Before enabling profile association:
 - Prove a Square order cannot be rebound to another profile or payment.
 - Prove disabled association leaves legacy rewards unchanged.
 - Prove API outage/401/404/409 cases fail closed without losing a completed Square payment.
+- Prove settled-event replay, concurrent discovery, worker restart, bounded retry, disabled-notification suppression, and API idempotency.
 - Run a physical Square register checkout that captures the exact order ID before payment completion.
 - Resolve the pinned BTCPay dependency advisories or document an independently reviewed exception.
 - Ship the iOS replacement for build 143 so the Home Rewards QR never falls back to a Nostr `npub`.
@@ -75,8 +80,9 @@ Before enabling direct payout:
 
 ## Current verification
 
-- Plugin suite: 158/158 passing.
-- Trails API suite: 103/103 passing.
+- Plugin suite: 163/163 passing, including migration discovery and model snapshot parity.
+- Trails API suite: 105/105 passing; dependency audit reports zero vulnerabilities.
+- iOS suite: 34/34 passing.
 - Plugin Release build: passing.
-- Disposable PostgreSQL 16 rehearsal: full migration apply, rollback, and reapply passing.
+- Disposable PostgreSQL 16 rehearsal: all historical migration identifiers discovered; notification outbox apply, rollback, and reapply passing.
 - Known upstream advisories remain in the pinned BTCPay submodule (`SSH.NET`, `MailKit`, and `HtmlSanitizer`) and block production approval pending upgrade or review.

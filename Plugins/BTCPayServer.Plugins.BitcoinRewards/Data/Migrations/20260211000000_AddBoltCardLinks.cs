@@ -1,10 +1,13 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable enable
 
 namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
 {
+    [DbContext(typeof(BitcoinRewardsPluginDbContext))]
+    [Migration("20260211000000_AddBoltCardLinks")]
     /// <inheritdoc />
     public partial class AddBoltCardLinks : Migration
     {

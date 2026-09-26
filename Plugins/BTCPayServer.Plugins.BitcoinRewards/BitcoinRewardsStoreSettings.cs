@@ -110,6 +110,9 @@ public class BitcoinRewardsStoreSettings
     /// </summary>
     public bool CustomerProfileAssociationEnabled { get; set; } = false;
 
+    /// <summary>Default-off server notification delivery for settled linked rewards.</summary>
+    public bool CustomerRewardNotificationsEnabled { get; set; } = false;
+
     /// <summary>Base URL of the Trails customer profile service.</summary>
     public string CustomerProfileApiBaseUrl { get; set; } = "https://api.trailscoffee.com";
 

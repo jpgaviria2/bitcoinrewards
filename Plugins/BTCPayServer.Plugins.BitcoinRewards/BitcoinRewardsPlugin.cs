@@ -31,6 +31,16 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
     {
         // Phase 2.7: Use BTCPay's existing memory cache (don't override)
         // BTCPay Server already has MemoryCache configured
+
+        // Database migration must be registered before every hosted worker that can query plugin tables.
+        services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
+        services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
+        {
+            var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
+            factory.ConfigureBuilder(o);
+        });
+        services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
+        services.AddHostedService<HostedServices.RewardNotificationOutboxService>();
         
         // Other services
         services.TryAddScoped<Services.BitcoinRewardsRepository>();
@@ -106,15 +116,6 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
         // UI extensions
         services.AddUIExtension("header-nav", "BitcoinRewardsNavExtension");
 
-        // Database Services (matches Cashu plugin pattern exactly)
-        services.AddSingleton<Data.BitcoinRewardsPluginDbContextFactory>();
-        services.AddDbContext<Data.BitcoinRewardsPluginDbContext>((provider, o) =>
-        {
-            var factory = provider.GetRequiredService<Data.BitcoinRewardsPluginDbContextFactory>();
-            factory.ConfigureBuilder(o);
-        });
-        services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
-            
         base.Execute(services);
     }
     

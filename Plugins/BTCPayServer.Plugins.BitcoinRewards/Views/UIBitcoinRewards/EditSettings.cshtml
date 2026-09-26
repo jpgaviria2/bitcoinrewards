@@ -167,6 +167,12 @@
                         <input name="CustomerProfileAssociationEnabled" class="form-check-input" type="checkbox" value="true" @(Model.CustomerProfileAssociationEnabled ? "checked" : "")>
                         <label asp-for="CustomerProfileAssociationEnabled" class="form-check-label"></label>
                     </div>
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="CustomerRewardNotificationsEnabled" value="false">
+                        <input name="CustomerRewardNotificationsEnabled" class="form-check-input" type="checkbox" value="true" @(Model.CustomerRewardNotificationsEnabled ? "checked" : "")>
+                        <label asp-for="CustomerRewardNotificationsEnabled" class="form-check-label"></label>
+                        <div class="form-text">Default off. Sends one replay-safe APNs event after the authoritative pull payment settles.</div>
+                    </div>
                     <div class="form-group mb-3">
                         <label asp-for="CustomerProfileApiBaseUrl" class="form-label"></label>
                         <input asp-for="CustomerProfileApiBaseUrl" class="form-control" readonly />

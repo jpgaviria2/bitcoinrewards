@@ -110,6 +110,31 @@ public class BitcoinRewardsHealthCheck : IHealthCheck
             {
                 _logger.LogWarning(ex, "Unable to get total reward count");
             }
+
+            // 5. Durable customer notification outbox health (counts only; no profile data).
+            try
+            {
+                var outboxCounts = await db.RewardNotificationOutbox
+                    .GroupBy(item => item.State)
+                    .Select(group => new { State = group.Key, Count = group.Count() })
+                    .ToListAsync(cancellationToken);
+                foreach (var row in outboxCounts)
+                    checks[$"reward_notifications_{row.State.ToString().ToLowerInvariant()}"] = row.Count;
+
+                var staleBefore = DateTime.UtcNow.AddMinutes(-15);
+                var stuckNotifications = await db.RewardNotificationOutbox.CountAsync(item =>
+                    (item.State == RewardNotificationState.Pending && item.CreatedAt < staleBefore) ||
+                    (item.State == RewardNotificationState.Delivering && item.LeaseExpiresAt < DateTime.UtcNow),
+                    cancellationToken);
+                checks["reward_notifications_stuck"] = stuckNotifications;
+                if (stuckNotifications > 0)
+                    warnings.Add($"{stuckNotifications} customer reward notifications are stuck");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unable to calculate customer reward notification outbox health");
+                warnings.Add("Could not inspect customer reward notification outbox");
+            }
             
             // Return result
             if (warnings.Any())

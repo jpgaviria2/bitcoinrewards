@@ -64,6 +64,9 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Enable exact customer/order association")]
     public bool CustomerProfileAssociationEnabled { get; set; }
 
+    [Display(Name = "Send server notifications for settled rewards")]
+    public bool CustomerRewardNotificationsEnabled { get; set; }
+
     [Display(Name = "Customer Profile API URL")]
     [Url]
     public string CustomerProfileApiBaseUrl { get; set; } = "https://api.trailscoffee.com";
@@ -217,6 +220,7 @@ public class BitcoinRewardsSettingsViewModel
         HasSquareWebhookSignatureKey = !string.IsNullOrWhiteSpace(settings.Square?.WebhookSignatureKey);
 
         CustomerProfileAssociationEnabled = settings.CustomerProfileAssociationEnabled;
+        CustomerRewardNotificationsEnabled = settings.CustomerRewardNotificationsEnabled;
         CustomerProfileApiBaseUrl = settings.CustomerProfileApiBaseUrl;
         HasCustomerProfileApiToken = !string.IsNullOrWhiteSpace(settings.CustomerProfileApiToken);
         LegacyPullPaymentFallbackEnabled = settings.LegacyPullPaymentFallbackEnabled;
@@ -276,6 +280,8 @@ public class BitcoinRewardsSettingsViewModel
         settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;
         settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();
         settings.CustomerProfileAssociationEnabled = CustomerProfileAssociationEnabled;
+        settings.CustomerRewardNotificationsEnabled =
+            CustomerProfileAssociationEnabled && CustomerRewardNotificationsEnabled;
         settings.CustomerProfileApiBaseUrl = string.IsNullOrWhiteSpace(CustomerProfileApiBaseUrl)
             ? "https://api.trailscoffee.com"
             : CustomerProfileApiBaseUrl.Trim();

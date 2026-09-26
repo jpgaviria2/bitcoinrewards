@@ -17,6 +17,7 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
     public DbSet<Nip05Identity> Nip05Identities { get; set; } = null!;
     public DbSet<CustomerOrderAssociation> CustomerOrderAssociations { get; set; } = null!;
     public DbSet<RewardPayoutAttempt> RewardPayoutAttempts { get; set; } = null!;
+    public DbSet<RewardNotificationOutbox> RewardNotificationOutbox { get; set; } = null!;
     
     // Phase 2: Production Hardening - Error tracking
     public DbSet<Models.RewardError> RewardErrors { get; set; } = null!;
@@ -58,6 +59,18 @@ public class BitcoinRewardsPluginDbContext(DbContextOptions<BitcoinRewardsPlugin
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.RewardId, e.AttemptNumber }).IsUnique();
             entity.HasIndex(e => new { e.State, e.NextRetryAt });
+            entity.HasOne<BitcoinRewardRecord>().WithMany().HasForeignKey(e => e.RewardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RewardNotificationOutbox>(entity =>
+        {
+            entity.ToTable("RewardNotificationOutbox");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.RewardId).IsUnique();
+            entity.HasIndex(e => e.EventId).IsUnique();
+            entity.HasIndex(e => new { e.State, e.NextAttemptAt });
+            entity.HasIndex(e => new { e.StoreId, e.State });
             entity.HasOne<BitcoinRewardRecord>().WithMany().HasForeignKey(e => e.RewardId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
