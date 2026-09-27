@@ -3,46 +3,38 @@
 @model DisplayRewardsViewModel
 @{
     Layout = null;
-    
-    // Check if custom template is provided
     var useCustomTemplate = !string.IsNullOrWhiteSpace(Model.CustomTemplate) && Model.HasReward;
-    var useCustomWaitingTemplate = !string.IsNullOrWhiteSpace(Model.WaitingTemplate) && !Model.HasReward;
-    
-    // Helper function to replace tokens in custom template
+    var useCustomWaitingTemplate = !string.IsNullOrWhiteSpace(Model.WaitingTemplate) && !Model.HasReward && string.IsNullOrEmpty(Model.PendingLightningAddressMasked);
+
     string ReplaceTokens(string template)
     {
-        var result = template
+        return template
             .Replace("{AMOUNT_BTC}", Model.RewardAmountBtc.ToString("0.########", CultureInfo.InvariantCulture))
             .Replace("{AMOUNT_SATS}", Model.RewardAmountSatoshis.ToString("N0", CultureInfo.InvariantCulture))
             .Replace("{CLAIM_LINK}", Model.ClaimLink ?? "")
             .Replace("{LNURL}", Model.LnurlString ?? "")
-            .Replace("{QR_CODE}", !string.IsNullOrEmpty(Model.LnurlQrDataUri) 
-                ? $"<img src=\"{Model.LnurlQrDataUri}\" alt=\"Reward QR Code\" style=\"max-width: 500px; width: 100%; height: auto;\" />" 
+            .Replace("{QR_CODE}", !string.IsNullOrEmpty(Model.LnurlQrDataUri)
+                ? $"<img src=\"{Model.LnurlQrDataUri}\" alt=\"Reward QR Code\" style=\"max-width: 420px; width: 100%; height: auto;\" />"
                 : "")
             .Replace("{COUNTDOWN_TIMER}", $"<div class=\"countdown-timer\" id=\"countdown-timer\">Time remaining: <span id=\"countdown-seconds\">{Model.RemainingSeconds}</span>s</div>")
             .Replace("{DONE_BUTTON}", "<button class=\"done-button\" id=\"done-button\" onclick=\"hideReward()\">✓ Done</button>");
-        return result;
     }
-    
-    // Helper function to replace tokens in waiting template
+
     string ReplaceWaitingTokens(string template)
     {
-        var autoRefreshMs = Model.AutoRefreshSeconds * 1000;
-        var logoHtml = string.IsNullOrEmpty(Model.LogoUrl) 
-            ? "" 
+        var logoHtml = string.IsNullOrEmpty(Model.LogoUrl)
+            ? ""
             : $"<img src=\"{Model.LogoUrl}\" alt=\"{Model.StoreName}\" class=\"logo\">";
-        
-        var result = template
+        return template
             .Replace("{STORE_NAME}", Model.StoreName ?? "Our Store")
             .Replace("{AUTO_REFRESH_SECONDS}", Model.AutoRefreshSeconds.ToString())
-            .Replace("{AUTO_REFRESH_MS}", autoRefreshMs.ToString())
+            .Replace("{AUTO_REFRESH_MS}", (Model.AutoRefreshSeconds * 1000).ToString())
             .Replace("{TIMEFRAME_MINUTES}", Model.TimeframeMinutes.ToString())
             .Replace("{PRIMARY_COLOR}", Model.PrimaryColor)
             .Replace("{SECONDARY_COLOR}", Model.SecondaryColor)
             .Replace("{ACCENT_COLOR}", Model.AccentColor)
             .Replace("{LOGO_URL}", Model.LogoUrl ?? "")
             .Replace("{LOGO_HTML}", logoHtml);
-        return result;
     }
 }
 
@@ -53,63 +45,24 @@
 else if (useCustomTemplate)
 {
     @Html.Raw(ReplaceTokens(Model.CustomTemplate!))
-    
-    <!-- Inject countdown and hide logic for custom templates -->
     <script>
-        // Client-side timeout and countdown
         let remainingSeconds = @Model.RemainingSeconds;
         const countdownElement = document.getElementById('countdown-seconds');
-        const countdownTimer = document.getElementById('countdown-timer');
-        
         function hideReward() {
             fetch('/plugins/bitcoin-rewards/@Model.StoreId/dismiss-reward', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rewardId: '@Model.RewardId' })
-            }).finally(() => {
-                window.location.reload();
-            });
+            }).finally(() => window.location.reload());
         }
-        
         function updateCountdown() {
-            if (remainingSeconds <= 0) {
-                hideReward();
-                return;
-            }
-            
+            if (remainingSeconds <= 0) { hideReward(); return; }
             remainingSeconds--;
-            if (countdownElement) {
-                countdownElement.textContent = remainingSeconds;
-            }
-            
-            // Update styling based on remaining time
-            if (countdownTimer) {
-                if (remainingSeconds <= 10) {
-                    countdownTimer.classList.add('critical');
-                    countdownTimer.classList.remove('warning');
-                } else if (remainingSeconds <= 30) {
-                    countdownTimer.classList.add('warning');
-                    countdownTimer.classList.remove('critical');
-                } else {
-                    countdownTimer.classList.remove('warning', 'critical');
-                }
-            }
-            
+            if (countdownElement) countdownElement.textContent = remainingSeconds;
             setTimeout(updateCountdown, 1000);
         }
-        
-        // Start countdown if there's remaining time
-        if (remainingSeconds > 0) {
-            setTimeout(updateCountdown, 1000);
-        } else {
-            // Already expired, hide immediately
-            hideReward();
-        }
-        
-        // Auto-refresh
-        setTimeout(function() {
-            window.location.reload();
-        }, @Model.AutoRefreshSeconds * 1000);
+        if (remainingSeconds > 0) setTimeout(updateCountdown, 1000); else hideReward();
+        setTimeout(() => window.location.reload(), @Model.AutoRefreshSeconds * 1000);
     </script>
 }
 else
@@ -120,588 +73,173 @@ else
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="refresh" content="@Model.AutoRefreshSeconds">
-    <title>@(Model.StoreName ?? "Trails Coffee Rewards")</title>
+    <title>@(Model.StoreName ?? "Bitcoin Rewards")</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, @Model.PrimaryColor 0%, @Model.SecondaryColor 100%);
-            color: white;
-            min-height: 100vh;
+            font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(180deg, @Model.PrimaryColor 0%, #0d2b20 100%);
+            color: #173f2f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+        .counter-display {
+            width: min(100%, 760px);
+            height: calc(100vh - 24px);
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: center;
             align-items: center;
-            padding: 10px 14px;
-            overflow: hidden;
+            gap: 14px;
         }
-        
-        .container {
+        .brand-logo {
+            max-width: 260px;
+            max-height: 86px;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 22px rgba(0,0,0,.18));
+        }
+        .brand-fallback {
+            color: @Model.AccentColor;
+            font-size: clamp(2rem, 6vw, 3.4rem);
+            font-weight: 850;
+            letter-spacing: -.04em;
             text-align: center;
-            max-width: 800px;
-            width: 100%;
-            max-height: 100vh;
+            line-height: 1;
+            text-shadow: 0 8px 20px rgba(0,0,0,.22);
         }
-        
-        .header {
-            margin-bottom: 12px;
+        .card {
+            width: min(100%, 680px);
+            background: #fffaf0;
+            border: 3px solid rgba(221, 208, 177, .95);
+            border-radius: 28px;
+            box-shadow: 0 18px 50px rgba(0,0,0,.28);
+            padding: clamp(26px, 5vh, 48px) clamp(24px, 5vw, 54px);
+            text-align: center;
         }
-        
-        .header h1 {
-            font-size: 2.4rem;
-            margin-bottom: 4px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        .card.ready { border-color: #c9f25b; box-shadow: 0 18px 54px rgba(201,242,91,.22), 0 18px 50px rgba(0,0,0,.28); }
+        .icon { font-size: clamp(3.2rem, 9vw, 5.8rem); line-height: 1; margin-bottom: 12px; }
+        h1 {
+            color: #173f2f;
+            font-size: clamp(2.25rem, 7vw, 4.2rem);
+            line-height: .98;
+            font-weight: 900;
+            letter-spacing: -.055em;
+            margin-bottom: 18px;
         }
-        
-        .header p {
-            font-size: 1.15rem;
-            opacity: 0.9;
+        .subtext {
+            color: #4b2d20;
+            font-size: clamp(1.08rem, 3vw, 1.55rem);
+            line-height: 1.25;
+            font-weight: 650;
         }
-        
-        .reward-display {
+        .customer {
+            margin: 18px auto 0;
+            background: #f4eddf;
+            border: 2px solid #173f2f;
+            border-radius: 22px;
+            padding: 18px;
+            color: #173f2f;
+        }
+        .customer-label { font-size: clamp(1rem, 2.5vw, 1.3rem); font-weight: 750; color: #4b2d20; }
+        .customer-address {
+            display: block;
+            font-size: clamp(1.7rem, 5vw, 3rem);
+            font-weight: 900;
+            letter-spacing: -.04em;
+            margin-top: 6px;
+            word-break: break-word;
+        }
+        .qr-code {
+            display: inline-block;
             background: white;
             border-radius: 20px;
-            padding: 34px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            margin-bottom: 14px;
+            padding: 16px;
+            margin: 10px 0 16px;
         }
-        
-        .reward-display.waiting {
-            padding: 34px 30px;
-        }
-
-        .reward-display.ready {
-            padding: 30px 26px;
-            border: 4px solid #28a745;
-        }
-
-        .scan-instructions {
-            background: rgba(255,255,255,0.16);
-            border: 1px solid rgba(255,255,255,0.24);
-            border-radius: 22px;
-            padding: 12px 18px;
-            margin: 0 auto 12px;
-            max-width: 720px;
-            font-size: 1rem;
-            line-height: 1.35;
-        }
-
-        .pending-customer {
-            margin-top: 14px;
-            background: #e9f9ef;
-            border: 3px solid #28a745;
-            border-radius: 18px;
-            color: #155724;
-            padding: 18px;
-            box-shadow: 0 6px 22px rgba(40,167,69,0.22);
-        }
-
-        .pending-customer strong {
-            display: block;
-            font-size: 1.65rem;
-            margin-top: 8px;
-        }
-
-        .pending-customer .small {
-            font-size: 1rem;
-            opacity: 0.78;
-            margin-top: 8px;
-        }
-        
-        .waiting-message {
-            color: @Model.PrimaryColor;
-            font-size: 2rem;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-
-        .ready-message {
-            color: #155724;
-            font-size: 2.15rem;
-            font-weight: 800;
-            margin-bottom: 12px;
-        }
-        
-        .waiting-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            animation: pulse 2s ease-in-out infinite;
-        }
-        
-        @@keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.1); }
-        }
-        
-        .qr-code {
-            margin: 30px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            display: inline-block;
-        }
-        
-        .qr-code img {
-            max-width: 500px;
-            width: 100%;
-            height: auto;
-            border-radius: 8px;
-        }
-        
-        .reward-info {
-            color: #333;
-            margin-top: 30px;
-        }
-        
-        .amount {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #28a745;
-            margin: 20px 0;
-        }
-        
-        .order-id {
-            font-size: 1.2rem;
-            color: #666;
-            margin-top: 10px;
-        }
-        
-        .instructions {
-            color: #495057;
-            font-size: 1.3rem;
-            margin-top: 20px;
-            line-height: 1.6;
-        }
-        
-        .refresh-button, .done-button {
-            background: white;
-            color: @Model.PrimaryColor;
-            border: 2px solid white;
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            margin: 10px;
-        }
-        
-        .refresh-button:hover, .done-button:hover {
-            background: @Model.PrimaryColor;
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        }
-        
-        .done-button {
-            background: @Model.PrimaryColor;
-            color: white;
-            border-color: @Model.PrimaryColor;
-        }
-
-        .done-button:hover {
-            background: #CD853F;
-            border-color: #CD853F;
-        }
-        
-        .countdown-timer {
-            color: @Model.PrimaryColor;
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-top: 20px;
-        }
-        
-        .countdown-timer.warning {
-            color: #ffc107;
-        }
-        
-        .countdown-timer.critical {
-            color: #dc3545;
-            animation: pulse 1s ease-in-out infinite;
-        }
-        
-        .footer {
-            margin-top: 30px;
-            opacity: 0.8;
-            font-size: 1rem;
-        }
-        
-        .status-bar {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
-            border-radius: 50px;
-            display: inline-block;
-            margin-bottom: 10px;
-        }
-        
-        @@media (max-width: 768px) {
-            .header h1 { font-size: 2rem; }
-            .header p { font-size: 1.2rem; }
-            .reward-display { padding: 30px 20px; }
-            .qr-code img { max-width: 350px; }
-            .amount { font-size: 2rem; }
-            .instructions { font-size: 1.1rem; }
-            .scan-instructions { font-size: 1rem; }
+        .qr-code img { width: min(54vh, 420px); max-width: 100%; height: auto; display: block; }
+        .amount { color: #173f2f; font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 900; }
+        .small { color: #5f675f; font-size: clamp(.95rem, 2.5vw, 1.15rem); margin-top: 10px; }
+        .countdown-timer { color: #4b2d20; font-size: 1rem; font-weight: 700; margin-top: 12px; }
+        .hidden-data { display: none; }
+        @@media (max-height: 680px) {
+            .counter-display { gap: 8px; }
+            .brand-logo { max-height: 58px; }
+            .card { padding: 22px 24px; border-radius: 24px; }
+            .icon { margin-bottom: 8px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎯 @(Model.StoreName ?? "Trails Coffee Rewards")</h1>
-            <p>Bitcoin Rewards • Anmore, BC</p>
-        </div>
-        
-        <div class="status-bar">
-            Auto-refresh: @Model.AutoRefreshSeconds seconds | Timeframe: @Model.TimeframeMinutes minutes
-        </div>
-        
-        <div class="scan-instructions">
-            Customer rewards scanner is always open below this display. Show a wallet Lightning address QR before paying.
-        </div>
-        
+    <main class="counter-display">
+        @if (!string.IsNullOrEmpty(Model.LogoUrl))
+        {
+            <img class="brand-logo" src="@Model.LogoUrl" alt="@(Model.StoreName ?? "Store logo")" />
+        }
+        else if (!string.IsNullOrEmpty(Model.StoreName))
+        {
+            <div class="brand-fallback">@Model.StoreName</div>
+        }
+
         @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
         {
-            <div class="reward-display">
-                <h2 style="color: @Model.PrimaryColor; font-size: 2rem; margin-bottom: 20px;">Coffee Rewards Earned! ☕</h2>
-                
-                <div class="qr-code">
-                    <img src="@Model.LnurlQrDataUri" alt="Reward QR Code" />
-                </div>
-
-                <!-- Hidden data element for Android HCE NFC app to extract LNURL -->
-                <div id="nfc-lnurl-data" data-lnurl="@Model.LnurlString" data-reward-id="@Model.RewardId" style="display:none;"></div>
-
-                <!-- NFC HCE indicator (shown by Android app when HCE is active) -->
-                <div id="nfc-hce-indicator" style="margin-top: 20px; display: none;">
-                    <div style="border-top: 2px solid #eee; padding-top: 20px;">
-                        <div style="font-size: 2.5rem; animation: pulse 2s ease-in-out infinite;">📱</div>
-                        <p style="color: #28a745; font-size: 1.3rem; font-weight: 600; margin-top: 10px;">
-                            or tap your phone on this device to claim
-                        </p>
-                    </div>
-                </div>
-
-                <div class="reward-info">
-                    <div class="amount">@Model.RewardAmountSatoshis sats</div>
-                    @if (!string.IsNullOrEmpty(Model.OrderId))
-                    {
-                        <div class="order-id">Order: @Model.OrderId</div>
-                    }
-                    @if (!string.IsNullOrEmpty(Model.PullPaymentId))
-                    {
-                        <div class="order-id">Pull payment code:<br/><code style="font-size: 0.9rem; word-break: break-all; color: @Model.PrimaryColor;">@Model.PullPaymentId</code></div>
-                    }
-                    @if (Model.CreatedAt.HasValue)
-                    {
-                        <div class="order-id">Created: @Model.CreatedAt.Value.ToLocalTime().ToString("h:mm:ss tt")</div>
-                    }
-                </div>
-                @if (!string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
+            <section class="card reward" id="reward-display">
+                <div class="icon">⚡</div>
+                <h1>Reward ready</h1>
+                <div class="qr-code"><img src="@Model.LnurlQrDataUri" alt="Reward QR Code" /></div>
+                <div class="hidden-data" id="nfc-lnurl-data" data-lnurl="@Model.LnurlString" data-reward-id="@Model.RewardId"></div>
+                <div class="amount">@Model.RewardAmountSatoshis sats</div>
+                @if (!string.IsNullOrEmpty(Model.PullPaymentId))
                 {
-                    <div class="pending-customer">
-                        ✅ Customer profile saved
-                        <strong>@Model.PendingLightningAddressMasked</strong>
-                        <div class="small">This customer is waiting for the next reward to be issued.</div>
-                    </div>
+                    <div class="small">Pull payment: @Model.PullPaymentId</div>
                 }
-                
-                <div class="instructions">
-                    Scan the QR code above with your<br/>
-                    @(Model.StoreName ?? "Trails Coffee Rewards") wallet
-                </div>
-                
-                @if (Model.BoltCardEnabled)
-                {
-                <div id="nfc-section" style="margin-top: 30px;">
-                    <div style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 10px;">
-                        <p style="color: @Model.PrimaryColor; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
-                            — OR —
-                        </p>
-                        <button id="nfc-tap-btn" onclick="startNfcRead()" style="
-                            background: linear-gradient(135deg, @Model.PrimaryColor 0%, @Model.SecondaryColor 100%);
-                            color: white;
-                            border: none;
-                            padding: 20px 40px;
-                            font-size: 1.4rem;
-                            border-radius: 16px;
-                            cursor: pointer;
-                            font-weight: 600;
-                            box-shadow: 0 4px 15px rgba(107,68,35,0.4);
-                            transition: all 0.3s ease;
-                        ">
-                            📱 Tap Your Rewards Card
-                        </button>
-                        <p style="color: #888; font-size: 0.95rem; margin-top: 10px;">
-                            Hold your NFC card to the back of this device
-                        </p>
-                    </div>
-                    <div id="nfc-status" style="margin-top: 15px; font-size: 1.2rem; color: #333; display: none;"></div>
-                    <div id="nfc-success" style="margin-top: 15px; display: none;">
-                        <div style="background: #d4edda; border: 2px solid #28a745; border-radius: 12px; padding: 20px; color: #155724;">
-                            <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
-                            <div style="font-size: 1.4rem; font-weight: 700;" id="nfc-success-amount"></div>
-                            <div style="font-size: 1.1rem; margin-top: 8px;" id="nfc-success-balance"></div>
-                        </div>
-                    </div>
-                    <div id="nfc-error" style="margin-top: 15px; display: none;">
-                        <div style="background: #f8d7da; border: 2px solid #dc3545; border-radius: 12px; padding: 20px; color: #721c24;">
-                            <div style="font-size: 1.2rem;" id="nfc-error-msg"></div>
-                        </div>
-                    </div>
-                </div>
-                }
-                
-                <div class="countdown-timer" id="countdown-timer">
-                    Time remaining: <span id="countdown-seconds">@Model.RemainingSeconds</span>s
-                </div>
-                
-                <button class="done-button" id="done-button" onclick="hideReward()">✓ Done</button>
-            </div>
+                <div class="countdown-timer" id="countdown-timer">Showing for <span id="countdown-seconds">@Model.RemainingSeconds</span>s</div>
+            </section>
         }
         else if (!string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
         {
-            <div class="reward-display ready" id="ready-display">
-                <div style="font-size: 3.2rem; margin-bottom: 10px;">✅</div>
-                <div class="ready-message">Ready to reward</div>
-                <div class="pending-customer" style="margin-top: 0;">
-                    <strong>@Model.PendingLightningAddressMasked</strong>
-                    <div class="small">This customer is checked in. The next Square payment will issue their reward automatically.</div>
+            <section class="card ready" id="ready-display">
+                <div class="icon">✅</div>
+                <h1>Ready to reward</h1>
+                <div class="customer">
+                    <div class="customer-label">Customer checked in</div>
+                    <strong class="customer-address">@Model.PendingLightningAddressMasked</strong>
                 </div>
-            </div>
+                <p class="subtext" style="margin-top:18px;">Next Square payment will issue this reward automatically.</p>
+            </section>
         }
         else
         {
-            <div class="reward-display waiting" id="waiting-display">
-                <div class="waiting-icon">☕</div>
-                <div class="waiting-message">Waiting for next customer...</div>
-                <p style="color: #666; font-size: 1.2rem;">
-                    Customer can scan their wallet Lightning address below, then pay.
-                </p>
-            </div>
+            <section class="card waiting" id="waiting-display">
+                <div class="icon">☕</div>
+                <h1>Waiting for customer</h1>
+                <p class="subtext">Scan a wallet Lightning address QR above, then take payment.</p>
+            </section>
         }
-        
-        @if (string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
-        {
-            <button class="refresh-button" onclick="window.location.reload();">🔄 Refresh Now</button>
-        }
-        
-        <div class="footer">
-            <p>Page refreshes automatically every @Model.AutoRefreshSeconds seconds</p>
-            @if (string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
-            {
-                <p style="margin-top: 10px; font-size: 0.9rem;">
-                    <a href="/plugins/bitcoin-rewards/@Model.StoreId/settings" style="color: white; text-decoration: underline;">Back to Settings</a>
-                </p>
-            }
-        </div>
-    </div>
-    
+    </main>
+
     @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
     {
         <script>
-            // Client-side timeout and countdown
             let remainingSeconds = @Model.RemainingSeconds;
             const countdownElement = document.getElementById('countdown-seconds');
-            const countdownTimer = document.getElementById('countdown-timer');
-            
             function hideReward() {
-                // Mark reward as dismissed on the server, then reload to show waiting state
                 fetch('/plugins/bitcoin-rewards/@Model.StoreId/dismiss-reward', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ rewardId: '@Model.RewardId' })
-                }).finally(() => {
-                    window.location.reload();
-                });
+                }).finally(() => window.location.reload());
             }
-            
             function updateCountdown() {
-                if (remainingSeconds <= 0) {
-                    hideReward();
-                    return;
-                }
-                
+                if (remainingSeconds <= 0) { hideReward(); return; }
                 remainingSeconds--;
-                countdownElement.textContent = remainingSeconds;
-                
-                // Update styling based on remaining time
-                if (remainingSeconds <= 10) {
-                    countdownTimer.classList.add('critical');
-                    countdownTimer.classList.remove('warning');
-                } else if (remainingSeconds <= 30) {
-                    countdownTimer.classList.add('warning');
-                    countdownTimer.classList.remove('critical');
-                } else {
-                    countdownTimer.classList.remove('warning', 'critical');
-                }
-                
+                if (countdownElement) countdownElement.textContent = remainingSeconds;
                 setTimeout(updateCountdown, 1000);
             }
-            
-            // Start countdown if there's remaining time
-            if (remainingSeconds > 0) {
-                setTimeout(updateCountdown, 1000);
-            } else {
-                // Already expired, hide immediately
-                hideReward();
-            }
+            if (remainingSeconds > 0) setTimeout(updateCountdown, 1000); else hideReward();
         </script>
-        
-        @if (Model.BoltCardEnabled)
-        {
-        <script>
-            // Web NFC support for Bolt Card tap-to-collect
-            const nfcSection = document.getElementById('nfc-section');
-            const nfcStatus = document.getElementById('nfc-status');
-            const nfcSuccess = document.getElementById('nfc-success');
-            const nfcError = document.getElementById('nfc-error');
-            const rewardId = '@Model.RewardId';
-            let nfcReader = null;
-            let nfcProcessing = false;
-            
-            // Show NFC unavailable message if Web NFC is not supported
-            if (!('NDEFReader' in window)) {
-                const btn = document.getElementById('nfc-tap-btn');
-                if (btn) {
-                    btn.textContent = '📱 NFC not available on this browser';
-                    btn.style.opacity = '0.5';
-                    btn.disabled = true;
-                }
-            }
-            
-            async function startNfcRead() {
-                if (nfcProcessing) return;
-                if (!('NDEFReader' in window)) {
-                    showNfcError('NFC not supported on this device. Use the QR code instead.');
-                    return;
-                }
-                
-                try {
-                    nfcReader = new NDEFReader();
-                    nfcStatus.style.display = 'block';
-                    nfcStatus.innerHTML = '<span style="color: @Model.PrimaryColor;">📡 Ready — tap your card now...</span>';
-                    nfcError.style.display = 'none';
-                    nfcSuccess.style.display = 'none';
-                    
-                    document.getElementById('nfc-tap-btn').disabled = true;
-                    document.getElementById('nfc-tap-btn').textContent = '📡 Waiting for card...';
-                    
-                    await nfcReader.scan();
-                    
-                    nfcReader.addEventListener('reading', async ({ message }) => {
-                        if (nfcProcessing) return;
-                        nfcProcessing = true;
-                        
-                        // Extract the NDEF URL record
-                        let cardUrl = null;
-                        for (const record of message.records) {
-                            if (record.recordType === 'url') {
-                                const decoder = new TextDecoder();
-                                cardUrl = decoder.decode(record.data);
-                                break;
-                            }
-                        }
-                        
-                        if (!cardUrl) {
-                            showNfcError('No URL found on card. Is this a valid Bolt Card?');
-                            nfcProcessing = false;
-                            return;
-                        }
-                        
-                        // Extract p and c parameters from the card's URL
-                        try {
-                            const url = new URL(cardUrl);
-                            const p = url.searchParams.get('p');
-                            const c = url.searchParams.get('c');
-                            
-                            if (!p || !c) {
-                                // Try k1 format (p-c combined)
-                                const k1 = url.searchParams.get('k1');
-                                if (k1 && k1.includes('-')) {
-                                    const parts = k1.split('-');
-                                    await submitTap(parts[0], parts[1]);
-                                } else {
-                                    showNfcError('Card URL missing required parameters.');
-                                    nfcProcessing = false;
-                                }
-                                return;
-                            }
-                            
-                            await submitTap(p, c);
-                        } catch (e) {
-                            showNfcError('Error reading card: ' + e.message);
-                            nfcProcessing = false;
-                        }
-                    });
-                    
-                    nfcReader.addEventListener('readingerror', () => {
-                        showNfcError('Error reading NFC card. Try again.');
-                        nfcProcessing = false;
-                    });
-                } catch (err) {
-                    showNfcError('NFC error: ' + err.message);
-                }
-            }
-            
-            async function submitTap(p, c) {
-                nfcStatus.innerHTML = '<span style="color: @Model.PrimaryColor;">⏳ Verifying card...</span>';
-                
-                try {
-                    const response = await fetch('/plugins/bitcoin-rewards/boltcard/tap', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ p: p, c: c, rewardId: rewardId })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        nfcStatus.style.display = 'none';
-                        nfcSuccess.style.display = 'block';
-                        document.getElementById('nfc-success-amount').textContent =
-                            data.rewardSats.toLocaleString() + ' sats added to your card!';
-                        document.getElementById('nfc-success-balance').textContent =
-                            'Card balance: ' + data.newBalanceSats.toLocaleString() + ' sats';
-                        
-                        // Hide the QR code section since the reward is claimed
-                        const qrSection = document.querySelector('.qr-code');
-                        if (qrSection) qrSection.style.display = 'none';
-                        
-                        // Auto-refresh after 5 seconds
-                        setTimeout(() => window.location.reload(), 5000);
-                    } else {
-                        showNfcError(data.error || 'Failed to collect reward');
-                        nfcProcessing = false;
-                    }
-                } catch (err) {
-                    showNfcError('Network error: ' + err.message);
-                    nfcProcessing = false;
-                }
-            }
-            
-            function showNfcError(msg) {
-                nfcStatus.style.display = 'none';
-                nfcError.style.display = 'block';
-                document.getElementById('nfc-error-msg').textContent = msg;
-                
-                // Reset button
-                const btn = document.getElementById('nfc-tap-btn');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = '📱 Tap Your Rewards Card';
-                }
-            }
-        </script>
-        }
     }
 </body>
 </html>

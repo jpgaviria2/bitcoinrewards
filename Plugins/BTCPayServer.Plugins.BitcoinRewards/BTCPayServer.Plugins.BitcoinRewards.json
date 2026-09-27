@@ -1,7 +1,7 @@
 {
   "Identifier": "BTCPayServer.Plugins.BitcoinRewards",
   "Name": "Bitcoin Rewards",
-  "Version": "1.7.6",
+  "Version": "1.7.7",
   "Description": "Square POS Bitcoin rewards for BTCPay Server. Processes verified Square payment webhooks and creates BTCPay pull-payment rewards.",
   "SystemPlugin": false,
   "Dependencies": [
