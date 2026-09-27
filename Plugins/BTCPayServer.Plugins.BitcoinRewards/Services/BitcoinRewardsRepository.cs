@@ -138,6 +138,63 @@ public class BitcoinRewardsRepository
                                      r.Platform == platform);
     }
 
+    public sealed record TestRewardState(
+        Guid RewardId,
+        string TransactionId,
+        string? OrderId,
+        long RewardAmountSatoshis,
+        RewardStatus RewardStatus,
+        RewardDeliveryMode DeliveryMode,
+        RewardPayoutState? DirectPayoutState,
+        string? ClaimLink,
+        DateTime CreatedAt,
+        DateTime? SentAt,
+        DateTime? PaidAt,
+        Guid? AttemptId,
+        RewardPayoutState? AttemptState,
+        string? PaymentHash,
+        string? ProviderReference,
+        string? LastError,
+        DateTime? AttemptCreatedAt,
+        DateTime? AttemptPaidAt);
+
+    public async Task<TestRewardState?> GetLatestTestRewardStateAsync(string storeId, string transactionPrefix)
+    {
+        await using var context = _dbContextFactory.CreateContext();
+        var reward = await context.BitcoinRewardRecords
+            .Where(r => r.StoreId == storeId && r.TransactionId.StartsWith(transactionPrefix))
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (reward is null)
+            return null;
+
+        var attempt = await context.RewardPayoutAttempts
+            .Where(a => a.RewardId == reward.Id)
+            .OrderByDescending(a => a.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        return new TestRewardState(
+            reward.Id,
+            reward.TransactionId,
+            reward.OrderId,
+            reward.RewardAmountSatoshis,
+            reward.Status,
+            reward.DeliveryMode,
+            reward.DirectPayoutState,
+            reward.ClaimLink,
+            reward.CreatedAt,
+            reward.SentAt,
+            reward.PaidAt,
+            attempt?.Id,
+            attempt?.State,
+            attempt?.PaymentHash,
+            attempt?.ProviderReference,
+            attempt?.LastError,
+            attempt?.CreatedAt,
+            attempt?.PaidAt);
+    }
+
     public async Task<BitcoinRewardRecord?> GetLatestUnclaimedRewardAsync(string storeId, int timeframeMinutes, int displayTimeoutSeconds)
     {
         await using var context = _dbContextFactory.CreateContext();

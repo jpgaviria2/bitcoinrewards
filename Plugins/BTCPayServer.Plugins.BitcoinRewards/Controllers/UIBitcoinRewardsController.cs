@@ -73,6 +73,32 @@ public class UIBitcoinRewardsController : Controller
         {
             vm.SetFromSettings(settings);
         }
+
+        var latestScanTest = await _rewardsRepository.GetLatestTestRewardStateAsync(storeId, "SCAN_TEST_");
+        if (latestScanTest is not null)
+        {
+            vm.LatestScanTestState = new LatestTestRewardStateViewModel
+            {
+                RewardId = latestScanTest.RewardId,
+                TransactionId = latestScanTest.TransactionId,
+                OrderId = latestScanTest.OrderId,
+                RewardAmountSatoshis = latestScanTest.RewardAmountSatoshis,
+                RewardStatus = latestScanTest.RewardStatus,
+                DeliveryMode = latestScanTest.DeliveryMode,
+                DirectPayoutState = latestScanTest.DirectPayoutState,
+                ClaimLink = latestScanTest.ClaimLink,
+                CreatedAt = latestScanTest.CreatedAt,
+                SentAt = latestScanTest.SentAt,
+                PaidAt = latestScanTest.PaidAt,
+                AttemptId = latestScanTest.AttemptId,
+                AttemptState = latestScanTest.AttemptState,
+                PaymentHash = latestScanTest.PaymentHash,
+                ProviderReference = latestScanTest.ProviderReference,
+                LastError = latestScanTest.LastError,
+                AttemptCreatedAt = latestScanTest.AttemptCreatedAt,
+                AttemptPaidAt = latestScanTest.AttemptPaidAt
+            };
+        }
         
         // Get configured payout processors
         vm.AvailablePayoutProcessors = await _payoutProcessorDiscoveryService.GetConfiguredPayoutProcessorsAsync(storeId);
@@ -193,6 +219,8 @@ public class UIBitcoinRewardsController : Controller
             }
 
             var settings = vm.ToSettings(existingSettings);
+            if (existingSettings is not null)
+                settings.OneTimeScannedAddressTestEnabled = existingSettings.OneTimeScannedAddressTestEnabled;
             
             _logger.LogInformation("Saving settings for store {StoreId}: ViewModel.Enabled={VmEnabled}, Settings.Enabled={SettingsEnabled}, ExternalPct={ExternalPct}, BtcpayPct={BtcpayPct}", 
                 storeId, vm.Enabled, settings.Enabled, settings.ExternalRewardPercentage, settings.BtcpayRewardPercentage);
@@ -472,16 +500,10 @@ public class UIBitcoinRewardsController : Controller
     [AutoValidateAntiforgeryToken]
     public async Task<IActionResult> CreateTestReward(string storeId, CreateTestRewardViewModel vm)
     {
-        if (!ModelState.IsValid)
-        {
-            ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
-            return View("CreateTestReward", vm);
-        }
-
         var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(
-            storeId, 
+            storeId,
             BitcoinRewardsStoreSettings.SettingsName);
-        
+
         if (settings == null || !settings.Enabled)
         {
             TempData.SetStatusMessageModel(new StatusMessageModel
@@ -492,57 +514,76 @@ public class UIBitcoinRewardsController : Controller
             return RedirectToAction(nameof(EditSettings), new { storeId });
         }
 
-        var store = await _storeRepository.FindStore(storeId);
-        var storeCurrency = store?.GetStoreBlob().DefaultCurrency ?? StoreBlob.StandardDefaultCurrency;
-        var currency = string.IsNullOrWhiteSpace(vm.Currency)
-            ? storeCurrency
-            : vm.Currency.Trim().ToUpperInvariant();
+        if (vm.TestRewardSatoshis < 1 || vm.TestRewardSatoshis > 100_000)
+            ModelState.AddModelError(nameof(vm.TestRewardSatoshis), "Test reward amount must be between 1 and 100,000 sats");
 
-        // Create test transaction data
-        var transaction = new Models.TransactionData
+        if (vm.TestMode == CreateTestRewardViewModel.TestModes.Email && string.IsNullOrWhiteSpace(vm.CustomerEmail))
+            ModelState.AddModelError(nameof(vm.CustomerEmail), "Customer email is required for the email-flow test");
+
+        if (!ModelState.IsValid)
         {
-            TransactionId = $"TEST_{Guid.NewGuid():N}",
-            OrderId = vm.OrderId,
-            Amount = vm.TransactionAmount,
-            Currency = currency,
-            CustomerEmail = vm.CustomerEmail,
-            CustomerPhone = vm.CustomerPhone,
-            LightningAddress = string.IsNullOrWhiteSpace(vm.LightningAddress) ? null : vm.LightningAddress.Trim(),
-            Platform = vm.Platform,
-            TransactionDate = DateTime.UtcNow,
-            Metadata = new Dictionary<string, string>
-            {
-                ["testReward"] = "true",
-                ["rewardPercentageOverride"] = "100"
-            }
-        };
+            vm.StoreId = storeId;
+            ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
+            return View("CreateTestReward", vm);
+        }
 
         try
         {
-            var rewardsService = HttpContext.RequestServices.GetRequiredService<BitcoinRewardsService>();
-            _logger.LogInformation("Creating test reward for store {StoreId}: Amount={Amount}, Currency={Currency}, Platform={Platform}, Email={Email}", 
-                storeId, transaction.Amount, transaction.Currency, transaction.Platform, transaction.CustomerEmail);
-            
-            var success = await rewardsService.ProcessRewardAsync(storeId, transaction);
+            settings.TestRewardSatoshis = vm.TestRewardSatoshis;
 
-            if (success)
+            if (vm.TestMode == CreateTestRewardViewModel.TestModes.ScannedAddress)
             {
-                _logger.LogInformation("Test reward created successfully for store {StoreId}", storeId);
+                settings.OneTimeScannedAddressTestEnabled = true;
+                await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
                 TempData.SetStatusMessageModel(new StatusMessageModel
                 {
-                    Message = "Test reward created successfully",
-                    Severity = StatusMessageModel.StatusSeverity.Success
+                    Message = $"One-time {vm.TestRewardSatoshis} sat scan test armed. The next captured Lightning address will be paid automatically.",
+                    Severity = StatusMessageModel.StatusSeverity.Info
                 });
+                return RedirectToAction(nameof(EditSettings), new { storeId });
             }
-            else
+
+            await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
+
+            var store = await _storeRepository.FindStore(storeId);
+            var storeCurrency = store?.GetStoreBlob().DefaultCurrency ?? StoreBlob.StandardDefaultCurrency;
+            var currency = string.IsNullOrWhiteSpace(vm.Currency)
+                ? storeCurrency
+                : vm.Currency.Trim().ToUpperInvariant();
+            var prefix = vm.TestMode == CreateTestRewardViewModel.TestModes.Email ? "EMAIL_TEST" : "DISPLAY_TEST";
+            var transaction = new Models.TransactionData
             {
-                _logger.LogWarning("Test reward creation failed for store {StoreId} - ProcessRewardAsync returned false", storeId);
-                TempData.SetStatusMessageModel(new StatusMessageModel
+                TransactionId = $"{prefix}_{Guid.NewGuid():N}",
+                OrderId = string.IsNullOrWhiteSpace(vm.OrderId) ? $"{prefix}_{DateTime.UtcNow:yyyyMMddHHmmss}" : vm.OrderId.Trim(),
+                Amount = vm.TransactionAmount <= 0 ? 0.01m : vm.TransactionAmount,
+                Currency = currency,
+                CustomerEmail = vm.TestMode == CreateTestRewardViewModel.TestModes.Email ? vm.CustomerEmail?.Trim() : null,
+                LightningAddress = string.IsNullOrWhiteSpace(vm.LightningAddress) ? null : vm.LightningAddress.Trim(),
+                Platform = Models.TransactionPlatform.Square,
+                TransactionDate = DateTime.UtcNow,
+                Metadata = new Dictionary<string, string>
                 {
-                    Message = "Failed to create test reward. Check logs for details.",
-                    Severity = StatusMessageModel.StatusSeverity.Error
-                });
-            }
+                    ["testReward"] = "true",
+                    ["rewardPercentageOverride"] = "100",
+                    ["rewardSatoshisOverride"] = vm.TestRewardSatoshis.ToString(),
+                    ["source"] = vm.TestMode == CreateTestRewardViewModel.TestModes.Email ? "admin-email-flow-test" : "admin-display-pull-payment-test"
+                }
+            };
+
+            var rewardsService = HttpContext.RequestServices.GetRequiredService<BitcoinRewardsService>();
+            _logger.LogInformation("Creating {TestMode} reward for store {StoreId}: Sats={Sats}, Email={Email}",
+                vm.TestMode, storeId, vm.TestRewardSatoshis, transaction.CustomerEmail);
+
+            var success = await rewardsService.ProcessRewardAsync(storeId, transaction);
+            TempData.SetStatusMessageModel(new StatusMessageModel
+            {
+                Message = success
+                    ? vm.TestMode == CreateTestRewardViewModel.TestModes.Email
+                        ? $"{vm.TestRewardSatoshis} sat email-flow test reward created."
+                        : $"{vm.TestRewardSatoshis} sat display pull-payment test reward created."
+                    : "Failed to create test reward. Check logs for details.",
+                Severity = success ? StatusMessageModel.StatusSeverity.Success : StatusMessageModel.StatusSeverity.Error
+            });
         }
         catch (Exception ex)
         {

@@ -1,15 +1,14 @@
 @using BTCPayServer.Abstractions.Extensions
 @using BTCPayServer.Plugins.BitcoinRewards.ViewModels
-@using BTCPayServer.Plugins.BitcoinRewards.Models
 @model CreateTestRewardViewModel
 @{
-    ViewData.SetActivePage("BitcoinRewards", "Create Test Reward", "BitcoinRewards");
+    ViewData.SetActivePage("BitcoinRewards", "Test Rewards", "BitcoinRewards");
     Layout = "_Layout";
 }
 
 <div class="row">
     <div class="sticky-header">
-        <h2 class="my-1">@ViewData["Title"]</h2>
+        <h2 class="my-1">Test Rewards</h2>
         <div>
             <a asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">
                 Back to History
@@ -19,70 +18,138 @@
     <partial name="_StatusMessage"/>
     @{ ViewData["ActiveNav"] = "Test"; ViewData["StoreId"] = Model.StoreId; }
     <partial name="_PluginNav" />
+
     <div class="col-xxl-constrain col-xl-8">
         <div class="alert alert-info">
-            <strong>Test Reward Creation</strong><br/>
-            This will create a test reward transaction and process it through the reward system. Use this to test email notifications and reward processing.
-        </div>
-        <div class="alert alert-warning mb-4">
-            Test rewards always pay 100% of the amount you enter here. The store Reward Percentage setting is ignored for test rewards; the claim will match this amount (in the selected currency).
-            If a Lightning address is provided and direct payouts are enabled, the test reward will queue a BTCPay Lightning payout; otherwise it will create the normal email pull-payment reward.
+            <strong>Test Center</strong><br/>
+            Choose exactly what you want to test. Only the fields needed for that test are shown.
         </div>
 
-        <form method="post">
-            <div class="form-group mb-4">
-                <label asp-for="TransactionAmount" class="form-label"></label>
-                <input asp-for="TransactionAmount" class="form-control" type="number" step="0.01" min="0.01" />
-                <span asp-validation-for="TransactionAmount" class="text-danger"></span>
-                <small class="form-text text-muted">The transaction amount to base the reward on.</small>
+        <form method="post" id="testRewardForm">
+            @Html.AntiForgeryToken()
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">1. Select test type</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label asp-for="TestMode" class="form-label"></label>
+                        <select asp-for="TestMode" class="form-select" id="testMode">
+                            <option value="@CreateTestRewardViewModel.TestModes.ScannedAddress">Scan Lightning address → auto pay reward</option>
+                            <option value="@CreateTestRewardViewModel.TestModes.Email">Email flow → create/send pull payment</option>
+                            <option value="@CreateTestRewardViewModel.TestModes.Display">Display only → show pull-payment QR on kiosk</option>
+                        </select>
+                        <span asp-validation-for="TestMode" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group mb-0">
+                        <label asp-for="TestRewardSatoshis" class="form-label"></label>
+                        <input asp-for="TestRewardSatoshis" class="form-control" type="number" min="1" max="100000" />
+                        <span asp-validation-for="TestRewardSatoshis" class="text-danger"></span>
+                        <small class="form-text text-muted">Default is 100 sats for live tests. 10 sats may be rejected as below BTCPay or destination payout minimum.</small>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group mb-4">
-                <label asp-for="Currency" class="form-label"></label>
-                <input asp-for="Currency" class="form-control" />
-                <span asp-validation-for="Currency" class="text-danger"></span>
-                <small class="form-text text-muted">Transaction currency (USD, EUR, etc.)</small>
+            <div class="card mb-4 test-panel" data-mode="@CreateTestRewardViewModel.TestModes.ScannedAddress">
+                <div class="card-header">
+                    <h3 class="mb-0">Scan Lightning address test</h3>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        Arms a one-time test. The next Lightning address captured by the kiosk scanner will automatically receive the configured test reward amount.
+                    </p>
+                    <small class="form-text text-muted">No email or manual Lightning address is needed. After one scan, the test disarms itself.</small>
+                </div>
             </div>
 
-            <div class="form-group mb-4">
-                <label asp-for="Platform" class="form-label"></label>
-                <select asp-for="Platform" asp-items="Html.GetEnumSelectList<TransactionPlatform>()" class="form-control"></select>
-                <span asp-validation-for="Platform" class="text-danger"></span>
+            <div class="card mb-4 test-panel" data-mode="@CreateTestRewardViewModel.TestModes.Email">
+                <div class="card-header">
+                    <h3 class="mb-0">Email flow test</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label asp-for="CustomerEmail" class="form-label"></label>
+                        <input asp-for="CustomerEmail" class="form-control" type="email" placeholder="customer@example.com" />
+                        <span asp-validation-for="CustomerEmail" class="text-danger"></span>
+                        <small class="form-text text-muted">The plugin creates a pull payment and sends the reward notification through the configured email path.</small>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label asp-for="OrderId" class="form-label"></label>
+                        <input asp-for="OrderId" class="form-control" placeholder="EMAIL_TEST optional reference" />
+                        <span asp-validation-for="OrderId" class="text-danger"></span>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group mb-4">
-                <label asp-for="OrderId" class="form-label"></label>
-                <input asp-for="OrderId" class="form-control" />
-                <span asp-validation-for="OrderId" class="text-danger"></span>
-                <small class="form-text text-muted">Optional order ID for reference.</small>
+            <div class="card mb-4 test-panel" data-mode="@CreateTestRewardViewModel.TestModes.Display">
+                <div class="card-header">
+                    <h3 class="mb-0">Display pull-payment test</h3>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        Creates a pull-payment reward without a scanned Lightning address. The counter display can show the QR/link fallback flow.
+                    </p>
+                    <small class="form-text text-muted">No customer email or Lightning address is required.</small>
+                </div>
             </div>
 
-            <div class="form-group mb-4">
-                <label asp-for="CustomerEmail" class="form-label"></label>
-                <input asp-for="CustomerEmail" class="form-control" type="email" />
-                <span asp-validation-for="CustomerEmail" class="text-danger"></span>
-                <small class="form-text text-muted">Email address to send the reward notification to.</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="CustomerPhone" class="form-label"></label>
-                <input asp-for="CustomerPhone" class="form-control" type="tel" />
-                <span asp-validation-for="CustomerPhone" class="text-danger"></span>
-                <small class="form-text text-muted">Optional phone number for SMS delivery (not yet implemented).</small>
-            </div>
-
-            <div class="form-group mb-4">
-                <label asp-for="LightningAddress" class="form-label"></label>
-                <input asp-for="LightningAddress" class="form-control" placeholder="customer@example.com" />
-                <span asp-validation-for="LightningAddress" class="text-danger"></span>
-                <small class="form-text text-muted">Optional: use this to test the scanned in-person direct Lightning payout path.</small>
-            </div>
+            <details class="mb-4">
+                <summary class="text-muted">Advanced fields</summary>
+                <div class="border rounded p-3 mt-2">
+                    <div class="form-group mb-3">
+                        <label asp-for="Currency" class="form-label"></label>
+                        <input asp-for="Currency" class="form-control" />
+                        <span asp-validation-for="Currency" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="TransactionAmount" class="form-label"></label>
+                        <input asp-for="TransactionAmount" class="form-control" type="number" step="0.01" min="0.01" />
+                        <span asp-validation-for="TransactionAmount" class="text-danger"></span>
+                        <small class="form-text text-muted">Used only as bookkeeping for test transactions; sat amount is controlled above.</small>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label asp-for="LightningAddress" class="form-label"></label>
+                        <input asp-for="LightningAddress" class="form-control" placeholder="optional manual override" />
+                        <span asp-validation-for="LightningAddress" class="text-danger"></span>
+                        <small class="form-text text-muted">Normally leave this blank. The scan test waits for the kiosk scanner instead.</small>
+                    </div>
+                </div>
+            </details>
 
             <div class="d-flex gap-2 mt-4">
-                <button type="submit" class="btn btn-primary">Create Test Reward</button>
+                <button type="submit" class="btn btn-primary" id="submitTestButton">Start test</button>
                 <a asp-action="RewardsHistory" asp-route-storeId="@Model.StoreId" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
 </div>
 
+<script>
+(function () {
+    const modeSelect = document.getElementById('testMode');
+    const panels = Array.from(document.querySelectorAll('.test-panel'));
+    const submitButton = document.getElementById('submitTestButton');
+    const labels = {
+        '@CreateTestRewardViewModel.TestModes.ScannedAddress': 'Start one-time scan test',
+        '@CreateTestRewardViewModel.TestModes.Email': 'Send email-flow test',
+        '@CreateTestRewardViewModel.TestModes.Display': 'Create display pull-payment test'
+    };
+
+    function updatePanels() {
+        const mode = modeSelect.value;
+        panels.forEach(panel => {
+            const active = panel.dataset.mode === mode;
+            panel.style.display = active ? '' : 'none';
+            panel.querySelectorAll('input, select, textarea').forEach(input => {
+                input.disabled = !active;
+            });
+        });
+        submitButton.textContent = labels[mode] || 'Start test';
+    }
+
+    modeSelect.addEventListener('change', updatePanels);
+    updatePanels();
+})();
+</script>

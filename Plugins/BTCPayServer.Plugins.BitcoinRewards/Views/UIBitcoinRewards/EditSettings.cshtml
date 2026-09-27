@@ -231,29 +231,94 @@
                         <button type="submit" class="btn btn-outline-secondary">Save test amount</button>
                     </div>
                     <div class="col-12">
-                        <small class="form-text text-muted">Default is 10 sats. Raise it if BTCPay or the destination rejects the payout as too low.</small>
+                        <small class="form-text text-muted">Default is 100 sats for live tests. 10 sats may be rejected as below BTCPay or destination payout minimum.</small>
                     </div>
                 </form>
+
+                <div class="alert @(Model.OneTimeScannedAddressTestEnabled ? "alert-info" : "alert-secondary") mb-3">
+                    <div class="d-flex justify-content-between gap-3 flex-wrap">
+                        <div>
+                            <strong>Scan test state:</strong>
+                            @if (Model.OneTimeScannedAddressTestEnabled)
+                            {
+                                <span>Armed — the next captured Lightning address will receive @Model.TestRewardSatoshis sats automatically.</span>
+                            }
+                            else
+                            {
+                                <span>Not armed.</span>
+                            }
+                        </div>
+                        @if (Model.OneTimeScannedAddressTestEnabled)
+                        {
+                            <form method="post" asp-action="CancelScanTest" asp-route-storeId="@Model.StoreId">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-warning">Cancel armed scan test</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+
+                @if (Model.LatestScanTestState is not null)
+                {
+                    var scanState = Model.LatestScanTestState;
+                    <div class="card border-@(scanState.IsPaid ? "success" : scanState.IsFailed ? "danger" : "info") mb-3">
+                        <div class="card-header d-flex justify-content-between gap-2 flex-wrap">
+                            <strong>Latest scanned-address test</strong>
+                            <span class="badge bg-@(scanState.IsPaid ? "success" : scanState.IsFailed ? "danger" : "info")">@scanState.StatusLabel</span>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-4">Amount</dt>
+                                <dd class="col-sm-8">@scanState.RewardAmountSatoshis sats</dd>
+
+                                <dt class="col-sm-4">Reward status</dt>
+                                <dd class="col-sm-8">@scanState.RewardStatus</dd>
+
+                                <dt class="col-sm-4">Direct payout state</dt>
+                                <dd class="col-sm-8">@(scanState.DirectPayoutState?.ToString() ?? "n/a")</dd>
+
+                                <dt class="col-sm-4">BTCPay payout state</dt>
+                                <dd class="col-sm-8">@(scanState.AttemptState?.ToString() ?? "n/a")</dd>
+
+                                <dt class="col-sm-4">Transaction</dt>
+                                <dd class="col-sm-8"><code>@scanState.TransactionId</code></dd>
+
+                                <dt class="col-sm-4">Order</dt>
+                                <dd class="col-sm-8"><code>@(scanState.OrderId ?? "n/a")</code></dd>
+
+                                <dt class="col-sm-4">Payment hash</dt>
+                                <dd class="col-sm-8"><code>@(scanState.PaymentHash ?? "n/a")</code></dd>
+
+                                <dt class="col-sm-4">BTCPay payout id</dt>
+                                <dd class="col-sm-8"><code>@(scanState.ProviderReference ?? "n/a")</code></dd>
+
+                                <dt class="col-sm-4">Created</dt>
+                                <dd class="col-sm-8">@scanState.CreatedAt.ToString("u")</dd>
+
+                                <dt class="col-sm-4">Paid</dt>
+                                <dd class="col-sm-8">@(scanState.AttemptPaidAt?.ToString("u") ?? scanState.PaidAt?.ToString("u") ?? "n/a")</dd>
+
+                                @if (!string.IsNullOrWhiteSpace(scanState.LastError))
+                                {
+                                    <dt class="col-sm-4">Error</dt>
+                                    <dd class="col-sm-8 text-danger">@scanState.LastError</dd>
+                                }
+                            </dl>
+                        </div>
+                    </div>
+                }
+
                 <div class="d-flex flex-wrap gap-2 align-items-start mb-3">
-                    @if (Model.OneTimeScannedAddressTestEnabled)
-                    {
-                        <form method="post" asp-action="CancelScanTest" asp-route-storeId="@Model.StoreId">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-warning">Cancel armed scan test</button>
-                        </form>
-                        <span class="badge bg-info text-dark align-self-center">Armed: next captured Lightning address receives 10 sats</span>
-                    }
-                    else
-                    {
-                        <form method="post" asp-action="ArmScanTest" asp-route-storeId="@Model.StoreId">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-primary">Start one-time scanned address test</button>
-                        </form>
-                    }
+                    <form method="post" asp-action="ArmScanTest" asp-route-storeId="@Model.StoreId">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary" @(Model.OneTimeScannedAddressTestEnabled ? "disabled" : null)>Start one-time scanned address test</button>
+                    </form>
+
+                    <a asp-action="CreateTestReward" asp-route-storeId="@Model.StoreId" class="btn btn-outline-primary">Open test picker</a>
 
                     <form method="post" asp-action="DisplayPullPaymentTest" asp-route-storeId="@Model.StoreId">
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-outline-primary">Create 10 sat display pull payment</button>
+                        <button type="submit" class="btn btn-outline-primary">Create @Model.TestRewardSatoshis sat display pull payment</button>
                     </form>
                 </div>
 
@@ -264,7 +329,7 @@
                         <input id="testEmail" name="testEmail" type="email" class="form-control" placeholder="customer@example.com" />
                     </div>
                     <div class="col-md-auto">
-                        <button type="submit" class="btn btn-outline-primary">Send 10 sat email-flow test</button>
+                        <button type="submit" class="btn btn-outline-primary">Send @Model.TestRewardSatoshis sat email-flow test</button>
                     </div>
                 </form>
             </div>

@@ -1,7 +1,9 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using BTCPayServer.Plugins.BitcoinRewards;
+using BTCPayServer.Plugins.BitcoinRewards.Data;
 
 namespace BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 
@@ -147,6 +149,8 @@ public class BitcoinRewardsSettingsViewModel
     [Display(Name = "Test reward amount (sats)")]
     [Range(1, 100_000, ErrorMessage = "Test reward amount must be between 1 and 100,000 sats")]
     public long TestRewardSatoshis { get; set; } = 10;
+
+    public LatestTestRewardStateViewModel? LatestScanTestState { get; set; }
     
     // Bolt Card Settings
     [Display(Name = "Enable Bolt Card NFC Rewards")]
@@ -289,7 +293,10 @@ public class BitcoinRewardsSettingsViewModel
         settings.SecondaryColor = SecondaryColor;
         settings.AccentColor = AccentColor;
         settings.LogoUrl = LogoUrl;
-        settings.OneTimeScannedAddressTestEnabled = OneTimeScannedAddressTestEnabled;
+        // Operational one-time test state is controlled by the dedicated Start/Cancel
+        // endpoints and by the scanner callback. Do not let a normal settings save
+        // re-arm it from a stale form render.
+        settings.OneTimeScannedAddressTestEnabled = existing?.OneTimeScannedAddressTestEnabled ?? OneTimeScannedAddressTestEnabled;
         settings.TestRewardSatoshis = TestRewardSatoshis > 0 ? TestRewardSatoshis : 10;
         
         settings.BoltCardEnabled = BoltCardEnabled;
@@ -332,4 +339,50 @@ public class BitcoinRewardsSettingsViewModel
         
         return settings;
     }
+}
+
+public class LatestTestRewardStateViewModel
+{
+    public Guid RewardId { get; set; }
+    public string TransactionId { get; set; } = string.Empty;
+    public string? OrderId { get; set; }
+    public long RewardAmountSatoshis { get; set; }
+    public RewardStatus RewardStatus { get; set; }
+    public RewardDeliveryMode DeliveryMode { get; set; }
+    public RewardPayoutState? DirectPayoutState { get; set; }
+    public string? ClaimLink { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? SentAt { get; set; }
+    public DateTime? PaidAt { get; set; }
+    public Guid? AttemptId { get; set; }
+    public RewardPayoutState? AttemptState { get; set; }
+    public string? PaymentHash { get; set; }
+    public string? ProviderReference { get; set; }
+    public string? LastError { get; set; }
+    public DateTime? AttemptCreatedAt { get; set; }
+    public DateTime? AttemptPaidAt { get; set; }
+
+    public bool IsPaid => DirectPayoutState == RewardPayoutState.Paid || AttemptState == RewardPayoutState.Paid;
+    public bool IsPending => !IsPaid &&
+        (DirectPayoutState == RewardPayoutState.Queued ||
+         DirectPayoutState == RewardPayoutState.Resolving ||
+         DirectPayoutState == RewardPayoutState.InvoiceCreated ||
+         DirectPayoutState == RewardPayoutState.Paying ||
+         AttemptState == RewardPayoutState.Queued ||
+         AttemptState == RewardPayoutState.Resolving ||
+         AttemptState == RewardPayoutState.InvoiceCreated ||
+         AttemptState == RewardPayoutState.Paying);
+    public bool IsFailed =>
+        DirectPayoutState == RewardPayoutState.RetryableFailure ||
+        DirectPayoutState == RewardPayoutState.PermanentFailure ||
+        AttemptState == RewardPayoutState.RetryableFailure ||
+        AttemptState == RewardPayoutState.PermanentFailure;
+
+    public string StatusLabel => IsPaid
+        ? "Paid"
+        : IsFailed
+            ? "Failed"
+            : IsPending
+                ? "Processing"
+                : RewardStatus.ToString();
 }
