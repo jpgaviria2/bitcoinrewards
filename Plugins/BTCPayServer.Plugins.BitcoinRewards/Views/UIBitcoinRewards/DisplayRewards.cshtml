@@ -170,7 +170,40 @@ else
         }
         
         .reward-display.waiting {
-            padding: 80px 50px;
+            padding: 48px 40px;
+        }
+
+        .scan-instructions {
+            background: rgba(255,255,255,0.16);
+            border: 1px solid rgba(255,255,255,0.24);
+            border-radius: 22px;
+            padding: 18px 22px;
+            margin: 0 auto 24px;
+            max-width: 720px;
+            font-size: 1.2rem;
+            line-height: 1.35;
+        }
+
+        .pending-customer {
+            margin-top: 24px;
+            background: #e9f9ef;
+            border: 3px solid #28a745;
+            border-radius: 18px;
+            color: #155724;
+            padding: 22px;
+            box-shadow: 0 6px 22px rgba(40,167,69,0.22);
+        }
+
+        .pending-customer strong {
+            display: block;
+            font-size: 1.55rem;
+            margin-top: 8px;
+        }
+
+        .pending-customer .small {
+            font-size: 1rem;
+            opacity: 0.78;
+            margin-top: 8px;
         }
         
         .waiting-message {
@@ -302,6 +335,7 @@ else
             .qr-code img { max-width: 350px; }
             .amount { font-size: 2rem; }
             .instructions { font-size: 1.1rem; }
+            .scan-instructions { font-size: 1rem; }
         }
     </style>
 </head>
@@ -314,6 +348,10 @@ else
         
         <div class="status-bar">
             Auto-refresh: @Model.AutoRefreshSeconds seconds | Timeframe: @Model.TimeframeMinutes minutes
+        </div>
+        
+        <div class="scan-instructions">
+            Customer rewards scanner is always open below this display. Show a wallet Lightning address QR before paying.
         </div>
         
         @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
@@ -353,6 +391,14 @@ else
                         <div class="order-id">Created: @Model.CreatedAt.Value.ToLocalTime().ToString("h:mm:ss tt")</div>
                     }
                 </div>
+                @if (!string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
+                {
+                    <div class="pending-customer">
+                        ✅ Customer profile saved
+                        <strong>@Model.PendingLightningAddressMasked</strong>
+                        <div class="small">This customer is waiting for the next reward to be issued.</div>
+                    </div>
+                }
                 
                 <div class="instructions">
                     Scan the QR code above with your<br/>
@@ -413,8 +459,16 @@ else
                 <div class="waiting-icon">☕</div>
                 <div class="waiting-message">Waiting for next customer...</div>
                 <p style="color: #666; font-size: 1.2rem;">
-                    The next reward will appear here after payment
+                    Customer can scan their wallet Lightning address below, then pay.
                 </p>
+                @if (!string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
+                {
+                    <div class="pending-customer">
+                        ✅ Ready to reward
+                        <strong>@Model.PendingLightningAddressMasked</strong>
+                        <div class="small">The next Square payment will issue this customer's reward automatically.</div>
+                    </div>
+                }
             </div>
         }
         

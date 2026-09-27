@@ -30,6 +30,8 @@ public class DisplayRewardsViewModel
     public string SecondaryColor { get; set; } = "#CD853F";
     public string AccentColor { get; set; } = "#F5F5DC";
     public string? LogoUrl { get; set; }
+    public string? PendingLightningAddressMasked { get; set; }
+    public DateTime? PendingCheckInExpiresAt { get; set; }
     
     // Bolt Card NFC tap support
     public bool BoltCardEnabled { get; set; }

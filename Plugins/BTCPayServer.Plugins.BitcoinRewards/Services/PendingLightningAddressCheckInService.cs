@@ -113,6 +113,26 @@ public sealed class PendingLightningAddressCheckInService
         return checkIn;
     }
 
+    public async Task<PendingLightningAddressCheckIn?> GetLatestPendingAsync(
+        string storeId,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = await GetSettings(storeId);
+        if (!settings.CustomerLightningCheckInEnabled)
+            return null;
+
+        var now = DateTime.UtcNow;
+        await using var context = _dbContextFactory.CreateContext();
+        ExpireOldPendingRows(context, storeId, now);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return await context.PendingLightningAddressCheckIns
+            .Where(c => c.StoreId == storeId && c.State == PendingLightningAddressCheckInState.Pending && c.ExpiresAt > now)
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private async Task<BitcoinRewardsStoreSettings> GetSettings(string storeId) =>
         await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, BitcoinRewardsStoreSettings.SettingsName)
         ?? new BitcoinRewardsStoreSettings();

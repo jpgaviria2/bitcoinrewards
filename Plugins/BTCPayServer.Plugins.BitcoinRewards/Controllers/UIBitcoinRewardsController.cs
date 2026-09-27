@@ -29,6 +29,7 @@ public class UIBitcoinRewardsController : Controller
     private readonly BitcoinRewardsRepository _rewardsRepository;
     private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
     private readonly PullPaymentStatusService _pullPaymentStatusService;
+    private readonly PendingLightningAddressCheckInService _pendingCheckInService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
 
 
@@ -37,12 +38,14 @@ public class UIBitcoinRewardsController : Controller
         BitcoinRewardsRepository rewardsRepository,
         PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
         PullPaymentStatusService pullPaymentStatusService,
+        PendingLightningAddressCheckInService pendingCheckInService,
         ILogger<UIBitcoinRewardsController> logger)
     {
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
         _pullPaymentStatusService = pullPaymentStatusService;
+        _pendingCheckInService = pendingCheckInService;
         _logger = logger;
     }
 
@@ -487,6 +490,8 @@ public class UIBitcoinRewardsController : Controller
         var timeframeMinutes = settings.DisplayTimeframeMinutes;
         var autoRefreshSeconds = settings.DisplayAutoRefreshSeconds;
         var displayTimeoutSeconds = settings.DisplayTimeoutSeconds;
+        var pendingCheckIn = await _pendingCheckInService.GetLatestPendingAsync(storeId);
+        var pendingLightningAddressMasked = MaskLightningAddress(pendingCheckIn?.LightningAddress);
         
         _logger.LogInformation("DisplayRewards: Fetching latest unclaimed reward for store {StoreId} with timeframe {TimeframeMinutes} minutes and timeout {TimeoutSeconds} seconds", 
             storeId, timeframeMinutes, displayTimeoutSeconds);
@@ -514,7 +519,9 @@ public class UIBitcoinRewardsController : Controller
                 PrimaryColor = settings.PrimaryColor,
                 SecondaryColor = settings.SecondaryColor,
                 AccentColor = settings.AccentColor,
-                LogoUrl = settings.LogoUrl
+                LogoUrl = settings.LogoUrl,
+                PendingLightningAddressMasked = pendingLightningAddressMasked,
+                PendingCheckInExpiresAt = pendingCheckIn?.ExpiresAt
             });
         }
         
@@ -538,7 +545,9 @@ public class UIBitcoinRewardsController : Controller
                     PrimaryColor = settings.PrimaryColor,
                     SecondaryColor = settings.SecondaryColor,
                     AccentColor = settings.AccentColor,
-                    LogoUrl = settings.LogoUrl
+                    LogoUrl = settings.LogoUrl,
+                    PendingLightningAddressMasked = pendingLightningAddressMasked,
+                    PendingCheckInExpiresAt = pendingCheckIn?.ExpiresAt
                 });
             }
         }
@@ -590,11 +599,25 @@ public class UIBitcoinRewardsController : Controller
             PrimaryColor = settings.PrimaryColor,
             SecondaryColor = settings.SecondaryColor,
             AccentColor = settings.AccentColor,
-            LogoUrl = settings.LogoUrl
+            LogoUrl = settings.LogoUrl,
+            PendingLightningAddressMasked = pendingLightningAddressMasked,
+            PendingCheckInExpiresAt = pendingCheckIn?.ExpiresAt
         };
         
         ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");
         return View("DisplayRewards", vm);
+    }
+    
+    private static string? MaskLightningAddress(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return null;
+        var at = address.IndexOf('@');
+        if (at <= 1 || at >= address.Length - 1)
+            return address;
+        var local = address[..at];
+        var domain = address[(at + 1)..];
+        return $"{local[..Math.Min(local.Length, 3)]}…@{domain}";
     }
     
     private static string? GetLnurlBech32FromClaimLink(string? claimLink)
