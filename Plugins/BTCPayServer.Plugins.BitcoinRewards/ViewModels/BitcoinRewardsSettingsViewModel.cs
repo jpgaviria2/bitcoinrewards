@@ -141,6 +141,12 @@ public class BitcoinRewardsSettingsViewModel
     
     [Display(Name = "Logo URL")]
     public string? LogoUrl { get; set; }
+
+    public bool OneTimeScannedAddressTestEnabled { get; set; }
+
+    [Display(Name = "Test reward amount (sats)")]
+    [Range(1, 100_000, ErrorMessage = "Test reward amount must be between 1 and 100,000 sats")]
+    public long TestRewardSatoshis { get; set; } = 10;
     
     // Bolt Card Settings
     [Display(Name = "Enable Bolt Card NFC Rewards")]
@@ -236,6 +242,8 @@ public class BitcoinRewardsSettingsViewModel
         SecondaryColor = settings.SecondaryColor;
         AccentColor = settings.AccentColor;
         LogoUrl = settings.LogoUrl;
+        OneTimeScannedAddressTestEnabled = settings.OneTimeScannedAddressTestEnabled;
+        TestRewardSatoshis = settings.TestRewardSatoshis > 0 ? settings.TestRewardSatoshis : 10;
         
         BoltCardEnabled = settings.BoltCardEnabled;
         BoltcardFactoryAppId = settings.BoltcardFactoryAppId;
@@ -281,6 +289,8 @@ public class BitcoinRewardsSettingsViewModel
         settings.SecondaryColor = SecondaryColor;
         settings.AccentColor = AccentColor;
         settings.LogoUrl = LogoUrl;
+        settings.OneTimeScannedAddressTestEnabled = OneTimeScannedAddressTestEnabled;
+        settings.TestRewardSatoshis = TestRewardSatoshis > 0 ? TestRewardSatoshis : 10;
         
         settings.BoltCardEnabled = BoltCardEnabled;
         settings.BoltcardFactoryAppId = BoltcardFactoryAppId;

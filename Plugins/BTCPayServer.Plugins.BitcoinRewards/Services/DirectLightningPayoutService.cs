@@ -2,12 +2,14 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using BTCPayServer.Client.Models;
 using BTCPayServer.Data;
 using BTCPayServer.Data.Payouts.LightningLike;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Payments;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
@@ -21,17 +23,20 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Services;
 public sealed class DirectLightningPayoutService
 {
     private readonly PullPaymentHostedService _pullPaymentHostedService;
+    private readonly ApplicationDbContextFactory _applicationDbContextFactory;
     private readonly PayoutMethodHandlerDictionary _payoutHandlers;
     private readonly BitcoinRewardsPluginDbContextFactory _dbContextFactory;
     private readonly ILogger<DirectLightningPayoutService> _logger;
 
     public DirectLightningPayoutService(
         PullPaymentHostedService pullPaymentHostedService,
+        ApplicationDbContextFactory applicationDbContextFactory,
         PayoutMethodHandlerDictionary payoutHandlers,
         BitcoinRewardsPluginDbContextFactory dbContextFactory,
         ILogger<DirectLightningPayoutService> logger)
     {
         _pullPaymentHostedService = pullPaymentHostedService;
+        _applicationDbContextFactory = applicationDbContextFactory;
         _payoutHandlers = payoutHandlers;
         _dbContextFactory = dbContextFactory;
         _logger = logger;
@@ -103,8 +108,22 @@ public sealed class DirectLightningPayoutService
             }
 
             attempt.ProviderReference = response.PayoutData.Id;
-            attempt.State = RewardPayoutState.Paying;
+            attempt.State = await MapPayoutState(response.PayoutData.Id, attempt, cancellationToken);
+            if (attempt.State == RewardPayoutState.Paying && reward.TransactionId.StartsWith("SCAN_TEST_", StringComparison.Ordinal))
+            {
+                attempt.State = await WaitForFinalPayoutState(response.PayoutData.Id, attempt, cancellationToken);
+            }
             attempt.UpdatedAt = DateTime.UtcNow;
+            reward.DirectPayoutState = attempt.State;
+            if (attempt.State == RewardPayoutState.Paid)
+            {
+                reward.Status = RewardStatus.Sent;
+                reward.SentAt ??= DateTime.UtcNow;
+            }
+            else if (attempt.State is RewardPayoutState.RetryableFailure or RewardPayoutState.PermanentFailure)
+            {
+                reward.ErrorMessage = attempt.LastError;
+            }
             await db.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Queued direct Lightning reward payout {PayoutId} for reward {RewardId}", response.PayoutData.Id, reward.Id);
             return DirectLightningPayoutResult.Queued(response.PayoutData.Id);
@@ -118,6 +137,65 @@ public sealed class DirectLightningPayoutService
             _logger.LogError(ex, "Failed to queue direct Lightning payout for reward {RewardId}", reward.Id);
             return DirectLightningPayoutResult.Failed(ex.Message);
         }
+    }
+
+    private async Task<RewardPayoutState> MapPayoutState(string payoutId, RewardPayoutAttempt attempt, CancellationToken cancellationToken)
+    {
+        await using var appDb = _applicationDbContextFactory.CreateContext();
+        var payout = await appDb.Payouts.FirstOrDefaultAsync(p => p.Id == payoutId, cancellationToken);
+        if (payout is null)
+            return RewardPayoutState.Paying;
+
+        return payout.State switch
+        {
+            PayoutState.Completed => MarkPaid(attempt, payout.Proof?.ToString()),
+            PayoutState.Cancelled => MarkFailed(attempt, "BTCPay cancelled the Lightning payout. The amount may be below the destination or store payout minimum, or automated payout approval failed."),
+            PayoutState.AwaitingPayment or PayoutState.InProgress => RewardPayoutState.Paying,
+            _ => RewardPayoutState.Paying
+        };
+    }
+
+    private async Task<RewardPayoutState> WaitForFinalPayoutState(string payoutId, RewardPayoutAttempt attempt, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < 12; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            var state = await MapPayoutState(payoutId, attempt, cancellationToken);
+            if (state is RewardPayoutState.Paid or RewardPayoutState.RetryableFailure or RewardPayoutState.PermanentFailure)
+                return state;
+        }
+
+        return RewardPayoutState.Paying;
+    }
+
+    private static RewardPayoutState MarkPaid(RewardPayoutAttempt attempt, string? proof)
+    {
+        attempt.PaymentHash = ExtractPaymentHash(proof);
+        attempt.PaidAt = DateTime.UtcNow;
+        return RewardPayoutState.Paid;
+    }
+
+    private static string? ExtractPaymentHash(string? proof)
+    {
+        if (string.IsNullOrWhiteSpace(proof))
+            return null;
+
+        try
+        {
+            var token = JObject.Parse(proof);
+            var paymentHash = token.Value<string>("PaymentHash") ?? token.Value<string>("Id");
+            return paymentHash?.Length <= 64 ? paymentHash : paymentHash?[..64];
+        }
+        catch
+        {
+            return proof.Length <= 64 ? proof : proof[..64];
+        }
+    }
+
+    private static RewardPayoutState MarkFailed(RewardPayoutAttempt attempt, string error)
+    {
+        attempt.LastError = error;
+        return RewardPayoutState.RetryableFailure;
     }
 }
 

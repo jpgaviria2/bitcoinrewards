@@ -204,6 +204,16 @@ public class BitcoinRewardsStoreSettings
     /// </summary>
     public string? LogoUrl { get; set; }
 
+    /// <summary>
+    /// Arms a one-time 10 sat admin test. The next scanned Lightning address receives the test reward automatically.
+    /// </summary>
+    public bool OneTimeScannedAddressTestEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Reward size used by admin-only live tests.
+    /// </summary>
+    public long TestRewardSatoshis { get; set; } = 10;
+
     // ── Dual Balance Settings ──
 
     /// <summary>Default auto-convert setting for new wallets.</summary>

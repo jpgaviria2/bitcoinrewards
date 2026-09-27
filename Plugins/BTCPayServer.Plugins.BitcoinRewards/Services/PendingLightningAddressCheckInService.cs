@@ -133,6 +133,24 @@ public sealed class PendingLightningAddressCheckInService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task MarkConsumedByTestAsync(
+        Guid id,
+        string testPaymentId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = _dbContextFactory.CreateContext();
+        var row = await context.PendingLightningAddressCheckIns.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (row is null || row.State != PendingLightningAddressCheckInState.Pending)
+            return;
+        var now = DateTime.UtcNow;
+        row.State = PendingLightningAddressCheckInState.Consumed;
+        row.SquarePaymentId = Required(testPaymentId, 255, nameof(testPaymentId));
+        row.SquareOrderId = "one-time-scanned-address-test";
+        row.ConsumedAt = now;
+        row.UpdatedAt = now;
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<BitcoinRewardsStoreSettings> GetSettings(string storeId) =>
         await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, BitcoinRewardsStoreSettings.SettingsName)
         ?? new BitcoinRewardsStoreSettings();

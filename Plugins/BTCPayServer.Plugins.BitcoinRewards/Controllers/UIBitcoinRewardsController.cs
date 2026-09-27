@@ -10,6 +10,7 @@ using BTCPayServer.Client;
 using BTCPayServer.Controllers;
 using BTCPayServer.Plugins.BitcoinRewards.ViewModels;
 using BTCPayServer.Plugins.BitcoinRewards.Data;
+using BTCPayServer.Plugins.BitcoinRewards.Models;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
 using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,7 @@ public class UIBitcoinRewardsController : Controller
     private readonly StoreRepository _storeRepository;
     private readonly BitcoinRewardsRepository _rewardsRepository;
     private readonly PayoutProcessorDiscoveryService _payoutProcessorDiscoveryService;
+    private readonly BitcoinRewardsService _rewardsService;
     private readonly PullPaymentStatusService _pullPaymentStatusService;
     private readonly PendingLightningAddressCheckInService _pendingCheckInService;
     private readonly ILogger<UIBitcoinRewardsController> _logger;
@@ -37,6 +39,7 @@ public class UIBitcoinRewardsController : Controller
         StoreRepository storeRepository,
         BitcoinRewardsRepository rewardsRepository,
         PayoutProcessorDiscoveryService payoutProcessorDiscoveryService,
+        BitcoinRewardsService rewardsService,
         PullPaymentStatusService pullPaymentStatusService,
         PendingLightningAddressCheckInService pendingCheckInService,
         ILogger<UIBitcoinRewardsController> logger)
@@ -44,6 +47,7 @@ public class UIBitcoinRewardsController : Controller
         _storeRepository = storeRepository;
         _rewardsRepository = rewardsRepository;
         _payoutProcessorDiscoveryService = payoutProcessorDiscoveryService;
+        _rewardsService = rewardsService;
         _pullPaymentStatusService = pullPaymentStatusService;
         _pendingCheckInService = pendingCheckInService;
         _logger = logger;
@@ -240,6 +244,128 @@ public class UIBitcoinRewardsController : Controller
 
         // GET fallback
         return await EditSettings(storeId);
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/update-amount")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> UpdateTestRewardAmount(string storeId, [FromForm] long testRewardSatoshis)
+    {
+        if (testRewardSatoshis < 1 || testRewardSatoshis > 100_000)
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel { Message = "Test reward amount must be between 1 and 100,000 sats.", Severity = StatusMessageModel.StatusSeverity.Error });
+            return RedirectToAction(nameof(EditSettings), new { storeId });
+        }
+
+        var settings = await GetSettings(storeId);
+        settings.TestRewardSatoshis = testRewardSatoshis;
+        await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
+        TempData.SetStatusMessageModel(new StatusMessageModel { Message = $"Test reward amount set to {testRewardSatoshis} sats.", Severity = StatusMessageModel.StatusSeverity.Success });
+        return RedirectToAction(nameof(EditSettings), new { storeId });
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/arm-scan-10sat")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> ArmScanTest(string storeId)
+    {
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, BitcoinRewardsStoreSettings.SettingsName)
+                       ?? new BitcoinRewardsStoreSettings();
+        settings.OneTimeScannedAddressTestEnabled = true;
+        if (settings.TestRewardSatoshis <= 0)
+            settings.TestRewardSatoshis = 10;
+        await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
+        TempData.SetStatusMessageModel(new StatusMessageModel
+        {
+            Message = $"One-time {settings.TestRewardSatoshis} sat scanned-address test is armed. The next captured Lightning address will be paid automatically.",
+            Severity = StatusMessageModel.StatusSeverity.Info
+        });
+        return RedirectToAction(nameof(EditSettings), new { storeId });
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/cancel-scan-10sat")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> CancelScanTest(string storeId)
+    {
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, BitcoinRewardsStoreSettings.SettingsName)
+                       ?? new BitcoinRewardsStoreSettings();
+        settings.OneTimeScannedAddressTestEnabled = false;
+        await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
+        TempData.SetStatusMessageModel(new StatusMessageModel { Message = "One-time scanned-address test cancelled.", Severity = StatusMessageModel.StatusSeverity.Success });
+        return RedirectToAction(nameof(EditSettings), new { storeId });
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/email-10sat")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> EmailFlowTest(string storeId, [FromForm] string? testEmail)
+    {
+        if (string.IsNullOrWhiteSpace(testEmail))
+        {
+            TempData.SetStatusMessageModel(new StatusMessageModel { Message = "Enter a test email address first.", Severity = StatusMessageModel.StatusSeverity.Error });
+            return RedirectToAction(nameof(EditSettings), new { storeId });
+        }
+        var settings = await GetSettings(storeId);
+        var testSats = GetTestSats(settings);
+        var ok = await ProcessTestReward(storeId, "EMAIL_TEST", testSats, testEmail.Trim(), null, forceDirect: false);
+        TempData.SetStatusMessageModel(new StatusMessageModel
+        {
+            Message = ok ? $"{testSats} sat email pull-payment test created." : $"{testSats} sat email pull-payment test failed; check plugin logs.",
+            Severity = ok ? StatusMessageModel.StatusSeverity.Success : StatusMessageModel.StatusSeverity.Error
+        });
+        return RedirectToAction(nameof(EditSettings), new { storeId });
+    }
+
+    [HttpPost]
+    [Route("plugins/bitcoin-rewards/{storeId}/test/display-10sat")]
+    [Authorize(Policy = Policies.CanModifyStoreSettings)]
+    [AutoValidateAntiforgeryToken]
+    public async Task<IActionResult> DisplayPullPaymentTest(string storeId)
+    {
+        var settings = await GetSettings(storeId);
+        var testSats = GetTestSats(settings);
+        var ok = await ProcessTestReward(storeId, "DISPLAY_TEST", testSats, null, null, forceDirect: false);
+        TempData.SetStatusMessageModel(new StatusMessageModel
+        {
+            Message = ok ? $"{testSats} sat display pull-payment test created. The kiosk display will show it on refresh." : $"{testSats} sat display pull-payment test failed; check plugin logs.",
+            Severity = ok ? StatusMessageModel.StatusSeverity.Success : StatusMessageModel.StatusSeverity.Error
+        });
+        return RedirectToAction(nameof(EditSettings), new { storeId });
+    }
+
+    private async Task<BitcoinRewardsStoreSettings> GetSettings(string storeId) =>
+        await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, BitcoinRewardsStoreSettings.SettingsName)
+        ?? new BitcoinRewardsStoreSettings();
+
+    private static long GetTestSats(BitcoinRewardsStoreSettings settings) => settings.TestRewardSatoshis > 0 ? settings.TestRewardSatoshis : 10;
+
+    private Task<bool> ProcessTestReward(string storeId, string prefix, long sats, string? email, string? lightningAddress, bool forceDirect)
+    {
+        var transaction = new TransactionData
+        {
+            TransactionId = $"{prefix}_{Guid.NewGuid():N}",
+            OrderId = $"{prefix}_{DateTime.UtcNow:yyyyMMddHHmmss}",
+            Amount = 0.01m,
+            Currency = "CAD",
+            CustomerEmail = email,
+            LightningAddress = lightningAddress,
+            Platform = TransactionPlatform.Square,
+            TransactionDate = DateTime.UtcNow,
+            Metadata =
+            {
+                ["rewardSatoshisOverride"] = sats.ToString(),
+                ["rewardPercentageOverride"] = "100",
+                ["source"] = "admin-test-reward"
+            }
+        };
+        if (forceDirect)
+            transaction.Metadata["forceDirectLightning"] = "true";
+        return _rewardsService.ProcessRewardAsync(storeId, transaction);
     }
 
     [HttpGet]

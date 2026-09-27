@@ -184,6 +184,12 @@ public class BitcoinRewardsService
             
             // Convert reward amount from store currency to BTC/satoshis
             var rewardSatoshis = await ConvertToSatoshisAsync(transaction.Currency, rewardAmount, storeId);
+            if (transaction.Metadata.TryGetValue("rewardSatoshisOverride", out var satsOverride) &&
+                long.TryParse(satsOverride, out var overrideSats) && overrideSats > 0 && overrideSats <= settings.MaximumSingleRewardSatoshis)
+            {
+                rewardSatoshis = overrideSats;
+                rewardAmount = overrideSats / 100_000_000m;
+            }
             if (rewardSatoshis <= 0)
             {
                 _logger.LogError("Failed to convert reward amount {Amount} {Currency} to satoshis for store {StoreId}", 
@@ -227,10 +233,10 @@ public class BitcoinRewardsService
                 CustomerPhone = transaction.CustomerPhone,
                 CustomerProfileId = transaction.CustomerProfileId,
                 LightningAddressHash = transaction.LightningAddressHash,
-                DeliveryMode = settings.DirectLightningPayoutEnabled && !string.IsNullOrWhiteSpace(transaction.LightningAddress)
+                DeliveryMode = (settings.DirectLightningPayoutEnabled || transaction.Metadata.ContainsKey("forceDirectLightning")) && !string.IsNullOrWhiteSpace(transaction.LightningAddress)
                     ? RewardDeliveryMode.DirectLightning
                     : RewardDeliveryMode.LegacyPullPayment,
-                DirectPayoutState = settings.DirectLightningPayoutEnabled && !string.IsNullOrWhiteSpace(transaction.LightningAddress)
+                DirectPayoutState = (settings.DirectLightningPayoutEnabled || transaction.Metadata.ContainsKey("forceDirectLightning")) && !string.IsNullOrWhiteSpace(transaction.LightningAddress)
                     ? RewardPayoutState.Queued
                     : null,
                 TransactionAmount = transaction.Amount,
@@ -267,8 +273,9 @@ public class BitcoinRewardsService
                 {
                     reward.PayoutId = payoutResult.PayoutId;
                     reward.Status = RewardStatus.Sent;
-                    reward.SentAt = DateTime.UtcNow;
-                    reward.DirectPayoutState = RewardPayoutState.Paying;
+                    reward.SentAt ??= DateTime.UtcNow;
+                    if (reward.DirectPayoutState != RewardPayoutState.Paid)
+                        reward.DirectPayoutState = RewardPayoutState.Paying;
                     await _repository.UpdateRewardAsync(reward);
                     _metrics.RecordLightningOperation("direct_lightning_payout_queued", storeId, true);
                     _logger.LogInformation("Direct Lightning reward payout queued for store {StoreId}, transaction {TransactionId}, payout {PayoutId}",

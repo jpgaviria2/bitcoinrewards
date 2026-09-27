@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Threading.Tasks;
+using BTCPayServer.Plugins.BitcoinRewards.Models;
 using BTCPayServer.Plugins.BitcoinRewards.Services;
 using BTCPayServer.Plugins.BitcoinRewards.ViewModels;
+using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -16,13 +18,19 @@ public class CustomerCheckInController : Controller
     public sealed record CustomerCheckInApiRequest(string LightningAddress, string? RegisterId, string? DeviceId);
 
     private readonly PendingLightningAddressCheckInService _checkInService;
+    private readonly BitcoinRewardsService _rewardsService;
+    private readonly StoreRepository _storeRepository;
     private readonly ILogger<CustomerCheckInController> _logger;
 
     public CustomerCheckInController(
         PendingLightningAddressCheckInService checkInService,
+        BitcoinRewardsService rewardsService,
+        StoreRepository storeRepository,
         ILogger<CustomerCheckInController> logger)
     {
         _checkInService = checkInService;
+        _rewardsService = rewardsService;
+        _storeRepository = storeRepository;
         _logger = logger;
     }
 
@@ -53,6 +61,7 @@ public class CustomerCheckInController : Controller
                 model.RegisterId,
                 model.DeviceId,
                 HttpContext.RequestAborted);
+            await ProcessOneTimeScanTestIfArmed(storeId, checkIn, model.RegisterId, model.DeviceId);
             return View(new CustomerCheckInViewModel
             {
                 StoreId = storeId,
@@ -93,12 +102,14 @@ public class CustomerCheckInController : Controller
                 request.RegisterId,
                 request.DeviceId,
                 HttpContext.RequestAborted);
+            var testProcessed = await ProcessOneTimeScanTestIfArmed(storeId, checkIn, request.RegisterId, request.DeviceId);
 
             return Ok(new
             {
                 status = "checked_in",
                 expiresAt = checkIn.ExpiresAt,
-                lightningAddress = checkIn.LightningAddress
+                lightningAddress = checkIn.LightningAddress,
+                testRewardProcessed = testProcessed
             });
         }
         catch (ArgumentException ex)
@@ -110,5 +121,43 @@ public class CustomerCheckInController : Controller
             _logger.LogWarning(ex, "Customer Lightning check-in API rejected for store {StoreId}", storeId);
             return StatusCode(503, new { error = ex.Message });
         }
+    }
+
+    private async Task<bool> ProcessOneTimeScanTestIfArmed(string storeId, Data.PendingLightningAddressCheckIn checkIn, string? registerId, string? deviceId)
+    {
+        var settings = await _storeRepository.GetSettingAsync<BitcoinRewardsStoreSettings>(storeId, BitcoinRewardsStoreSettings.SettingsName);
+        if (settings?.OneTimeScannedAddressTestEnabled != true)
+            return false;
+
+        settings.OneTimeScannedAddressTestEnabled = false;
+        await _storeRepository.UpdateSetting(storeId, BitcoinRewardsStoreSettings.SettingsName, settings);
+
+        var testSats = settings.TestRewardSatoshis > 0 ? settings.TestRewardSatoshis : 10;
+
+        var transactionId = $"SCAN_TEST_{Guid.NewGuid():N}";
+        var transaction = new TransactionData
+        {
+            TransactionId = transactionId,
+            OrderId = $"SCAN_TEST_{DateTime.UtcNow:yyyyMMddHHmmss}",
+            Amount = 0.01m,
+            Currency = "CAD",
+            Platform = TransactionPlatform.Square,
+            TransactionDate = DateTime.UtcNow,
+            LightningAddress = checkIn.LightningAddress,
+            LightningAddressHash = checkIn.LightningAddressHash,
+            Metadata =
+            {
+                ["rewardSatoshisOverride"] = testSats.ToString(),
+                ["rewardPercentageOverride"] = "100",
+                ["forceDirectLightning"] = "true",
+                ["source"] = "one-time-scanned-address-test"
+            }
+        };
+
+        var ok = await _rewardsService.ProcessRewardAsync(storeId, transaction);
+        if (ok)
+            await _checkInService.MarkConsumedByTestAsync(checkIn.Id, transactionId);
+        _logger.LogInformation("One-time scanned address test reward processed for store {StoreId}, check-in {CheckInId}, sats={Sats}, success={Success}", storeId, checkIn.Id, testSats, ok);
+        return ok;
     }
 }

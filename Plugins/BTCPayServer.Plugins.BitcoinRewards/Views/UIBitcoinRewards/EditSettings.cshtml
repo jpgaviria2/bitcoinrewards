@@ -212,3 +212,62 @@
         </div>
     </div>
 </form>
+
+<div class="row mt-4">
+    <div class="col-xxl-constrain">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="mb-0">10 sat test rewards</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Use these only for live operational testing. Each action creates a one-time reward using the configured test amount.</p>
+                <form method="post" asp-action="UpdateTestRewardAmount" asp-route-storeId="@Model.StoreId" class="row g-2 align-items-end mb-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-4">
+                        <label asp-for="TestRewardSatoshis" class="form-label"></label>
+                        <input asp-for="TestRewardSatoshis" class="form-control" type="number" min="1" max="100000" />
+                    </div>
+                    <div class="col-md-auto">
+                        <button type="submit" class="btn btn-outline-secondary">Save test amount</button>
+                    </div>
+                    <div class="col-12">
+                        <small class="form-text text-muted">Default is 10 sats. Raise it if BTCPay or the destination rejects the payout as too low.</small>
+                    </div>
+                </form>
+                <div class="d-flex flex-wrap gap-2 align-items-start mb-3">
+                    @if (Model.OneTimeScannedAddressTestEnabled)
+                    {
+                        <form method="post" asp-action="CancelScanTest" asp-route-storeId="@Model.StoreId">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-warning">Cancel armed scan test</button>
+                        </form>
+                        <span class="badge bg-info text-dark align-self-center">Armed: next captured Lightning address receives 10 sats</span>
+                    }
+                    else
+                    {
+                        <form method="post" asp-action="ArmScanTest" asp-route-storeId="@Model.StoreId">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-primary">Start one-time scanned address test</button>
+                        </form>
+                    }
+
+                    <form method="post" asp-action="DisplayPullPaymentTest" asp-route-storeId="@Model.StoreId">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-primary">Create 10 sat display pull payment</button>
+                    </form>
+                </div>
+
+                <form method="post" asp-action="EmailFlowTest" asp-route-storeId="@Model.StoreId" class="row g-2 align-items-end">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-6">
+                        <label for="testEmail" class="form-label">Test email</label>
+                        <input id="testEmail" name="testEmail" type="email" class="form-control" placeholder="customer@example.com" />
+                    </div>
+                    <div class="col-md-auto">
+                        <button type="submit" class="btn btn-outline-primary">Send 10 sat email-flow test</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
