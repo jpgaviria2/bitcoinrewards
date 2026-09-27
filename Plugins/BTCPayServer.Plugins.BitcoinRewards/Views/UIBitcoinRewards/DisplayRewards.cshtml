@@ -172,6 +172,25 @@ else
         .reward-display.waiting {
             padding: 80px 50px;
         }
+
+        /*
+         * The Android customer scanner injects its confirmation card into the
+         * waiting display after a wallet QR has been accepted. Once that card
+         * exists, the idle prompt must no longer compete with the confirmed
+         * customer state.
+         */
+        .reward-display.waiting.customer-ready {
+            padding: 24px;
+        }
+
+        .reward-display.waiting.customer-ready > :not(.customer-ready-card) {
+            display: none !important;
+        }
+
+        .reward-display.waiting.customer-ready > .customer-ready-card {
+            display: block !important;
+            margin: 0 auto !important;
+        }
         
         .waiting-message {
             color: #6B4423;
@@ -412,6 +431,56 @@ else
                     The next reward will appear here after payment
                 </p>
             </div>
+
+            <script>
+                (() => {
+                    const waitingDisplay = document.getElementById('waiting-display');
+                    if (!waitingDisplay) return;
+
+                    let readyCard = null;
+                    let readyStateApplied = false;
+
+                    function findInjectedReadyCard() {
+                        const match = Array.from(waitingDisplay.querySelectorAll('*')).find((element) => {
+                            const text = element.textContent || '';
+                            return /ready to reward/i.test(text) &&
+                                /next square payment/i.test(text);
+                        });
+
+                        if (!match) return null;
+
+                        let card = match;
+                        while (card.parentElement && card.parentElement !== waitingDisplay) {
+                            card = card.parentElement;
+                        }
+
+                        return card === waitingDisplay ? null : card;
+                    }
+
+                    function applyCustomerReadyState() {
+                        readyCard = findInjectedReadyCard();
+                        if (!readyCard) return;
+
+                        readyCard.classList.add('customer-ready-card');
+                        waitingDisplay.classList.add('customer-ready');
+                        document.body.classList.add('customer-ready-state');
+
+                        if (!readyStateApplied) {
+                            readyStateApplied = true;
+                            requestAnimationFrame(() => {
+                                readyCard.scrollIntoView({ block: 'center', inline: 'nearest' });
+                            });
+                        }
+                    }
+
+                    applyCustomerReadyState();
+                    new MutationObserver(applyCustomerReadyState).observe(waitingDisplay, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true
+                    });
+                })();
+            </script>
         }
         
         <button class="refresh-button" onclick="window.location.reload();">🔄 Refresh Now</button>

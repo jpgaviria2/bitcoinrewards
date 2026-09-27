@@ -2,7 +2,7 @@
 
 ## Status
 
-Version 1.6.4 is an **unreleased, default-off notification candidate**. It aligns the Bitcoin Rewards plugin with signed customer profiles and adds a durable server notification event after the authoritative legacy pull payment settles.
+Version 1.6.5 is an **unreleased, default-off notification candidate**. It aligns the Bitcoin Rewards plugin with signed customer profiles, adds a durable server notification event after the authoritative legacy pull payment settles, and makes the Android scanner's confirmed-customer card replace the idle waiting state.
 
 The existing Bitcoin Rewards plugin and LNURL-withdraw pull-payment flow remain authoritative. Direct Lightning payout is intentionally unavailable in this release.
 
@@ -38,7 +38,7 @@ There is no “next payment” or timing-window customer match.
 
 ## Required production inventory before deployment
 
-Do not install version 1.6.4 until all of the following are captured from the deployed BTCPay host:
+Do not install version 1.6.5 until all of the following are captured from the deployed BTCPay host:
 
 - BTCPay Server version and container/image digest.
 - Installed Bitcoin Rewards plugin version plus SHA-256 of the deployed plugin package/assembly.
