@@ -15,7 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "Plugins" / "BTCPayServer.Plugins.BitcoinRewards"
-PACKAGE = ROOT / "output" / "BTCPayServer.Plugins.BitcoinRewards-1.7.2-native-check-in-api.btcpay"
+PACKAGE_VERSION = "1.7.8"
+PACKAGE = ROOT / "output" / f"BTCPayServer.Plugins.BitcoinRewards-{PACKAGE_VERSION}-test-rewards.btcpay"
 
 REMOVED_TOKENS = [
     "UIWalletManagement",
@@ -32,8 +33,6 @@ REMOVED_TOKENS = [
     "Nip05",
     "BoltCardRewardService",
     "BoltCardRewardsController",
-    "Shopify",
-    "shopify",
 ]
 
 # Tokens allowed in source for compatibility settings/data objects, but not in views or package file names.
@@ -44,9 +43,6 @@ SOURCE_FORBIDDEN = [
     "Customer Wallets</span>",
     "Bolt Card NFC Rewards",
     "Dual Balance Wallet Settings",
-    "Enable Shopify",
-    "Shopify",
-    "shopify",
 ]
 
 REQUIRED_SOURCE = {
@@ -134,8 +130,8 @@ def main() -> None:
             if re.search(re.escape(token), joined, re.IGNORECASE):
                 fail(f"package ships removed surface matching {token!r}")
         manifest = zf.read("BTCPayServer.Plugins.BitcoinRewards.json").decode()
-        if '"Version": "1.7.2"' not in manifest:
-            fail("package manifest is not version 1.7.2")
+        if f'"Version": "{PACKAGE_VERSION}"' not in manifest:
+            fail(f"package manifest is not version {PACKAGE_VERSION}")
         if not any(name == "BTCPayServer.Plugins.BitcoinRewards.dll" for name in names):
             fail("package does not include plugin assembly")
 

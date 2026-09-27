@@ -67,7 +67,7 @@ reward_amount_satoshis_count 42
 - `webhook_duration_ms` (histogram) - Webhook processing latency
 
 **Labels:**
-- `platform` - square, shopify, btcpay
+- `platform` - square, btcpay
 - `store` - Store ID
 - `status` - pending, sent, claimed, expired
 - `error_type` - webhook, lightning, api, database, business_logic

@@ -12,7 +12,6 @@ services:
     depends_on:
       - nbxplorer
       - postgres
-      - shopify-app-deployer
       - cloudflared
 
   cloudflared:
@@ -24,15 +23,6 @@ services:
       REAL_IP_HEADER: Cf-Connecting-Ip
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  shopify-app-deployer:
-    image: btcpayserver/shopify-app-deployer:1.5
-    restart: unless-stopped
-    init: true
-    expose:
-      - "5000"
-    ports:
-      - "32204:5000"
 
   nbxplorer:
     image: nicolasdorier/nbxplorer:2.5.16

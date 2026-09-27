@@ -1,17 +1,45 @@
+# .NET / IDE
 **/bin/**/*
-**/obj
-.idea
-Plugins/packed
+**/obj/**/*
 .vs/
-monero_wallet/
-.env
+.idea/
 *.DotSettings.user
-android/rewards-nfc-display/release-keystore.jks
-android/rewards-nfc-display/.gradle/
-android/rewards-nfc-display/app/build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.secrets/
+.hermes/
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.secret
+*.secrets
+*.token
+*.macaroon
+macaroon.hex
+nostr-private*.json
+zapstore-nostr*.json
+
+# Build and release artifacts
 output/
+Plugins/packed/
 *.btcpay
 *.apk
-*.jks
-.hermes/
-.secrets/
+*.aab
+*.zip
+*.tar.gz
+
+# Legacy/local app build output; Android app lives in RewardsApp repo
+android/**/.gradle/
+android/**/build/
+
+# Local wallets/test data
+monero_wallet/
+*.sqlite
+*.sqlite3
+*.db

@@ -130,9 +130,6 @@ public class UIBitcoinRewardsController : Controller
             var enableBtcpayValues = Request.Form["EnableBtcpay"];
             vm.EnableBtcpay = enableBtcpayValues.Count > 0 && enableBtcpayValues.Contains("true");
 
-            var boltCardValues = Request.Form["BoltCardEnabled"];
-            vm.BoltCardEnabled = boltCardValues.Count > 0 && boltCardValues.Contains("true");
-
             var defaultAutoConvertValues = Request.Form["DefaultAutoConvertToCad"];
             vm.DefaultAutoConvertToCad = defaultAutoConvertValues.Count > 0 && defaultAutoConvertValues.Contains("true");
             var swapEnabledValues = Request.Form["SwapEnabled"];
@@ -150,7 +147,6 @@ public class UIBitcoinRewardsController : Controller
             ModelState.Remove(nameof(vm.Enabled));
             ModelState.Remove(nameof(vm.EnableSquare));
             ModelState.Remove(nameof(vm.EnableBtcpay));
-            ModelState.Remove(nameof(vm.BoltCardEnabled));
             ModelState.Remove(nameof(vm.DefaultAutoConvertToCad));
             ModelState.Remove(nameof(vm.SwapEnabled));
             ModelState.Remove(nameof(vm.CadSpendingEnabled));
@@ -760,9 +756,8 @@ public class UIBitcoinRewardsController : Controller
             PullPaymentId = latestReward.PullPaymentId,
             CustomTemplate = settings.DisplayTemplateOverride,
             LnurlString = lnurlBech32,
-            BoltCardEnabled = settings.BoltCardEnabled,
             RewardId = latestReward.Id.ToString(),
-            StoreName = (await _storeRepository.FindStore(storeId))?.StoreName ?? "Trails Coffee Rewards",
+            StoreName = (await _storeRepository.FindStore(storeId))?.StoreName ?? "Bitcoin Rewards",
             PrimaryColor = settings.PrimaryColor,
             SecondaryColor = settings.SecondaryColor,
             AccentColor = settings.AccentColor,
@@ -826,24 +821,6 @@ public class UIBitcoinRewardsController : Controller
         var bytes = pngQr.GetGraphic(10); // Scale factor 10 for larger QR code
         return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
     }
-    
-    /// <summary>
-    /// Admin dashboard for viewing and managing error logs
-    /// </summary>
-    [HttpGet]
-    [Route("plugins/bitcoin-rewards/{storeId}/errors")]
-    [Authorize(Policy = Policies.CanModifyStoreSettings)]
-    public IActionResult ErrorDashboard(string storeId, int? days = 7, bool? resolved = null)
-        => NotFound();
-    
-    /// <summary>
-    /// Mark an error as resolved
-    /// </summary>
-    [HttpPost]
-    [Route("plugins/bitcoin-rewards/{storeId}/errors/{errorId}/resolve")]
-    [Authorize(Policy = Policies.CanModifyStoreSettings)]
-    [AutoValidateAntiforgeryToken]
-    public IActionResult ResolveError(string storeId, string errorId) => NotFound();
     
     /// <summary>
     /// Admin interface for rate limit configuration

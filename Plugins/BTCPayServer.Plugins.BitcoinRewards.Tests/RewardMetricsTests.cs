@@ -21,7 +21,7 @@ public class RewardMetricsTests
         // Act
         _metrics.RecordRewardCreated("square", "store-1");
         _metrics.RecordRewardCreated("square", "store-1");
-        _metrics.RecordRewardCreated("shopify", "store-2");
+        _metrics.RecordRewardCreated("btcpay", "store-2");
 
         // Assert
         _metrics.GetCounter("rewards_created_total").Should().BeGreaterOrEqualTo(3);

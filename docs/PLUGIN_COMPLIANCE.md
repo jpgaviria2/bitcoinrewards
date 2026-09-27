@@ -87,7 +87,7 @@ The documentation shows both patterns:
 - `services.AddSingleton<IUIExtension>(new UIExtension(...))` (older pattern)
 - `services.AddUIExtension(...)` (newer pattern)
 
-We use the newer `AddUIExtension` method, which is the recommended approach as seen in current plugins like Shopify and Subscriptions.
+We use the newer `AddUIExtension` method, which is the recommended approach used by current BTCPay Server plugins.
 
 ## Conclusion
 

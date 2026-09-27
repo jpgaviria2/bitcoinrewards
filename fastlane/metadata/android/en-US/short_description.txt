@@ -1,1 +1,0 @@
-Native BTCPay rewards display with NFC and QR scanning.

@@ -54,7 +54,7 @@ public sealed class RewardsAssociationController : ControllerBase
         }
         catch (System.ArgumentException)
         {
-            return BadRequest(new { error = "A valid Trails app Lightning address and Square order ID are required" });
+            return BadRequest(new { error = "A valid customer Lightning address and Square order ID are required" });
         }
         catch (CustomerOrderAssociationConflictException)
         {

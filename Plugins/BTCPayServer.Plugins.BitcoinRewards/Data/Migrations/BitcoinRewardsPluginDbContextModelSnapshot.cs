@@ -52,7 +52,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 b.HasIndex("StoreId");
                 b.HasIndex("Status");
                 b.HasIndex("CustomerProfileId");
-                b.HasIndex("StoreId", "TransactionId", "Platform");
+                b.HasIndex("StoreId", "TransactionId", "Platform").IsUnique().HasDatabaseName("IX_BitcoinRewardRecords_StoreId_TransactionId_Platform_Unique");
                 b.ToTable("BitcoinRewardRecords", "BTCPayServer.Plugins.BitcoinRewards");
             });
 
@@ -65,6 +65,7 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
                 b.Property<string>("CustomerProfileId").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
                 b.Property<string>("DeviceId").HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<string>("LightningAddress").IsRequired().HasMaxLength(128).HasColumnType("character varying(128)");
                 b.Property<string>("LightningAddressHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
                 b.Property<string>("RegisterId").HasMaxLength(100).HasColumnType("character varying(100)");
                 b.Property<string>("SquareOrderId").IsRequired().HasMaxLength(255).HasColumnType("character varying(255)");
@@ -101,73 +102,28 @@ namespace BTCPayServer.Plugins.BitcoinRewards.Data.Migrations
                 b.ToTable("RewardPayoutAttempts", "BTCPayServer.Plugins.BitcoinRewards");
             });
 
-            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.BoltCardLink", b =>
+            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.PendingLightningAddressCheckIn", b =>
             {
                 b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                b.Property<DateTime?>("CancelledAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime?>("ConsumedAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("DeviceId").HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<DateTime>("ExpiresAt").HasColumnType("timestamp with time zone");
+                b.Property<string>("LightningAddress").IsRequired().HasMaxLength(128).HasColumnType("character varying(128)");
+                b.Property<string>("LightningAddressHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<string>("RegisterId").HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<string>("Source").HasMaxLength(50).HasColumnType("character varying(50)");
+                b.Property<string>("SquareOrderId").HasMaxLength(255).HasColumnType("character varying(255)");
+                b.Property<string>("SquarePaymentId").HasMaxLength(255).HasColumnType("character varying(255)");
+                b.Property<int>("State").HasColumnType("integer");
                 b.Property<string>("StoreId").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)");
-                b.Property<string>("PullPaymentId").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
-                b.Property<string>("CardUid").HasMaxLength(50).HasColumnType("character varying(50)");
-                b.Property<string>("BoltcardId").HasMaxLength(100).HasColumnType("character varying(100)");
-                b.Property<bool>("IsActive").HasDefaultValue(true).HasColumnType("boolean");
-                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                b.Property<long>("TotalRewardedSatoshis").HasDefaultValue(0L).HasColumnType("bigint");
-                b.Property<DateTime?>("LastRewardedAt").HasColumnType("timestamp with time zone");
+                b.Property<DateTime>("UpdatedAt").IsConcurrencyToken().HasColumnType("timestamp with time zone");
                 b.HasKey("Id");
-                b.HasIndex("StoreId");
-                b.HasIndex("PullPaymentId");
-                b.HasIndex("BoltcardId");
-                b.HasIndex(new[] { "StoreId", "PullPaymentId" }).IsUnique().HasDatabaseName("IX_BoltCardLinks_StoreId_PullPaymentId_Unique");
-                b.ToTable("BoltCardLinks", "BTCPayServer.Plugins.BitcoinRewards");
-            });
-
-            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.CustomerWallet", b =>
-            {
-                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
-                b.Property<string>("StoreId").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)");
-                b.Property<string>("PullPaymentId").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
-                b.Property<string>("CardUid").HasMaxLength(50).HasColumnType("character varying(50)");
-                b.Property<string>("BoltcardId").HasMaxLength(100).HasColumnType("character varying(100)");
-                b.Property<long>("CadBalanceCents").HasDefaultValue(0L).HasColumnType("bigint");
-                b.Property<bool>("AutoConvertToCad").HasDefaultValue(true).HasColumnType("boolean");
-                b.Property<long>("TotalRewardedSatoshis").HasDefaultValue(0L).HasColumnType("bigint");
-                b.Property<long>("TotalRewardedCadCents").HasDefaultValue(0L).HasColumnType("bigint");
-                b.Property<bool>("IsActive").HasDefaultValue(true).HasColumnType("boolean");
-                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                b.Property<DateTime?>("LastRewardedAt").HasColumnType("timestamp with time zone");
-                b.Property<string>("ApiTokenHash").HasMaxLength(128).HasColumnType("character varying(128)");
-                b.HasKey("Id");
-                b.HasIndex("StoreId");
-                b.HasIndex("PullPaymentId");
-                b.HasIndex("BoltcardId");
-                b.HasIndex("CardUid");
-                b.HasIndex("ApiTokenHash");
-                b.HasIndex(new[] { "StoreId", "PullPaymentId" }).IsUnique().HasDatabaseName("IX_CustomerWallets_StoreId_PullPaymentId_Unique");
-                b.ToTable("CustomerWallets", "BTCPayServer.Plugins.BitcoinRewards");
-            });
-
-            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.WalletTransaction", b =>
-            {
-                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
-                b.Property<Guid>("CustomerWalletId").HasColumnType("uuid");
-                b.Property<int>("Type").HasColumnType("integer");
-                b.Property<long>("SatsAmount").HasDefaultValue(0L).HasColumnType("bigint");
-                b.Property<long>("CadCentsAmount").HasDefaultValue(0L).HasColumnType("bigint");
-                b.Property<decimal>("ExchangeRate").HasColumnType("numeric");
-                b.Property<string>("Reference").HasMaxLength(255).HasColumnType("character varying(255)");
-                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                b.HasKey("Id");
-                b.HasIndex("CustomerWalletId");
-                b.HasIndex("CreatedAt");
-                b.ToTable("WalletTransactions", "BTCPayServer.Plugins.BitcoinRewards");
-            });
-
-            modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.WalletTransaction", b =>
-            {
-                b.HasOne("BTCPayServer.Plugins.BitcoinRewards.Data.CustomerWallet", null)
-                    .WithMany()
-                    .HasForeignKey("CustomerWalletId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired();
+                b.HasIndex("StoreId", "State", "CreatedAt");
+                b.HasIndex("StoreId", "ExpiresAt");
+                b.HasIndex("StoreId", "SquarePaymentId").IsUnique().HasFilter("\"SquarePaymentId\" IS NOT NULL");
+                b.ToTable("PendingLightningAddressCheckIns", "BTCPayServer.Plugins.BitcoinRewards");
             });
 
             modelBuilder.Entity("BTCPayServer.Plugins.BitcoinRewards.Data.RewardPayoutAttempt", b =>

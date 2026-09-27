@@ -8,12 +8,6 @@ Curated from TODO/FIXME markers and known issues in the repo. Choose which to im
 ## Square integration
 - Implement webhook signature verification (`Controllers/SquareWebhookController.cs`, `Clients/SquareApiClient.cs`).
 
-## Shopify integration (currently disabled)
-- Build Shopify webhook controller and end-to-end flow (from TESTING_CHECKLIST.md known issues).
-
-## Cashu (if re-enabled)
-- Replace stubbed Cashu service with real implementation (TESTING_CHECKLIST.md).
-
 ## Delivery channels
 - Add SMS delivery support (TESTING_CHECKLIST.md).
 - Document and finalize email template variables (TESTING_CHECKLIST.md).

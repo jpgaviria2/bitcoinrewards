@@ -60,8 +60,7 @@ public class MaintenanceService : BackgroundService
 
             // Rate limit cleanup is handled internally by RateLimitService
 
-            // TODO: Cleanup old PendingLnurlClaims (completed > 7 days ago)
-            // TODO: Archive old WalletTransactions (> 1 year old)
+            // TODO: Archive old reward/test records after retention policy is defined.
 
             var duration = DateTime.UtcNow - startTime;
             _logger.LogInformation("Maintenance completed in {Duration}ms", duration.TotalMilliseconds);

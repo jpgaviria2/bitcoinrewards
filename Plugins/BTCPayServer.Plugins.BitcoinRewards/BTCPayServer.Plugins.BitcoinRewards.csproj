@@ -89,7 +89,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BTCPayServer.Lightning.All" Version="1.6.11" />
+    <PackageReference Include="BTCPayServer.Lightning.All" Version="1.7.10" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
@@ -112,46 +112,12 @@
     <Compile Remove="Data\Models\MintKeys.cs" />
     <Compile Remove="Data\Models\FailedTransaction.cs" />
     <Compile Remove="Data\Models\ExportedToken.cs" />
-
-    <!-- Square-only refactor: remove unused wallet/LNURL/NIP-05/BoltCard/error dashboard surfaces. -->
-    <Compile Remove="Controllers\WalletApiController.cs" />
-    <Compile Remove="Controllers\UIWalletManagementController.cs" />
-    <Compile Remove="Controllers\LnurlpController.cs" />
-    <Compile Remove="Controllers\Nip05ApiController.cs" />
-    <Compile Remove="Controllers\BoltCardRewardsController.cs" />
-    <Compile Remove="Services\CustomerWalletService.cs" />
-    <Compile Remove="Services\BoltCardRewardService.cs" />
-    <Compile Remove="Services\ErrorTrackingService.cs" />
-    <Compile Remove="Services\AutoRecoveryWatchdog.cs" />
-    <Compile Remove="Services\Nip05Service.cs" />
-    <Compile Remove="Services\LightningAddressResolverFilter.cs" />
-    <Compile Remove="HostedServices\LnurlClaimWatcherService.cs" />
-    <Compile Remove="Data\CustomerWallet.cs" />
-    <Compile Remove="Data\WalletTransaction.cs" />
-    <Compile Remove="Data\PendingLnurlClaim.cs" />
-    <Compile Remove="Data\Nip05Identity.cs" />
-    <Compile Remove="Data\BoltCardLink.cs" />
-    <Compile Remove="Models\RewardError.cs" />
-    <Compile Remove="Models\Nip05Models.cs" />
-    <Compile Remove="ViewModels\CustomerWalletViewModels.cs" />
-    <Compile Remove="ViewModels\WalletConfigurationViewModel.cs" />
-    <Compile Remove="ViewModels\ErrorDashboardViewModel.cs" />
-
-    <!-- Do not ship migrations for removed legacy tables in new installs. -->
-    <Compile Remove="Data\Migrations\20260211000000_AddBoltCardLinks.cs" />
-    <Compile Remove="Data\Migrations\20260222000000_AddDualBalance.cs" />
-    <Compile Remove="Data\Migrations\20260222000000_AddDualBalance.Designer.cs" />
-    <Compile Remove="Data\Migrations\20260223000000_AddPendingLnurlClaims.cs" />
-    <Compile Remove="Data\Migrations\20260328000000_AddErrorTracking.cs" />
-    <Compile Remove="Data\Migrations\AddNip05Support.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Remove="Views\Wallet\**" />
     <Content Remove="Views\UICashuAutomatedPayoutProcessors\**" />
     <Content Remove="Views\Shared\WalletNavExtension.cshtml" />
-    <Content Remove="Views\UIWalletManagement\**" />
-    <Content Remove="Views\UIBitcoinRewards\ErrorDashboard.cshtml" />
   </ItemGroup>
 
 </Project>

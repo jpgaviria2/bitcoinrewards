@@ -151,18 +151,6 @@ public class BitcoinRewardsSettingsViewModel
     public long TestRewardSatoshis { get; set; } = 10;
 
     public LatestTestRewardStateViewModel? LatestScanTestState { get; set; }
-    
-    // Bolt Card Settings
-    [Display(Name = "Enable Bolt Card NFC Rewards")]
-    public bool BoltCardEnabled { get; set; }
-    
-    [Display(Name = "Boltcard Factory App ID (optional)")]
-    public string? BoltcardFactoryAppId { get; set; }
-    
-    [Display(Name = "Default Card Balance (sats)")]
-    [Range(0, 1_000_000, ErrorMessage = "Default card balance must be between 0 and 1,000,000 sats")]
-    public long DefaultCardBalanceSats { get; set; } = 100;
-
     // Dual Balance Settings
     [Display(Name = "Default Auto-Convert to CAD")]
     public bool DefaultAutoConvertToCad { get; set; } = true;
@@ -248,11 +236,6 @@ public class BitcoinRewardsSettingsViewModel
         LogoUrl = settings.LogoUrl;
         OneTimeScannedAddressTestEnabled = settings.OneTimeScannedAddressTestEnabled;
         TestRewardSatoshis = settings.TestRewardSatoshis > 0 ? settings.TestRewardSatoshis : 10;
-        
-        BoltCardEnabled = settings.BoltCardEnabled;
-        BoltcardFactoryAppId = settings.BoltcardFactoryAppId;
-        DefaultCardBalanceSats = settings.DefaultCardBalanceSats;
-
         DefaultAutoConvertToCad = settings.DefaultAutoConvertToCad;
         SwapEnabled = settings.SwapEnabled;
         CadSpendingEnabled = settings.CadSpendingEnabled;
@@ -298,11 +281,6 @@ public class BitcoinRewardsSettingsViewModel
         // re-arm it from a stale form render.
         settings.OneTimeScannedAddressTestEnabled = existing?.OneTimeScannedAddressTestEnabled ?? OneTimeScannedAddressTestEnabled;
         settings.TestRewardSatoshis = TestRewardSatoshis > 0 ? TestRewardSatoshis : 10;
-        
-        settings.BoltCardEnabled = BoltCardEnabled;
-        settings.BoltcardFactoryAppId = BoltcardFactoryAppId;
-        settings.DefaultCardBalanceSats = DefaultCardBalanceSats;
-
         settings.DefaultAutoConvertToCad = DefaultAutoConvertToCad;
         settings.SwapEnabled = SwapEnabled;
         settings.CadSpendingEnabled = CadSpendingEnabled;
