@@ -135,68 +135,75 @@ else
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
-            padding: 20px;
+            padding: 10px 14px;
+            overflow: hidden;
         }
         
         .container {
             text-align: center;
             max-width: 800px;
             width: 100%;
+            max-height: 100vh;
         }
         
         .header {
-            margin-bottom: 40px;
+            margin-bottom: 12px;
         }
         
         .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
+            font-size: 2.4rem;
+            margin-bottom: 4px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
         
         .header p {
-            font-size: 1.5rem;
+            font-size: 1.15rem;
             opacity: 0.9;
         }
         
         .reward-display {
             background: white;
             border-radius: 20px;
-            padding: 50px;
+            padding: 34px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            margin-bottom: 30px;
+            margin-bottom: 14px;
         }
         
         .reward-display.waiting {
-            padding: 48px 40px;
+            padding: 34px 30px;
+        }
+
+        .reward-display.ready {
+            padding: 30px 26px;
+            border: 4px solid #28a745;
         }
 
         .scan-instructions {
             background: rgba(255,255,255,0.16);
             border: 1px solid rgba(255,255,255,0.24);
             border-radius: 22px;
-            padding: 18px 22px;
-            margin: 0 auto 24px;
+            padding: 12px 18px;
+            margin: 0 auto 12px;
             max-width: 720px;
-            font-size: 1.2rem;
+            font-size: 1rem;
             line-height: 1.35;
         }
 
         .pending-customer {
-            margin-top: 24px;
+            margin-top: 14px;
             background: #e9f9ef;
             border: 3px solid #28a745;
             border-radius: 18px;
             color: #155724;
-            padding: 22px;
+            padding: 18px;
             box-shadow: 0 6px 22px rgba(40,167,69,0.22);
         }
 
         .pending-customer strong {
             display: block;
-            font-size: 1.55rem;
+            font-size: 1.65rem;
             margin-top: 8px;
         }
 
@@ -211,6 +218,13 @@ else
             font-size: 2rem;
             font-weight: 600;
             margin-bottom: 20px;
+        }
+
+        .ready-message {
+            color: #155724;
+            font-size: 2.15rem;
+            font-weight: 800;
+            margin-bottom: 12px;
         }
         
         .waiting-icon {
@@ -325,7 +339,7 @@ else
             padding: 10px 20px;
             border-radius: 50px;
             display: inline-block;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         
         @@media (max-width: 768px) {
@@ -453,6 +467,17 @@ else
                 <button class="done-button" id="done-button" onclick="hideReward()">✓ Done</button>
             </div>
         }
+        else if (!string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
+        {
+            <div class="reward-display ready" id="ready-display">
+                <div style="font-size: 3.2rem; margin-bottom: 10px;">✅</div>
+                <div class="ready-message">Ready to reward</div>
+                <div class="pending-customer" style="margin-top: 0;">
+                    <strong>@Model.PendingLightningAddressMasked</strong>
+                    <div class="small">This customer is checked in. The next Square payment will issue their reward automatically.</div>
+                </div>
+            </div>
+        }
         else
         {
             <div class="reward-display waiting" id="waiting-display">
@@ -461,24 +486,22 @@ else
                 <p style="color: #666; font-size: 1.2rem;">
                     Customer can scan their wallet Lightning address below, then pay.
                 </p>
-                @if (!string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
-                {
-                    <div class="pending-customer">
-                        ✅ Ready to reward
-                        <strong>@Model.PendingLightningAddressMasked</strong>
-                        <div class="small">The next Square payment will issue this customer's reward automatically.</div>
-                    </div>
-                }
             </div>
         }
         
-        <button class="refresh-button" onclick="window.location.reload();">🔄 Refresh Now</button>
+        @if (string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
+        {
+            <button class="refresh-button" onclick="window.location.reload();">🔄 Refresh Now</button>
+        }
         
         <div class="footer">
             <p>Page refreshes automatically every @Model.AutoRefreshSeconds seconds</p>
-            <p style="margin-top: 10px; font-size: 0.9rem;">
-                <a href="/plugins/bitcoin-rewards/@Model.StoreId/settings" style="color: white; text-decoration: underline;">Back to Settings</a>
-            </p>
+            @if (string.IsNullOrEmpty(Model.PendingLightningAddressMasked))
+            {
+                <p style="margin-top: 10px; font-size: 0.9rem;">
+                    <a href="/plugins/bitcoin-rewards/@Model.StoreId/settings" style="color: white; text-decoration: underline;">Back to Settings</a>
+                </p>
+            }
         </div>
     </div>
     
