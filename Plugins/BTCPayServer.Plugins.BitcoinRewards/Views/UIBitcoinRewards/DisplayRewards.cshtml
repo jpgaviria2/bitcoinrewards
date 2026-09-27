@@ -120,7 +120,7 @@ else
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="refresh" content="@Model.AutoRefreshSeconds">
-    <title>Example Merchant Rewards</title>
+    <title>@(Model.StoreName ?? "Trails Coffee Rewards")</title>
     <style>
         * {
             margin: 0;
@@ -130,7 +130,7 @@ else
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #6B4423 0%, #CD853F 100%);
+            background: linear-gradient(135deg, @Model.PrimaryColor 0%, @Model.SecondaryColor 100%);
             color: white;
             min-height: 100vh;
             display: flex;
@@ -174,7 +174,7 @@ else
         }
         
         .waiting-message {
-            color: #6B4423;
+            color: @Model.PrimaryColor;
             font-size: 2rem;
             font-weight: 600;
             margin-bottom: 20px;
@@ -233,7 +233,7 @@ else
         
         .refresh-button, .done-button {
             background: white;
-            color: #6B4423;
+            color: @Model.PrimaryColor;
             border: 2px solid white;
             padding: 15px 40px;
             font-size: 1.2rem;
@@ -248,16 +248,16 @@ else
         }
         
         .refresh-button:hover, .done-button:hover {
-            background: #6B4423;
+            background: @Model.PrimaryColor;
             color: white;
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
         
         .done-button {
-            background: #6B4423;
+            background: @Model.PrimaryColor;
             color: white;
-            border-color: #6B4423;
+            border-color: @Model.PrimaryColor;
         }
 
         .done-button:hover {
@@ -266,7 +266,7 @@ else
         }
         
         .countdown-timer {
-            color: #6B4423;
+            color: @Model.PrimaryColor;
             font-size: 1.5rem;
             font-weight: 600;
             margin-top: 20px;
@@ -308,7 +308,7 @@ else
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎯 Example Merchant Rewards</h1>
+            <h1>🎯 @(Model.StoreName ?? "Trails Coffee Rewards")</h1>
             <p>Bitcoin Rewards • Anmore, BC</p>
         </div>
         
@@ -319,7 +319,7 @@ else
         @if (Model.HasReward && !string.IsNullOrEmpty(Model.LnurlQrDataUri))
         {
             <div class="reward-display">
-                <h2 style="color: #6B4423; font-size: 2rem; margin-bottom: 20px;">Coffee Rewards Earned! ☕</h2>
+                <h2 style="color: @Model.PrimaryColor; font-size: 2rem; margin-bottom: 20px;">Coffee Rewards Earned! ☕</h2>
                 
                 <div class="qr-code">
                     <img src="@Model.LnurlQrDataUri" alt="Reward QR Code" />
@@ -344,6 +344,10 @@ else
                     {
                         <div class="order-id">Order: @Model.OrderId</div>
                     }
+                    @if (!string.IsNullOrEmpty(Model.PullPaymentId))
+                    {
+                        <div class="order-id">Pull payment code:<br/><code style="font-size: 0.9rem; word-break: break-all; color: @Model.PrimaryColor;">@Model.PullPaymentId</code></div>
+                    }
                     @if (Model.CreatedAt.HasValue)
                     {
                         <div class="order-id">Created: @Model.CreatedAt.Value.ToLocalTime().ToString("h:mm:ss tt")</div>
@@ -352,18 +356,18 @@ else
                 
                 <div class="instructions">
                     Scan the QR code above with your<br/>
-                    Example Merchant Rewards Wallet
+                    @(Model.StoreName ?? "Trails Coffee Rewards") wallet
                 </div>
                 
                 @if (Model.BoltCardEnabled)
                 {
                 <div id="nfc-section" style="margin-top: 30px;">
                     <div style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 10px;">
-                        <p style="color: #6B4423; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
+                        <p style="color: @Model.PrimaryColor; font-size: 1.3rem; font-weight: 600; margin-bottom: 15px;">
                             — OR —
                         </p>
                         <button id="nfc-tap-btn" onclick="startNfcRead()" style="
-                            background: linear-gradient(135deg, #6B4423 0%, #CD853F 100%);
+                            background: linear-gradient(135deg, @Model.PrimaryColor 0%, @Model.SecondaryColor 100%);
                             color: white;
                             border: none;
                             padding: 20px 40px;
@@ -507,7 +511,7 @@ else
                 try {
                     nfcReader = new NDEFReader();
                     nfcStatus.style.display = 'block';
-                    nfcStatus.innerHTML = '<span style="color: #6B4423;">📡 Ready — tap your card now...</span>';
+                    nfcStatus.innerHTML = '<span style="color: @Model.PrimaryColor;">📡 Ready — tap your card now...</span>';
                     nfcError.style.display = 'none';
                     nfcSuccess.style.display = 'none';
                     
@@ -572,7 +576,7 @@ else
             }
             
             async function submitTap(p, c) {
-                nfcStatus.innerHTML = '<span style="color: #6B4423;">⏳ Verifying card...</span>';
+                nfcStatus.innerHTML = '<span style="color: @Model.PrimaryColor;">⏳ Verifying card...</span>';
                 
                 try {
                     const response = await fetch('/plugins/bitcoin-rewards/boltcard/tap', {

@@ -585,7 +585,12 @@ public class UIBitcoinRewardsController : Controller
             CustomTemplate = settings.DisplayTemplateOverride,
             LnurlString = lnurlBech32,
             BoltCardEnabled = settings.BoltCardEnabled,
-            RewardId = latestReward.Id.ToString()
+            RewardId = latestReward.Id.ToString(),
+            StoreName = (await _storeRepository.FindStore(storeId))?.StoreName ?? "Trails Coffee Rewards",
+            PrimaryColor = settings.PrimaryColor,
+            SecondaryColor = settings.SecondaryColor,
+            AccentColor = settings.AccentColor,
+            LogoUrl = settings.LogoUrl
         };
         
         ViewData.SetActivePage("BitcoinRewards", "Display", "BitcoinRewards");
