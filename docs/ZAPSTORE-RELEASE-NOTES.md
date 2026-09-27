@@ -1,4 +1,4 @@
-# Rewards NFC Display v1.11.3
+# Rewards NFC Display v1.11.4
 
 Production/Zapstore readiness update with persistent release signing for future APK updates.
 
@@ -10,3 +10,5 @@ Production/Zapstore readiness update with persistent release signing for future 
 - Password login fallback now points users to login QR when BTCPay rejects Basic auth, such as with 2FA/passkeys enabled.
 - Preserved native customer rewards-profile QR scanning.
 - Preserved open-source cleanup with no merchant-specific defaults.
+
+- NFC hardware is optional in Android manifest so QR/login display installs on tablets without NFC/HCE support.
