@@ -65,6 +65,7 @@ public class BitcoinRewardsPlugin : BaseBTCPayServerPlugin
             factory.ConfigureBuilder(o);
         });
         services.AddHostedService<Data.BitcoinRewardsMigrationRunner>();
+        services.AddHostedService<HostedServices.LegacyPullPaymentDirectSettlementService>();
             
         base.Execute(services);
     }
