@@ -283,10 +283,16 @@ public class BitcoinRewardsService
                 if (payoutResult.Success)
                 {
                     reward.PayoutId = payoutResult.PayoutId;
-                    if (reward.DirectPayoutState == RewardPayoutState.Paid)
+                    if (payoutResult.State.HasValue)
+                    {
+                        reward.DirectPayoutState = payoutResult.State.Value;
+                    }
+
+                    if (payoutResult.State == RewardPayoutState.Paid)
                     {
                         reward.Status = RewardStatus.Sent;
                         reward.SentAt ??= DateTime.UtcNow;
+                        reward.PaidAt ??= DateTime.UtcNow;
                     }
                     else
                     {
