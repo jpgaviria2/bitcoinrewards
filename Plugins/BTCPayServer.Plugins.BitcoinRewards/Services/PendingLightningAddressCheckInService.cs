@@ -75,7 +75,6 @@ public sealed class PendingLightningAddressCheckInService
 
         var now = DateTime.UtcNow;
         await using var context = _dbContextFactory.CreateContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
         ExpireOldPendingRows(context, storeId, now);
 
@@ -85,7 +84,6 @@ public sealed class PendingLightningAddressCheckInService
             .FirstOrDefaultAsync(cancellationToken);
         if (alreadyConsumed is not null)
         {
-            await transaction.CommitAsync(cancellationToken);
             return alreadyConsumed;
         }
 
@@ -98,7 +96,6 @@ public sealed class PendingLightningAddressCheckInService
         if (checkIn is null)
         {
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
             return null;
         }
 
@@ -108,7 +105,6 @@ public sealed class PendingLightningAddressCheckInService
         checkIn.ConsumedAt = now;
         checkIn.UpdatedAt = now;
         await context.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
         _logger.LogInformation("Consumed customer Lightning check-in {CheckInId} for Square payment {PaymentId}", checkIn.Id, squarePaymentId);
         return checkIn;
     }
