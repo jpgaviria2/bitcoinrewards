@@ -92,15 +92,15 @@ public class BitcoinRewardsSettingsViewModel
     public string? SmsFromNumber { get; set; }
     
     // Advanced Settings
-    [Display(Name = "Minimum Transaction Amount")]
-    [Range(0, double.MaxValue, ErrorMessage = "Minimum transaction amount must be positive")]
+    [Display(Name = "Minimum Sale Amount (store currency)")]
+    [Range(0, double.MaxValue, ErrorMessage = "Minimum sale amount must be positive")]
     public decimal? MinimumTransactionAmount { get; set; }
     
     [Display(Name = "Maximum Reward (Satoshis)")]
     [Range(0, long.MaxValue, ErrorMessage = "Maximum reward must be positive")]
     public long? MaximumRewardSatoshis { get; set; }
 
-    [Display(Name = "Minimum Reward (Satoshis)")]
+    [Display(Name = "Minimum Reward Payout (sats)")]
     [Range(0, 100_000_000, ErrorMessage = "Minimum reward must be positive")]
     public long? MinimumRewardSatoshis { get; set; }
     
@@ -259,7 +259,9 @@ public class BitcoinRewardsSettingsViewModel
         settings.EmailSubject = EmailSubjectOverride;
         settings.EmailTemplate = EmailTemplateOverride;
         settings.MinimumTransactionAmount = MinimumTransactionAmount;
-        settings.MinimumRewardSatoshis = MinimumRewardSatoshis is > 0 ? MinimumRewardSatoshis : null;
+        settings.MinimumRewardSatoshis = MinimumRewardSatoshis is > 0
+            ? MinimumRewardSatoshis
+            : existing?.MinimumRewardSatoshis;
         settings.MaximumRewardSatoshis = MaximumRewardSatoshis;
         settings.SelectedPayoutProcessorId = SelectedPayoutProcessorId;
         settings.ServerBaseUrl = string.IsNullOrWhiteSpace(ServerBaseUrl) ? null : ServerBaseUrl!.Trim();

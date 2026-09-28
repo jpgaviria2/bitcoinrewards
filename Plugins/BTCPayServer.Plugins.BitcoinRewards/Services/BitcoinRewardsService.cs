@@ -225,6 +225,7 @@ public class BitcoinRewardsService
             if (settings.MinimumRewardSatoshis.HasValue && settings.MinimumRewardSatoshis.Value > 0 && rewardSatoshis < settings.MinimumRewardSatoshis.Value)
             {
                 rewardSatoshis = settings.MinimumRewardSatoshis.Value;
+                var btcRate = await GetBtcRateAsync(transaction.Currency, storeId);
                 if (btcRate.HasValue && btcRate.Value > 0)
                 {
                     var flooredBtc = rewardSatoshis / 100_000_000m;
