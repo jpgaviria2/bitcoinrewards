@@ -109,7 +109,7 @@ public sealed class DirectLightningPayoutService
 
             attempt.ProviderReference = response.PayoutData.Id;
             attempt.State = await MapPayoutState(response.PayoutData.Id, attempt, cancellationToken);
-            if (attempt.State == RewardPayoutState.Paying && reward.TransactionId.StartsWith("SCAN_TEST_", StringComparison.Ordinal))
+            if (attempt.State == RewardPayoutState.Paying)
             {
                 attempt.State = await WaitForFinalPayoutState(response.PayoutData.Id, attempt, cancellationToken);
             }
@@ -126,7 +126,11 @@ public sealed class DirectLightningPayoutService
             }
             await db.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Queued direct Lightning reward payout {PayoutId} for reward {RewardId}", response.PayoutData.Id, reward.Id);
-            return DirectLightningPayoutResult.Queued(response.PayoutData.Id);
+            return attempt.State switch
+            {
+                RewardPayoutState.Paid or RewardPayoutState.Paying => DirectLightningPayoutResult.Queued(response.PayoutData.Id),
+                _ => DirectLightningPayoutResult.Failed(attempt.LastError ?? "BTCPay did not complete the Lightning payout")
+            };
         }
         catch (Exception ex)
         {

@@ -79,6 +79,11 @@ public class BitcoinRewardsStoreSettings
     /// Maximum reward cap (in BTC/sats, optional)
     /// </summary>
     public long? MaximumRewardSatoshis { get; set; }
+
+    /// <summary>
+    /// Optional minimum reward floor in sats. Useful for direct Lightning payouts where very small rewards can be rejected by BTCPay or the recipient wallet.
+    /// </summary>
+    public long? MinimumRewardSatoshis { get; set; }
     
     /// <summary>
     /// Maximum single reward transaction cap (in sats) - security limit to prevent large fraudulent rewards

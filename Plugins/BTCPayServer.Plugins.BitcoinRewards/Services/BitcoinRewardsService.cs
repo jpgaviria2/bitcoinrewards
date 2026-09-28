@@ -222,6 +222,16 @@ public class BitcoinRewardsService
                 }
             }
 
+            if (settings.MinimumRewardSatoshis.HasValue && settings.MinimumRewardSatoshis.Value > 0 && rewardSatoshis < settings.MinimumRewardSatoshis.Value)
+            {
+                rewardSatoshis = settings.MinimumRewardSatoshis.Value;
+                if (btcRate.HasValue && btcRate.Value > 0)
+                {
+                    var flooredBtc = rewardSatoshis / 100_000_000m;
+                    rewardAmount = flooredBtc * btcRate.Value;
+                }
+            }
+
             // Create reward record
             var reward = new BitcoinRewardRecord
             {
@@ -272,10 +282,15 @@ public class BitcoinRewardsService
                 if (payoutResult.Success)
                 {
                     reward.PayoutId = payoutResult.PayoutId;
-                    reward.Status = RewardStatus.Sent;
-                    reward.SentAt ??= DateTime.UtcNow;
-                    if (reward.DirectPayoutState != RewardPayoutState.Paid)
-                        reward.DirectPayoutState = RewardPayoutState.Paying;
+                    if (reward.DirectPayoutState == RewardPayoutState.Paid)
+                    {
+                        reward.Status = RewardStatus.Sent;
+                        reward.SentAt ??= DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        reward.Status = RewardStatus.Pending;
+                    }
                     await _repository.UpdateRewardAsync(reward);
                     _metrics.RecordLightningOperation("direct_lightning_payout_queued", storeId, true);
                     _logger.LogInformation("Direct Lightning reward payout queued for store {StoreId}, transaction {TransactionId}, payout {PayoutId}",

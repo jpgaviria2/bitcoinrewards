@@ -182,6 +182,11 @@
                         <input asp-for="MinimumTransactionAmount" class="form-control" type="number" step="0.01" min="0" />
                     </div>
                     <div class="form-group mb-3">
+                        <label asp-for="MinimumRewardSatoshis"></label>
+                        <input asp-for="MinimumRewardSatoshis" class="form-control" type="number" min="0" />
+                        <small class="form-text text-muted">Set this to the smallest Lightning reward BTCPay should attempt. Very small direct payouts can be cancelled by BTCPay or the recipient wallet.</small>
+                    </div>
+                    <div class="form-group mb-3">
                         <label asp-for="MaximumRewardSatoshis"></label>
                         <input asp-for="MaximumRewardSatoshis" class="form-control" type="number" min="0" />
                     </div>
