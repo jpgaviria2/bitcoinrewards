@@ -2,6 +2,17 @@
 
 All notable changes to the Bitcoin Rewards Plugin will be documented in this file.
 
+## [1.7.9] - 2026-09-28
+
+### Fixed
+- Settles scanned customer Lightning-address rewards through the store Lightning node instead of BTCPay's tiny-payout processor.
+- Settles display QR / pull-payment fallback claims through the store Lightning node after the wallet submits an invoice, then marks the BTCPay payout completed with proof.
+- Preserves backwards-compatible display QR rewards for customers who do not scan a Lightning-address profile first.
+
+### Verified
+- Square scanned-address replay paid a 74 sat reward through LND.
+- Square no-scan display QR replay created a 653 sat reward for wallet claim testing.
+
 ## [1.6.0] - Unreleased
 
 ### Added

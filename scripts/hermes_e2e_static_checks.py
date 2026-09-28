@@ -15,8 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "Plugins" / "BTCPayServer.Plugins.BitcoinRewards"
-PACKAGE_VERSION = "1.7.8"
-PACKAGE = ROOT / "output" / f"BTCPayServer.Plugins.BitcoinRewards-{PACKAGE_VERSION}-test-rewards.btcpay"
+PACKAGE_VERSION = "1.7.9"
+PACKAGE = ROOT / "output" / f"BTCPayServer.Plugins.BitcoinRewards-{PACKAGE_VERSION}-production-lnd-settlement.btcpay"
 
 REMOVED_TOKENS = [
     "UIWalletManagement",
